@@ -65,7 +65,12 @@ description: Browse automation orchestrator demo workflows and use cases
   <h2 class="section-heading">Featured</h2>
   <div class="card-grid card-grid--featured">
     {% for demo in all_demos %}
-      {% if demo.featured %}
+      {% if demo.featured and demo.status == "active" %}
+        {% include demo-card.html demo=demo featured=true %}
+      {% endif %}
+    {% endfor %}
+    {% for demo in all_demos %}
+      {% if demo.featured and demo.status != "active" %}
         {% include demo-card.html demo=demo featured=true %}
       {% endif %}
     {% endfor %}
@@ -76,9 +81,14 @@ description: Browse automation orchestrator demo workflows and use cases
   <h2 class="section-heading">All demos</h2>
   <div class="card-grid card-grid--all">
     {% for demo in all_demos %}
-      {% unless demo.featured %}
+      {% if demo.featured == false and demo.status == "active" %}
         {% include demo-card.html demo=demo featured=false %}
-      {% endunless %}
+      {% endif %}
+    {% endfor %}
+    {% for demo in all_demos %}
+      {% if demo.featured == false and demo.status != "active" %}
+        {% include demo-card.html demo=demo featured=false %}
+      {% endif %}
     {% endfor %}
   </div>
 </section>
