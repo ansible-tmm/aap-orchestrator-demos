@@ -21,6 +21,7 @@ Automation orchestrator is the workflow engine in AAP for visual, multi-step aut
 | Demo | Status | Description |
 |---|---|---|
 | [RHEL CVE Remediation](cve-remediation/) | **Active** | AI triage via Lightspeed MCP → auto-patch dev, approve prod, or investigate with Mattermost report |
+| [Multi-OS Cloud Patching](multi-os-cloud-patching/) | **Active** | Playbook orchestration — RHEL and Windows on AWS with snapshot rollback (playbooks from product-demos) |
 | [Disk Utilization & Remediation](disk-utilization/) | **Active** | Check disk usage → switch on % → continue, cleanup, EBS expand, or fallback → Mattermost notify |
 | [Intelligent Cert Lifecycle](cert-lifecycle/) | **Active** | AI agent picks PEM vs keystore renewal; operator approves; AAP renews and validates |
 | [Service State Routing](service-health/) | Coming soon | Check service → switch on state → log OK, start, restart, or install |
@@ -44,6 +45,7 @@ See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/
 | [risk-based-routing/](risk-based-routing/) | AI risk-tier renewal routing |
 | [proactive-assessment/](proactive-assessment/) | Scheduled scan-before-expiry |
 | [cve-remediation/](cve-remediation/) | Intelligent CVE patching with Lightspeed MCP |
+| [multi-os-cloud-patching/](multi-os-cloud-patching/) | Multi-OS cloud patching with snapshot rollback (product-demos playbooks) |
 | [disk-utilization/](disk-utilization/) | Proportional disk remediation with switch routing |
 | [event-driven-xsos-rca/](event-driven-xsos-rca/) | SQS → EDA → xSOS RCA for unknown issues |
 | [ai-incident-triage/](ai-incident-triage/) | AI-assisted incident response |

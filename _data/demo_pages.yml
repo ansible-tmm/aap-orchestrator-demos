@@ -121,6 +121,10 @@ service-health:
 
 patch-management:
   description: Run a patch assessment playbook that publishes highest_severity from dnf updateinfo or an Insights scan. Switch on the value and route to the response that matches your change policy.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - Patch severity from a single assessment drives the change policy — critical now, important scheduled, moderate batched.
     - Aligns automation with how change advisory boards actually approve work.
@@ -133,6 +137,30 @@ patch-management:
       - [important, Schedule change window]
       - [moderate, Add to weekly batch]
       - [none, "Report compliant, exit"]
+
+multi-os-cloud-patching:
+  description: Automation orchestrator version of Patch Cloud Stack in AWS from ansible/product-demos. Snapshot EC2 instances, run parallel RHEL and Windows pre-check and patch jobs, branch on patch success with conditional nodes, restore from EBS snapshot on failure, converge both OS paths, and publish an HTML compliance report.
+  ao_building_blocks:
+    - manual_trigger
+    - conditional
+    - converge
+    - aap_job_template
+  one_liner: One workflow. Two operating systems. Snapshot safety built in.
+  why_it_matters:
+    - Parallel RHEL and Windows paths show heterogeneous fleet patching without duplicating workflows per OS.
+    - EBS snapshot rollback gives change-management audiences a concrete safety net when patching fails.
+    - Conditional nodes route on job status — post-check on success, restore on failure — without AI or switch artifacts.
+    - Playbooks and job templates come from product-demos; this repo holds the automation orchestrator workflow JSON.
+  related_table:
+    heading: Patching demos in this catalog
+    headers: [Demo, Type, Focus]
+    rows:
+      - ["RHEL CVE Remediation", "AI-assisted", "CVE alert → AI triage → auto-patch, approve, or investigate"]
+      - ["Multi-OS Cloud Patching", "Rule-based", "Day-2 multi-OS patching with snapshot rollback"]
+      - ["Patch Severity Routing", "Rule-based", "Switch on scan severity → patch now, schedule, batch, or compliant"]
+  demo_ideas:
+    - Deploy the product-demos cloud stack, import the AO workflow, and walk through snapshot → parallel patch → compliance report
+    - Fail a Windows patch deliberately to show the restore branch and converge still reaching the report step
 
 user-lifecycle:
   description: Switch on request_type from an automation orchestrator survey, webhook, or ticket integration. Each value triggers a purpose-built automation path.

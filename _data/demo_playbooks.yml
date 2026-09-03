@@ -77,6 +77,47 @@ service-health:
 patch-management:
   status: under-development
 
+multi-os-cloud-patching:
+  status: active
+  external_repo_base: https://github.com/ansible/product-demos/blob/main/
+  items:
+    - name: snapshot_ec2.yml
+      path: cloud/snapshot_ec2.yml
+      description: Takes EBS snapshots of target EC2 instances before patching begins.
+      runs_on: AWS (localhost)
+    - name: patch_pre_check_rhel.yml
+      path: cloud/patch_pre_check_rhel.yml
+      description: Queries dnf for targeted advisory applicability on RHEL hosts.
+      runs_on: RHEL hosts
+    - name: patch_rhel.yml
+      path: cloud/patch_rhel.yml
+      description: Applies specific RHSA/CVE advisories via dnf.
+      runs_on: RHEL hosts
+    - name: patch_post_check_rhel.yml
+      path: cloud/patch_post_check_rhel.yml
+      description: Verifies advisories are resolved after patching on RHEL.
+      runs_on: RHEL hosts
+    - name: patch_pre_check_windows.yml
+      path: cloud/patch_pre_check_windows.yml
+      description: Queries Windows Update Agent for targeted KB applicability.
+      runs_on: Windows hosts
+    - name: patch_windows.yml
+      path: cloud/patch_windows.yml
+      description: Installs specific KB updates via win_updates.
+      runs_on: Windows hosts
+    - name: patch_post_check_windows.yml
+      path: cloud/patch_post_check_windows.yml
+      description: Verifies KBs are installed after patching on Windows.
+      runs_on: Windows hosts
+    - name: restore_ec2.yml
+      path: cloud/restore_ec2.yml
+      description: Restores EC2 volumes from the latest EBS snapshot when patching fails.
+      runs_on: AWS (localhost)
+    - name: patch_compliance_report.yml
+      path: cloud/patch_compliance_report.yml
+      description: Generates an HTML compliance dashboard on the report server.
+      runs_on: Report server
+
 user-lifecycle:
   status: under-development
 

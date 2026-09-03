@@ -50,6 +50,7 @@ aap-orchestrator-demos/
 ├── multi-service-correlation/
 ├── service-health/
 ├── patch-management/
+├── multi-os-cloud-patching/   # Active — category: patching
 ├── user-lifecycle/
 ├── backup-management/
 ├── subscription-management/

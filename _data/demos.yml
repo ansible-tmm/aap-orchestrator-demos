@@ -1,7 +1,7 @@
 - slug: cve-remediation
   title: RHEL CVE Remediation
-  subtitle: Intelligent patching with Lightspeed MCP
-  category: cve-remediation
+  subtitle: AI triage with Lightspeed MCP
+  category: patching
   status: active
   featured: true
   uses_ai: true
@@ -325,10 +325,54 @@
       C -->|failed| F[Restart service]
       C -->|not-found| G[Install service]
 
+- slug: multi-os-cloud-patching
+  title: Multi-OS Cloud Patching
+  subtitle: Playbook orchestration — RHEL and Windows on AWS
+  category: patching
+  status: active
+  featured: false
+  uses_ai: false
+  tags:
+    - Conditional
+    - Converge
+    - AWS
+  thumbnail:
+    gradient: "linear-gradient(135deg, #1a2a4a 0%, #0d1520 50%, #2a1a3a 100%)"
+    icon: "🩹"
+  blurb: Snapshot EC2, patch RHEL and Windows in parallel, restore on failure, and publish a compliance report. Playbooks from product-demos.
+  stats:
+    workflows: 1
+    playbooks: 9
+    setup_minutes: 30
+  url: /demos/multi-os-cloud-patching/
+  github_path: multi-os-cloud-patching/
+  github_doc: multi-os-cloud-patching/README.md
+  workflow_json: multi-os-cloud-patching/ao/multi-os-cloud-patching.json
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Manual trigger", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Create EC2 Snapshot", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Pre-check RHEL", pos: "b", h: 96, constraint: "on" }
+      B --> D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Pre-check Windows", pos: "b", h: 96, constraint: "on" }
+      C --> E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Patch RHEL", pos: "b", h: 96, constraint: "on" }
+      D --> F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Patch Windows", pos: "b", h: 96, constraint: "on" }
+      E --> G@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Patch succeeded?", pos: "b", h: 96, constraint: "on" }
+      F --> H@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Patch succeeded?", pos: "b", h: 96, constraint: "on" }
+      G -->|yes| I@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Post-check RHEL", pos: "b", h: 96, constraint: "on" }
+      G -->|no| J@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Restore RHEL", pos: "b", h: 96, constraint: "on" }
+      H -->|yes| K@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Post-check Windows", pos: "b", h: 96, constraint: "on" }
+      H -->|no| L@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Restore Windows", pos: "b", h: 96, constraint: "on" }
+      I --> M@{ img: "__ASSET__/assets/icons/glossary/converge-node.svg", label: "Converge", pos: "b", h: 96, constraint: "on" }
+      J --> M
+      K --> M
+      L --> M
+      M --> N@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Compliance Report", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I,J,K,L,M,N noBorder
+
 - slug: patch-management
   title: Patch Severity Routing
-  subtitle: One scan, four remediation strategies
-  category: patch-management
+  subtitle: Switch routing — one scan, four remediation strategies
+  category: patching
   status: coming-soon
   featured: false
   uses_ai: false

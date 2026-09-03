@@ -51,9 +51,16 @@
     <div class="demo-card__body">
       <div class="demo-card__meta">
         <span class="demo-card__category">{{ demo.category | replace: '-', ' ' }}</span>
-        {% if demo.status == "active" %}
-          <span class="demo-card__status demo-card__status--active">Active</span>
-        {% endif %}
+        <span class="demo-card__meta-badges">
+          {% if demo.uses_ai %}
+            <span class="demo-card__ai-badge demo-card__ai-badge--assisted">AI-assisted</span>
+          {% elsif demo.uses_ai == false %}
+            <span class="demo-card__ai-badge demo-card__ai-badge--rule-based">Rule-based</span>
+          {% endif %}
+          {% if demo.status == "active" %}
+            <span class="demo-card__status demo-card__status--active">Active</span>
+          {% endif %}
+        </span>
       </div>
       <h3 class="demo-card__title">{{ demo.title }}</h3>
       <p class="demo-card__blurb">{{ demo.blurb }}</p>

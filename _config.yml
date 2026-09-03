@@ -26,6 +26,7 @@ exclude:
   - cve-remediation/
   - service-health/
   - patch-management/
+  - multi-os-cloud-patching/
   - user-lifecycle/
   - backup-management/
   - subscription-management/

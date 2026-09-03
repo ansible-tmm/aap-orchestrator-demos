@@ -1,6 +1,7 @@
 {% assign slug = include.slug | default: page.demo_slug %}
 {% assign pb = site.data.demo_playbooks[slug] %}
 {% assign gh_base = "https://github.com/" | append: site.repository | append: "/blob/main/" %}
+{% assign external_base = pb.external_repo_base %}
 
 {% if pb %}
 <section class="detail-section" id="playbooks">
@@ -15,6 +16,9 @@
       </div>
     </div>
   {% else %}
+  {% if external_base %}
+    <p class="playbooks-external-note">Playbooks are hosted in <a href="{{ external_base }}" target="_blank" rel="noopener">ansible/product-demos</a>.</p>
+  {% endif %}
     <div class="detail-table-wrap">
       <table class="detail-table detail-table--playbooks">
         <thead>
@@ -28,7 +32,14 @@
           {% for item in pb.items %}
             <tr>
               <td>
-                <a href="{{ gh_base }}{{ item.path }}" class="playbook-link" target="_blank" rel="noopener" title="View source on GitHub">
+                {% if item.url %}
+                  {% assign playbook_href = item.url %}
+                {% elsif external_base %}
+                  {% assign playbook_href = external_base | append: item.path %}
+                {% else %}
+                  {% assign playbook_href = gh_base | append: item.path %}
+                {% endif %}
+                <a href="{{ playbook_href }}" class="playbook-link" target="_blank" rel="noopener" title="View source on GitHub">
                   <svg class="playbook-link__icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="currentColor" d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
                   </svg>
