@@ -1,0 +1,39 @@
+---
+description: Marketplace featured section allows exactly 3 demo cards
+globs: "_data/demos.yml,index.html"
+alwaysApply: false
+---
+
+# Featured demo cards (max 3)
+
+The GitHub Pages marketplace (`index.html`) renders a **Featured** section with a **3-column grid** (`card-grid--featured`). Only **three** demos may have `featured: true` in `_data/demos.yml`.
+
+## Rules
+
+1. **Never add a fourth `featured: true`** without removing one first.
+2. **Demos removed from Featured** keep `featured: false` and appear in **All demos** (smaller cards). Active non-featured demos sort before coming-soon.
+3. **Order in `demos.yml`** controls position within each group (featured order; active-before-coming-soon in All demos).
+4. Prefer promoting a new hero demo by **swapping** featured status, not stacking.
+
+## Current featured (3)
+
+| Slug | Title |
+|---|---|
+| `cve-remediation` | RHEL CVE Remediation |
+| `cert-lifecycle` | Intelligent Cert Lifecycle |
+| `ticket-enrichment` | Ticket Enrichment |
+
+## Example — swap featured slot
+
+```yaml
+# Before promoting multi-os-cloud-patching to featured:
+- slug: cert-lifecycle
+  featured: false   # demote first
+
+- slug: multi-os-cloud-patching
+  featured: true    # then promote
+```
+
+Verify the Featured grid still has exactly 3 entries after any catalog change.
+
+See also: [CLAUDE.md](../../CLAUDE.md)

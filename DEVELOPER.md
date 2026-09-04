@@ -119,6 +119,8 @@ See [disk-utilization/SETUP_GUIDE.md](disk-utilization/SETUP_GUIDE.md) for envir
 
 The demo marketplace at [ansible-tmm.github.io/aap-orchestrator-demos](https://ansible-tmm.github.io/aap-orchestrator-demos/) is built with Jekyll from this repo. Demo cards are defined in [`_data/demos.yml`](_data/demos.yml).
 
+**Featured cards:** The marketplace Featured section uses a 3-column grid — keep exactly **3** demos with `featured: true`. All other demos appear in the smaller **All demos** grid (active first). See [CLAUDE.md](CLAUDE.md).
+
 Local build:
 
 ```bash

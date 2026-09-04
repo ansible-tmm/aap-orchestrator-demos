@@ -1,3 +1,6 @@
+# Demo marketplace catalog — one entry per demo.
+# Featured: exactly 3 demos (featured: true). See CLAUDE.md and .cursor/rules/demo-featured-cards.mdc.
+
 - slug: cve-remediation
   title: RHEL CVE Remediation
   subtitle: AI triage with Lightspeed MCP
@@ -47,7 +50,7 @@
   subtitle: Proportional disk response with switch routing
   category: disk-utilization
   status: active
-  featured: true
+  featured: false
   uses_ai: false
   tags:
     - Switch
