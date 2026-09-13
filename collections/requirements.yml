@@ -3,3 +3,4 @@ collections:
   - name: community.crypto
   - name: containers.podman
   - name: ansible.posix
+  - name: community.general
