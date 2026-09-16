@@ -1,0 +1,54 @@
+---
+- name: Open change request — certificate renewal planning
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_status: "{{ cert_status | default('plan') }}"
+        days_remaining: "{{ days_remaining | default(0) | int }}"
+        cert_expiry_date: "{{ cert_expiry_date | default('unknown') }}"
+        cert_domain: "{{ cert_domain | default(inventory_hostname) }}"
+        cert_path: "{{ cert_path | default('/etc/pki/tls/certs/server.crt') }}"
+
+    - name: Log change request advisory
+      ansible.builtin.debug:
+        msg: >-
+          {{ cert_domain }} on {{ inventory_hostname }} expires in {{ days_remaining }} days
+          ({{ cert_expiry_date }}). Opening change request for scheduled renewal.
+
+    - name: Create change request marker
+      ansible.builtin.copy:
+        content: |
+          host={{ inventory_hostname }}
+          cert_domain={{ cert_domain }}
+          cert_path={{ cert_path }}
+          days_remaining={{ days_remaining }}
+          expiry_date={{ cert_expiry_date }}
+          requested_by=ao-cert-expiry-switch
+          requested_at={{ ansible_date_time.iso8601 }}
+        dest: /var/tmp/cert-change-request
+        mode: '0644'
+      become: true
+      when: not ansible_check_mode
+
+    - name: Preview change request (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would create /var/tmp/cert-change-request for
+          {{ cert_domain }} on {{ inventory_hostname }}.
+      when: ansible_check_mode
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Open Change Request"
+          cert_status: "{{ cert_status }}"
+          days_remaining: "{{ days_remaining }}"
+          cert_domain: "{{ cert_domain }}"
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -1,0 +1,27 @@
+---
+- name: Report compliant — no patches needed
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        highest_severity: "{{ highest_severity | default('none') }}"
+
+    - name: Log compliance status
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} is compliant.
+          OS: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}.
+          No security advisories pending.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Report Compliant"
+          highest_severity: "{{ highest_severity }}"
+          os_version: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

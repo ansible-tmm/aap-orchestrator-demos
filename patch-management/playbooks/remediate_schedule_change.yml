@@ -1,0 +1,40 @@
+---
+- name: Schedule change — important patches require a maintenance window
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        highest_severity: "{{ highest_severity | default('important') }}"
+        advisory_count_important: "{{ advisory_count_important | default(0) | int }}"
+
+    - name: List pending important advisories
+      ansible.builtin.command:
+        cmd: dnf updateinfo list --sec-severity=Important
+      register: _advisory_list
+      changed_when: false
+      check_mode: false
+
+    - name: Log scheduled change request
+      ansible.builtin.debug:
+        msg: >-
+          {{ advisory_count_important }} important advisories on {{ inventory_hostname }}.
+          Scheduling change window — patches will NOT be applied now.
+
+    - name: Show pending advisories
+      ansible.builtin.debug:
+        msg: "{{ _advisory_list.stdout_lines[:20] }}"
+      when: _advisory_list.stdout_lines | length > 0
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Schedule Change"
+          highest_severity: "{{ highest_severity }}"
+          advisory_count: "{{ advisory_count_important }}"
+          advisories_preview: "{{ _advisory_list.stdout_lines[:10] | join(' | ') }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

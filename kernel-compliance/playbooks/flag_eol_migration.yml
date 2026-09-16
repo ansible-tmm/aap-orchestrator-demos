@@ -1,0 +1,51 @@
+---
+- name: Flag EOL kernel for migration planning
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        kernel_compliance: "{{ kernel_compliance | default('eol') }}"
+        kernel_running: "{{ kernel_running | default('unknown') }}"
+
+    - name: Log EOL kernel advisory
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} is running EOL kernel {{ kernel_running }}.
+          OS: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}.
+          This host requires migration planning — no further kernel updates are available.
+
+    - name: Create EOL advisory marker
+      ansible.builtin.copy:
+        content: |
+          host={{ inventory_hostname }}
+          kernel={{ kernel_running }}
+          os={{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+          flagged_by=ao-kernel-compliance
+          flagged_at={{ ansible_date_time.iso8601 }}
+          action_required=migration_planning
+        dest: /var/tmp/kernel-eol-advisory
+        mode: '0644'
+      become: true
+      when: not ansible_check_mode
+
+    - name: Preview EOL advisory (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would create /var/tmp/kernel-eol-advisory
+          for {{ inventory_hostname }} running EOL kernel {{ kernel_running }}.
+      when: ansible_check_mode
+
+    - name: Publish EOL artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Flag EOL Migration"
+          kernel_compliance: "eol"
+          kernel_running: "{{ kernel_running }}"
+          os_version: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

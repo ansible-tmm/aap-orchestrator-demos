@@ -1,0 +1,29 @@
+---
+- name: Log compliant — kernel up to date
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        kernel_compliance: "{{ kernel_compliance | default('compliant') }}"
+        kernel_running: "{{ kernel_running | default('unknown') }}"
+        kernel_latest: "{{ kernel_latest | default('unknown') }}"
+
+    - name: Log compliant kernel
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} kernel is compliant.
+          Running {{ kernel_running }}, latest installed {{ kernel_latest }}.
+          No action required.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Log Compliant"
+          kernel_compliance: "{{ kernel_compliance }}"
+          kernel_running: "{{ kernel_running }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -1,0 +1,99 @@
+---
+- name: Notify and renew medium-risk certificate
+  hosts: "{{ _host | default('webservers') }}"
+  become: true
+  gather_facts: true
+  vars:
+    tmp_prefix: "/tmp/notify-renew-{{ ansible_date_time.epoch }}"
+
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_domain: "{{ cert_domain | default(ansible_fqdn) }}"
+        cert_dir: "{{ cert_dir | default('/etc/pki/tls/certs') }}"
+        cert_key_dir: "{{ cert_key_dir | default('/etc/pki/tls/private') }}"
+        cert_valid_days: "{{ cert_valid_days | default(365) | int }}"
+        risk_tier: "{{ risk_tier | default('medium') }}"
+        reasoning: "{{ reasoning | default('') }}"
+
+    - name: Capture current certificate info before renewal
+      ansible.builtin.shell: |
+        openssl x509 -in {{ cert_dir }}/{{ cert_domain }}.crt -noout -dates -subject 2>/dev/null || echo "no existing cert"
+      register: cert_before
+      changed_when: false
+      check_mode: false
+
+    - name: Backup current certificate
+      ansible.builtin.copy:
+        src: "{{ cert_dir }}/{{ cert_domain }}.crt"
+        dest: "{{ cert_dir }}/{{ cert_domain }}.crt.backup"
+        remote_src: true
+        mode: '0600'
+      ignore_errors: true
+
+    - name: Generate new private key
+      community.crypto.openssl_privatekey:
+        path: "{{ cert_key_dir }}/{{ cert_domain }}.key"
+        size: 4096
+        type: RSA
+        mode: '0600'
+        force: true
+      when: not ansible_check_mode
+
+    - name: Generate CSR
+      community.crypto.openssl_csr:
+        path: "{{ tmp_prefix }}.csr"
+        privatekey_path: "{{ cert_key_dir }}/{{ cert_domain }}.key"
+        common_name: "{{ cert_domain }}"
+        subject_alt_name:
+          - "DNS:{{ cert_domain }}"
+        key_usage:
+          - digitalSignature
+          - keyEncipherment
+        extended_key_usage:
+          - serverAuth
+        force: true
+      when: not ansible_check_mode
+
+    - name: Sign certificate (self-signed for demo)
+      community.crypto.x509_certificate:
+        path: "{{ cert_dir }}/{{ cert_domain }}.crt"
+        privatekey_path: "{{ cert_key_dir }}/{{ cert_domain }}.key"
+        csr_path: "{{ tmp_prefix }}.csr"
+        provider: selfsigned
+        selfsigned_not_after: "+{{ cert_valid_days }}d"
+        force: true
+      when: not ansible_check_mode
+
+    - name: Clean up temp files
+      ansible.builtin.file:
+        path: "{{ tmp_prefix }}.csr"
+        state: absent
+
+    - name: Get new certificate info
+      ansible.builtin.shell: |
+        openssl x509 -in {{ cert_dir }}/{{ cert_domain }}.crt -noout -dates -subject
+      register: cert_after
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Log notify-and-renew result
+      ansible.builtin.debug:
+        msg: >-
+          Medium-risk renewal for {{ cert_domain }} on {{ inventory_hostname }}.
+          Before: {{ cert_before.stdout }}.
+          After: {{ cert_after.stdout | default('check mode') }}.
+
+    - name: Publish renewal artifacts
+      ansible.builtin.set_stats:
+        data:
+          cert_renewal_status: "success"
+          cert_domain: "{{ cert_domain }}"
+          risk_tier: "{{ risk_tier }}"
+          renewal_type: "notify_renew"
+          cert_valid_days: "{{ cert_valid_days }}"
+          cert_before: "{{ cert_before.stdout }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

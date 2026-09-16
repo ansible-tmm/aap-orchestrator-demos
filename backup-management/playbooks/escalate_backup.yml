@@ -1,0 +1,50 @@
+---
+- name: Escalate failed backup — create incident
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        backup_result: "{{ backup_result | default('failed') }}"
+        backup_timestamp: "{{ backup_timestamp | default('unknown') }}"
+        backup_target_count: "{{ backup_target_count | default(0) | int }}"
+        backup_failed_targets: "{{ backup_failed_targets | default('all') }}"
+
+    - name: Gather backup log tail
+      ansible.builtin.command:
+        cmd: tail -30 /var/log/backup/backup.log
+      register: _backup_log
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Build escalation summary
+      ansible.builtin.set_fact:
+        escalation_summary: >-
+          BACKUP FAILURE on {{ inventory_hostname }}.
+          Timestamp: {{ backup_timestamp }}.
+          Targets attempted: {{ backup_target_count }}.
+          Failed targets: {{ backup_failed_targets }}.
+          OS: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}.
+
+    - name: Log escalation
+      ansible.builtin.debug:
+        msg: |
+          {{ escalation_summary }}
+          --- Last 30 lines of backup log ---
+          {{ _backup_log.stdout | default('No backup log available.') }}
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Escalate"
+          backup_result: "{{ backup_result }}"
+          backup_timestamp: "{{ backup_timestamp }}"
+          backup_failed_targets: "{{ backup_failed_targets }}"
+          escalation_summary: "{{ escalation_summary }}"
+          backup_log_tail: "{{ _backup_log.stdout_lines[-10:] | default([]) | join(' | ') }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

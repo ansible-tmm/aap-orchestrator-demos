@@ -1,0 +1,29 @@
+---
+- name: Log compliant — subscription registered
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        subscription_status: "{{ subscription_status | default('registered') }}"
+        subscription_expiry: "{{ subscription_expiry | default('unknown') }}"
+        subscription_days_remaining: "{{ subscription_days_remaining | default(-1) | int }}"
+
+    - name: Log compliant status
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} is registered and compliant.
+          Subscription expires {{ subscription_expiry }}
+          ({{ subscription_days_remaining }} days remaining). No action required.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Log Compliant"
+          subscription_status: "{{ subscription_status }}"
+          subscription_expiry: "{{ subscription_expiry }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

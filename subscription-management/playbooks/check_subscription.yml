@@ -1,0 +1,92 @@
+---
+- name: Check RHEL subscription status
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        expiry_warn_days: "{{ expiry_warn_days | default(30) | int }}"
+        _test_subscription_status: "{{ test_subscription_status | default('') | string | trim }}"
+
+    - name: Use test subscription status (skip live check)
+      ansible.builtin.set_fact:
+        subscription_status: "{{ _test_subscription_status }}"
+        subscription_identity: "test-mode"
+        subscription_expiry: "N/A"
+      when: _test_subscription_status | length > 0
+
+    - name: Check subscription-manager identity
+      ansible.builtin.command:
+        cmd: subscription-manager identity
+      register: _sm_identity
+      changed_when: false
+      failed_when: false
+      when: _test_subscription_status | length == 0
+
+    - name: Check subscription-manager status
+      ansible.builtin.command:
+        cmd: subscription-manager status
+      register: _sm_status
+      changed_when: false
+      failed_when: false
+      when: _test_subscription_status | length == 0
+
+    - name: Get subscription expiry date
+      ansible.builtin.shell:
+        cmd: subscription-manager list --consumed 2>/dev/null | grep -i 'ends' | head -1 | awk -F': ' '{print $2}'
+      register: _sm_expiry
+      changed_when: false
+      failed_when: false
+      when: _test_subscription_status | length == 0
+
+    - name: Calculate days until expiry
+      ansible.builtin.shell:
+        cmd: |
+          EXPIRY="{{ _sm_expiry.stdout | default('') | trim }}"
+          if [ -z "$EXPIRY" ]; then echo "-1"; exit 0; fi
+          expiry_epoch=$(date -d "$EXPIRY" +%s 2>/dev/null || echo "0")
+          now_epoch=$(date +%s)
+          if [ "$expiry_epoch" -eq 0 ]; then echo "-1"; else echo $(( (expiry_epoch - now_epoch) / 86400 )); fi
+      register: _days_remaining
+      changed_when: false
+      when: _test_subscription_status | length == 0
+
+    - name: Classify subscription status
+      ansible.builtin.set_fact:
+        subscription_status: >-
+          {%- if _sm_identity.rc != 0 -%}
+          unregistered
+          {%- elif _days_remaining.stdout | int < 0 -%}
+          expired
+          {%- elif _days_remaining.stdout | int <= (expiry_warn_days | int) -%}
+          expiring
+          {%- else -%}
+          registered
+          {%- endif -%}
+        subscription_identity: "{{ _sm_identity.stdout_lines[0] | default('unknown') }}"
+        subscription_expiry: "{{ _sm_expiry.stdout | default('unknown') | trim }}"
+        subscription_days_remaining: "{{ _days_remaining.stdout | default('-1') | int }}"
+      when: _test_subscription_status | length == 0
+
+    - name: Publish check artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          subscription_status: "{{ subscription_status | trim }}"
+          subscription_identity: "{{ subscription_identity | default('unknown') }}"
+          subscription_expiry: "{{ subscription_expiry | default('unknown') }}"
+          subscription_days_remaining: "{{ subscription_days_remaining | default(-1) | int }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Show detected subscription status
+      ansible.builtin.debug:
+        msg: >-
+          {%- if _test_subscription_status | length > 0 -%}
+          [TEST] Simulated subscription_status={{ subscription_status }}
+          {%- else -%}
+          {{ inventory_hostname }} subscription_status={{ subscription_status }}
+          (expiry={{ subscription_expiry }}, days_remaining={{ subscription_days_remaining | default('N/A') }})
+          {%- endif -%}

@@ -1,0 +1,277 @@
+{
+  "schema_version": "2.0.0",
+  "name": "User Lifecycle - Request Type Routing",
+  "description": "Route user lifecycle requests by type — new hire, contractor, role change, or termination.",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "User Lifecycle Request",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "request_type",
+            "target_username"
+          ],
+          "properties": {
+            "request_type": {
+              "type": "string",
+              "default": "new_hire",
+              "description": "Type of request: new_hire, contractor, role_change, or termination"
+            },
+            "target_username": {
+              "type": "string",
+              "default": "",
+              "description": "Username to provision, modify, or terminate"
+            },
+            "requestor": {
+              "type": "string",
+              "default": "admin",
+              "description": "Person or system requesting the action"
+            },
+            "user_groups": {
+              "type": "string",
+              "default": "users",
+              "description": "Comma-separated list of groups for the user"
+            },
+            "contract_days": {
+              "type": "string",
+              "default": "90",
+              "description": "Number of days for contractor account expiry"
+            }
+          }
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "process_request",
+      "type": "aap_job_template",
+      "name": "Process Request",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "request_type": "${trigger.request_type}",
+          "target_username": "${trigger.target_username}",
+          "requestor": "${trigger.requestor}"
+        },
+        "job_template_name": "User Lifecycle - Process Request",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Route by request_type",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "new_hire",
+            "condition": "${process_request.artifacts.request_type} == 'new_hire'"
+          },
+          {
+            "label": "contractor",
+            "condition": "${process_request.artifacts.request_type} == 'contractor'"
+          },
+          {
+            "label": "role_change",
+            "condition": "${process_request.artifacts.request_type} == 'role_change'"
+          },
+          {
+            "label": "termination",
+            "condition": "${process_request.artifacts.request_type} == 'termination'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "provision_new_hire",
+      "type": "aap_job_template",
+      "name": "Provision New Hire",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "target_username": "${trigger.target_username}",
+          "user_groups": "${trigger.user_groups}",
+          "request_type": "${process_request.artifacts.request_type}"
+        },
+        "job_template_name": "User Lifecycle - Provision New Hire",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 50
+      }
+    },
+    {
+      "id": "provision_contractor",
+      "type": "aap_job_template",
+      "name": "Provision Contractor",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "target_username": "${trigger.target_username}",
+          "user_groups": "${trigger.user_groups}",
+          "contract_days": "${trigger.contract_days}",
+          "request_type": "${process_request.artifacts.request_type}"
+        },
+        "job_template_name": "User Lifecycle - Provision Contractor",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 200
+      }
+    },
+    {
+      "id": "update_role",
+      "type": "aap_job_template",
+      "name": "Update Role",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "target_username": "${trigger.target_username}",
+          "new_groups": "${trigger.user_groups}",
+          "request_type": "${process_request.artifacts.request_type}"
+        },
+        "job_template_name": "User Lifecycle - Update Role",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 400
+      }
+    },
+    {
+      "id": "terminate_user",
+      "type": "aap_job_template",
+      "name": "Terminate User",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "target_username": "${trigger.target_username}",
+          "request_type": "${process_request.artifacts.request_type}"
+        },
+        "job_template_name": "User Lifecycle - Terminate User",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 550
+      }
+    },
+    {
+      "id": "notify_new_hire",
+      "type": "aap_job_template",
+      "name": "Notify — New Hire",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "request_type": "${provision_new_hire.artifacts.request_type}",
+          "target_username": "${provision_new_hire.artifacts.target_username}",
+          "action_taken": "${provision_new_hire.artifacts.action_taken}",
+          "requestor": "${process_request.artifacts.requestor}",
+          "notify_host": "${provision_new_hire.artifacts.notify_host}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1300,
+        "y": 50
+      }
+    },
+    {
+      "id": "notify_contractor",
+      "type": "aap_job_template",
+      "name": "Notify — Contractor",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "request_type": "${provision_contractor.artifacts.request_type}",
+          "target_username": "${provision_contractor.artifacts.target_username}",
+          "action_taken": "${provision_contractor.artifacts.action_taken}",
+          "requestor": "${process_request.artifacts.requestor}",
+          "notify_host": "${provision_contractor.artifacts.notify_host}",
+          "account_expiry": "${provision_contractor.artifacts.account_expiry}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1300,
+        "y": 200
+      }
+    },
+    {
+      "id": "notify_role_change",
+      "type": "aap_job_template",
+      "name": "Notify — Role Change",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "request_type": "${update_role.artifacts.request_type}",
+          "target_username": "${update_role.artifacts.target_username}",
+          "action_taken": "${update_role.artifacts.action_taken}",
+          "requestor": "${process_request.artifacts.requestor}",
+          "notify_host": "${update_role.artifacts.notify_host}",
+          "groups_before": "${update_role.artifacts.groups_before}",
+          "groups_after": "${update_role.artifacts.groups_after}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1300,
+        "y": 400
+      }
+    },
+    {
+      "id": "notify_termination",
+      "type": "aap_job_template",
+      "name": "Notify — Termination",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "request_type": "${terminate_user.artifacts.request_type}",
+          "target_username": "${terminate_user.artifacts.target_username}",
+          "action_taken": "${terminate_user.artifacts.action_taken}",
+          "requestor": "${process_request.artifacts.requestor}",
+          "notify_host": "${terminate_user.artifacts.notify_host}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1300,
+        "y": 550
+      }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_manual", "to": "process_request" },
+    { "from": "process_request", "to": "route_switch" },
+    { "from": "route_switch", "to": "provision_new_hire", "from_port": "case_0" },
+    { "from": "route_switch", "to": "provision_contractor", "from_port": "case_1" },
+    { "from": "route_switch", "to": "update_role", "from_port": "case_2" },
+    { "from": "route_switch", "to": "terminate_user", "from_port": "case_3" },
+    { "from": "provision_new_hire", "to": "notify_new_hire" },
+    { "from": "provision_contractor", "to": "notify_contractor" },
+    { "from": "update_role", "to": "notify_role_change" },
+    { "from": "terminate_user", "to": "notify_termination" }
+  ]
+}

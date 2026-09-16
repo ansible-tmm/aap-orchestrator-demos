@@ -1,0 +1,41 @@
+---
+- name: Validate and route user lifecycle request
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        request_type: "{{ request_type | default('') | string | trim | lower }}"
+        target_username: "{{ target_username | default('') | string | trim }}"
+        requestor: "{{ requestor | default('unknown') | string }}"
+
+    - name: Fail when request_type is missing
+      ansible.builtin.fail:
+        msg: "request_type is required. Valid values: new_hire, contractor, role_change, termination"
+      when: request_type | length == 0
+
+    - name: Fail when target_username is missing
+      ansible.builtin.fail:
+        msg: "target_username is required."
+      when: target_username | length == 0
+
+    - name: Validate request_type value
+      ansible.builtin.fail:
+        msg: "Invalid request_type '{{ request_type }}'. Valid values: new_hire, contractor, role_change, termination"
+      when: request_type not in ['new_hire', 'contractor', 'role_change', 'termination']
+
+    - name: Publish request artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          request_type: "{{ request_type }}"
+          target_username: "{{ target_username }}"
+          requestor: "{{ requestor }}"
+        per_host: false
+        aggregate: false
+
+    - name: Show validated request
+      ansible.builtin.debug:
+        msg: >-
+          User lifecycle request validated — type={{ request_type }},
+          user={{ target_username }}, requestor={{ requestor }}.

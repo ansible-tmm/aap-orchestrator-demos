@@ -1,6 +1,6 @@
 # Patch Management 101: Patch Severity Routing
 
-**Status: Coming soon** — scaffold only. Playbooks and AO workflow JSON not built yet.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -31,13 +31,27 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`check_patches.yml`](playbooks/check_patches.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`remediate_patch_now.yml`](playbooks/remediate_patch_now.yml) |
+| [`remediate_report_compliant.yml`](playbooks/remediate_report_compliant.yml) |
+| [`remediate_schedule_change.yml`](playbooks/remediate_schedule_change.yml) |
+| [`remediate_weekly_batch.yml`](playbooks/remediate_weekly_batch.yml) |
 
-## Planned artifacts
+## Artifacts
 
 ```
-
   ao/
+    patch-management-101.json
   playbooks/
+    check_patches.yml
+    notify_chatroom.yml
+    remediate_patch_now.yml
+    remediate_report_compliant.yml
+    remediate_schedule_change.yml
+    remediate_weekly_batch.yml
   README.md
+  SETUP_GUIDE.md
 ```

@@ -1,0 +1,52 @@
+---
+- name: Schedule maintenance reboot — kernel update pending
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        kernel_compliance: "{{ kernel_compliance | default('reboot_required') }}"
+        kernel_running: "{{ kernel_running | default('unknown') }}"
+        kernel_latest: "{{ kernel_latest | default('unknown') }}"
+        maintenance_window_hours: "{{ maintenance_window_hours | default(4) | int }}"
+
+    - name: Log pending reboot
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} requires a reboot to activate kernel {{ kernel_latest }}.
+          Currently running {{ kernel_running }}.
+
+    - name: Create maintenance window marker
+      ansible.builtin.copy:
+        content: |
+          host={{ inventory_hostname }}
+          kernel_running={{ kernel_running }}
+          kernel_pending={{ kernel_latest }}
+          scheduled_by=ao-kernel-compliance
+          scheduled_at={{ ansible_date_time.iso8601 }}
+          window_hours={{ maintenance_window_hours }}
+        dest: /var/tmp/maintenance-reboot-scheduled
+        mode: '0644'
+      when: not ansible_check_mode
+
+    - name: Preview maintenance marker (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would create /var/tmp/maintenance-reboot-scheduled
+          for {{ inventory_hostname }} with {{ maintenance_window_hours }}h window.
+      when: ansible_check_mode
+
+    - name: Publish schedule artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Schedule Reboot"
+          kernel_compliance: "{{ kernel_compliance }}"
+          kernel_running: "{{ kernel_running }}"
+          kernel_latest: "{{ kernel_latest }}"
+          maintenance_window_hours: "{{ maintenance_window_hours }}"
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -1,0 +1,72 @@
+---
+- name: Check most recent backup result
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        backup_status_file: "{{ backup_status_file | default('/var/log/backup/last_result.txt') }}"
+        _test_backup_result: "{{ test_backup_result | default('') | string | trim }}"
+
+    - name: Use test backup result (skip live check)
+      ansible.builtin.set_fact:
+        backup_result: "{{ _test_backup_result }}"
+        backup_timestamp: "test-run"
+        backup_target_count: 0
+        backup_failed_targets: ""
+      when: _test_backup_result | length > 0
+
+    - name: Check backup status file exists
+      ansible.builtin.stat:
+        path: "{{ backup_status_file }}"
+      register: _status_file
+      when: _test_backup_result | length == 0
+
+    - name: Read backup status file
+      ansible.builtin.slurp:
+        src: "{{ backup_status_file }}"
+      register: _status_content
+      when:
+        - _test_backup_result | length == 0
+        - _status_file.stat.exists | default(false)
+
+    - name: Parse backup result from status file
+      ansible.builtin.set_fact:
+        _parsed: "{{ (_status_content.content | b64decode | from_yaml) if (_status_file.stat.exists | default(false)) else {} }}"
+      when: _test_backup_result | length == 0
+
+    - name: Determine backup result
+      ansible.builtin.set_fact:
+        backup_result: >-
+          {%- if not (_status_file.stat.exists | default(false)) -%}
+          skipped
+          {%- else -%}
+          {{ _parsed.result | default('skipped') | trim }}
+          {%- endif -%}
+        backup_timestamp: "{{ _parsed.timestamp | default('unknown') }}"
+        backup_target_count: "{{ _parsed.target_count | default(0) | int }}"
+        backup_failed_targets: "{{ _parsed.failed_targets | default('') }}"
+      when: _test_backup_result | length == 0
+
+    - name: Publish check artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          backup_result: "{{ backup_result | trim }}"
+          backup_timestamp: "{{ backup_timestamp }}"
+          backup_target_count: "{{ backup_target_count | int }}"
+          backup_failed_targets: "{{ backup_failed_targets }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Show backup result
+      ansible.builtin.debug:
+        msg: >-
+          {%- if _test_backup_result | length > 0 -%}
+          [TEST] Simulated backup_result={{ backup_result | trim }}
+          {%- else -%}
+          {{ inventory_hostname }}: backup_result={{ backup_result | trim }}
+          (timestamp={{ backup_timestamp }}, targets={{ backup_target_count }})
+          {%- endif -%}

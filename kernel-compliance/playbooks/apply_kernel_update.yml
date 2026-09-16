@@ -1,0 +1,62 @@
+---
+- name: Apply kernel update — kernel drift detected
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        kernel_compliance: "{{ kernel_compliance | default('drift') }}"
+        kernel_running: "{{ kernel_running | default('unknown') }}"
+        kernel_latest: "{{ kernel_latest | default('unknown') }}"
+
+    - name: Capture kernel before update
+      ansible.builtin.command:
+        cmd: uname -r
+      register: _kernel_before
+      changed_when: false
+      check_mode: false
+
+    - name: Preview kernel update (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would run dnf update kernel on {{ inventory_hostname }}.
+          Currently running {{ _kernel_before.stdout }}.
+      when: ansible_check_mode
+
+    - name: Update kernel package
+      ansible.builtin.dnf:
+        name: kernel
+        state: latest
+      register: _kernel_update
+      when:
+        - not ansible_check_mode
+        - ansible_facts['os_family'] == 'RedHat'
+
+    - name: Get latest installed kernel after update
+      ansible.builtin.shell:
+        cmd: rpm -qa kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -1
+      register: _kernel_after
+      changed_when: false
+
+    - name: Log update result
+      ansible.builtin.debug:
+        msg: >-
+          Kernel update on {{ inventory_hostname }}.
+          Before: {{ _kernel_before.stdout }}.
+          Latest installed: {{ _kernel_after.stdout }}.
+          A reboot will be required to activate the new kernel.
+
+    - name: Publish update artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Apply Kernel Update"
+          kernel_compliance: "updated"
+          kernel_running: "{{ _kernel_before.stdout }}"
+          kernel_latest: "{{ _kernel_after.stdout }}"
+          reboot_needed: true
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

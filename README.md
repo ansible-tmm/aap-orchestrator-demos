@@ -24,17 +24,21 @@ Automation orchestrator is the workflow engine in AAP for visual, multi-step aut
 | [Multi-OS Cloud Patching](multi-os-cloud-patching/) | **Active** | Playbook orchestration — RHEL and Windows on AWS with snapshot rollback (playbooks from product-demos) |
 | [Disk Utilization & Remediation](disk-utilization/) | **Active** | Check disk usage → switch on % → continue, cleanup, EBS expand, or fallback → Mattermost notify |
 | [Intelligent Cert Lifecycle](cert-lifecycle/) | **Active** | AI agent picks PEM vs keystore renewal; operator approves; AAP renews and validates |
-| [Service State Routing](service-health/) | Coming soon | Check service → switch on state → log OK, start, restart, or install |
-| [Patch Severity Routing](patch-management/) | Coming soon | Scan patches → switch on severity → patch now, schedule, batch, or compliant |
-| [Expiry Threshold Routing](cert-expiry-switch/) | Coming soon | Cert countdown switch on days remaining (no AI) |
-| [Request Type Routing](user-lifecycle/) | Coming soon | User lifecycle form → switch on request type |
-| [Risk-Based Routing](risk-based-routing/) | Coming soon | AI risk-tier routing for certificate renewal |
-| [Proactive Assessment](proactive-assessment/) | Coming soon | Scheduled scan-before-expiry workflows |
+| [Service State Routing](service-health/) | **Active** | Check service → switch on state → log OK, start, restart, or install |
+| [Patch Severity Routing](patch-management/) | **Active** | Scan patches → switch on severity → patch now, schedule, batch, or compliant |
+| [Expiry Threshold Routing](cert-expiry-switch/) | **Active** | Cert countdown switch on days remaining (no AI) |
+| [Request Type Routing](user-lifecycle/) | **Active** | User lifecycle form → switch on request type |
+| [Risk-Based Routing](risk-based-routing/) | **Active** | AI risk-tier routing for certificate renewal |
+| [Proactive Assessment](proactive-assessment/) | **Active** | Scheduled scan-before-expiry workflows |
 | [AI Incident Triage](ai-incident-triage/) | Coming soon | AI-assisted incident response |
-| [Multi-Service Correlation](multi-service-correlation/) | Coming soon | Correlate alerts across services before remediation |
+| [Multi-Service Correlation](multi-service-correlation/) | **Active** | Correlate alerts across services before remediation |
 | [Event-Driven xSOS RCA](event-driven-xsos-rca/) | In progress | SQS → EDA → xSOS analysis for unknown issues |
 
-See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/) for the full list including backup, subscription, and kernel compliance scaffolds.
+| [Backup Result Routing](backup-management/) | **Active** | Switch on backup_result — verify, retry partial, escalate failed, or log skipped |
+| [RHEL Subscription Routing](subscription-management/) | **Active** | Switch on subscription state — log, renew, register, or attach |
+| [Kernel Compliance Routing](kernel-compliance/) | **Active** | Switch on kernel state — reboot, patch, or plan EOL migration |
+
+See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/) for the full catalog.
 
 ## Use cases by folder
 

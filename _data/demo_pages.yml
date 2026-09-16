@@ -45,6 +45,12 @@ cert-lifecycle:
 
 risk-based-routing:
   description: This demo extends Intelligent Cert Lifecycle with AI-assessed risk scoring per certificate. A switch routes low, medium, and high risk renewals to different approval and execution paths.
+  ao_building_blocks:
+    - manual_trigger
+    - agentic
+    - switch
+    - approval
+    - aap_job_template
   why_it_matters:
     - Risk scoring separates low-touch auto-renewals from high-risk changes that need human approval.
     - One switch node routes by AI-assessed tier instead of brittle per-host workflow forks.
@@ -63,6 +69,10 @@ risk-based-routing:
 
 proactive-assessment:
   description: Scheduled proactive scans inventory the full certificate estate and renew or escalate before expiry becomes an incident. Extends the risk-based 201 pattern with estate-wide coverage and compliance reporting.
+  ao_building_blocks:
+    - schedule_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - Proactive scans catch expiring certificates before monitoring fires at 2 a.m.
     - Estate-wide inventory avoids the surprise of a forgotten cert on a non-production host.
@@ -81,6 +91,10 @@ proactive-assessment:
 
 cert-expiry-switch:
   description: Rule-based certificate expiry handling — distinct from Intelligent Cert Lifecycle which uses an AI agent to pick renewal templates. This demo switches on cert_status from days remaining with no LLM required.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - Days-remaining tiers match how operations teams actually plan cert work — healthy, plan, renew, emergency.
     - No AI dependency — deterministic switch routing anyone can audit and reproduce.
@@ -104,6 +118,10 @@ cert-expiry-switch:
 
 service-health:
   description: One host, one service (httpd). Run a check playbook that publishes service_state. Route remediation in a single switch — no nested Controller decision trees.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - service_state maps directly to the right fix — start, restart, or install — not generic success/failure guessing.
     - One switch replaces nested Controller forks that obscure what failed and why.
@@ -164,6 +182,10 @@ multi-os-cloud-patching:
 
 user-lifecycle:
   description: Switch on request_type from an automation orchestrator survey, webhook, or ticket integration. Each value triggers a purpose-built automation path.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - One intake form routes to four completely different runbooks — no duplicate workflows per request type.
     - Survey, webhook, or ticket integrations all publish the same request_type artifact.
@@ -179,6 +201,10 @@ user-lifecycle:
 
 backup-management:
   description: Backup jobs often return outcomes that binary workflows mishandle. Switch on backup_result — partial success is neither pass nor fail.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - Partial backup success gets its own path — neither celebrated as success nor treated as total failure.
     - Operators get retry, escalate, or log actions matched to backup_result, not binary job status.
@@ -193,6 +219,10 @@ backup-management:
 
 subscription-management:
   description: Switch on RHEL subscription state after a compliance check. Registration status drives the remediation path — not whether the Ansible job turned green.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - RHEL subscription state — expiring, expired, unregistered — needs different fixes than a green Ansible job result.
     - Compliance scans that publish subscription_status enable proactive renewal before entitlement lapses.
@@ -207,6 +237,10 @@ subscription-management:
 
 kernel-compliance:
   description: Kernel compliance scans produce states that need different operational responses. Reboot required is not the same as drift or end-of-life.
+  ao_building_blocks:
+    - manual_trigger
+    - switch
+    - aap_job_template
   why_it_matters:
     - Kernel drift, pending reboot, and EOL are different operational problems requiring different responses.
     - One scan artifact drives schedule-reboot vs patch vs migration planning without separate workflows.
@@ -221,6 +255,10 @@ kernel-compliance:
 
 event-driven-xsos-rca:
   description: When monitoring or ticketing cannot classify an incident, publish an unknown-issue event to AWS SQS. An EDA rulebook matches the payload and POSTs it to an automation orchestrator webhook. The AO workflow launches xSOS on the reported host, saves the report, and publishes job artifacts for downstream triage.
+  ao_building_blocks:
+    - webhook_trigger
+    - aap_job_template
+    - script
   why_it_matters:
     - Unknown issues are where automation usually breaks down. This pattern gathers facts first instead of guessing a remediation playbook.
     - EDA reacts to the event in seconds; xSOS gives SREs structured host context without manual SSH triage.
@@ -237,6 +275,14 @@ event-driven-xsos-rca:
 
 ai-incident-triage:
   description: When an incident alert fires, an AI agent analyzes context, selects a remediation strategy, and routes to the appropriate AAP playbook — without hardcoded if-statements in the workflow.
+  ao_building_blocks:
+    - manual_trigger
+    - agentic
+    - switch
+    - approval
+    - aap_job_template
+    - mcp_integration
+    - servicenow_mcp
   why_it_matters:
     - AI triage picks the remediation playbook from alert context instead of hardcoded if-this-then-that graphs.
     - Dynamic template selection adapts when new playbooks ship without redesigning the workflow.
@@ -275,6 +321,11 @@ ticket-enrichment:
 
 multi-service-correlation:
   description: Multiple correlated alerts arrive across services. The workflow correlates them, identifies root cause when possible, and routes to targeted remediation or AI-assisted triage when not.
+  ao_building_blocks:
+    - manual_trigger
+    - agentic
+    - switch
+    - aap_job_template
   why_it_matters:
     - Correlated alerts across services surface root cause before running the wrong fix on a symptom.
     - Targeted remediation when cause is known; AI fallback when it is not — one workflow, two strategies.

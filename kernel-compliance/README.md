@@ -1,6 +1,6 @@
 # Kernel Compliance 101: Kernel Compliance Routing
 
-**Status: Coming soon** — scaffold only.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -27,13 +27,27 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`apply_kernel_update.yml`](playbooks/apply_kernel_update.yml) |
+| [`check_kernel.yml`](playbooks/check_kernel.yml) |
+| [`flag_eol_migration.yml`](playbooks/flag_eol_migration.yml) |
+| [`log_compliant.yml`](playbooks/log_compliant.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`schedule_reboot.yml`](playbooks/schedule_reboot.yml) |
 
-## Planned artifacts
+## Artifacts
 
 ```
-
   ao/
+    kernel-compliance-101.json
   playbooks/
+    apply_kernel_update.yml
+    check_kernel.yml
+    flag_eol_migration.yml
+    log_compliant.yml
+    notify_chatroom.yml
+    schedule_reboot.yml
   README.md
+  SETUP_GUIDE.md
 ```

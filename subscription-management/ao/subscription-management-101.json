@@ -1,0 +1,261 @@
+{
+  "schema_version": "2.0.0",
+  "name": "RHEL Subscription Management",
+  "description": "Check RHEL subscription status and route remediation by registration state",
+  "triggers": [
+    {
+      "id": "trigger_schedule",
+      "type": "schedule_trigger",
+      "name": "Scheduled Compliance Check",
+      "parameters": {},
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_subscription",
+      "type": "aap_job_template",
+      "name": "Check Subscription",
+      "parameters": {
+        "diff_mode": false,
+        "job_template_name": "Subscription - Check Status",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Route by subscription_status",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "registered",
+            "expression": "${check_subscription.artifacts.subscription_status} == 'registered'"
+          },
+          {
+            "label": "expiring",
+            "expression": "${check_subscription.artifacts.subscription_status} == 'expiring'"
+          },
+          {
+            "label": "expired",
+            "expression": "${check_subscription.artifacts.subscription_status} == 'expired'"
+          },
+          {
+            "label": "unregistered",
+            "expression": "${check_subscription.artifacts.subscription_status} == 'unregistered'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "log_compliant",
+      "type": "aap_job_template",
+      "name": "Log Compliant",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "subscription_status": "${check_subscription.artifacts.subscription_status}",
+          "subscription_expiry": "${check_subscription.artifacts.subscription_expiry}",
+          "subscription_days_remaining": "${check_subscription.artifacts.subscription_days_remaining}"
+        },
+        "job_template_name": "Subscription - Log Compliant",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 50
+      }
+    },
+    {
+      "id": "notify_expiring",
+      "type": "aap_job_template",
+      "name": "Notify Expiring",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "subscription_status": "${check_subscription.artifacts.subscription_status}",
+          "subscription_expiry": "${check_subscription.artifacts.subscription_expiry}",
+          "subscription_days_remaining": "${check_subscription.artifacts.subscription_days_remaining}"
+        },
+        "job_template_name": "Subscription - Notify Expiring",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 250
+      }
+    },
+    {
+      "id": "renew_subscription",
+      "type": "aap_job_template",
+      "name": "Renew Subscription",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "subscription_status": "${check_subscription.artifacts.subscription_status}",
+          "subscription_expiry": "${check_subscription.artifacts.subscription_expiry}"
+        },
+        "job_template_name": "Subscription - Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 450
+      }
+    },
+    {
+      "id": "register_system",
+      "type": "aap_job_template",
+      "name": "Register System",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "subscription_status": "${check_subscription.artifacts.subscription_status}"
+        },
+        "job_template_name": "Subscription - Register",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 650
+      }
+    },
+    {
+      "id": "notify_registered",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom — Registered",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_subscription.artifacts.notify_host}",
+          "subscription_status": "${log_compliant.artifacts.subscription_status}",
+          "subscription_expiry": "${check_subscription.artifacts.subscription_expiry}",
+          "remediation_action": "${log_compliant.artifacts.remediation_action}"
+        },
+        "job_template_name": "Subscription - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 50
+      }
+    },
+    {
+      "id": "notify_expiring_chat",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom — Expiring",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_subscription.artifacts.notify_host}",
+          "subscription_status": "${notify_expiring.artifacts.subscription_status}",
+          "subscription_expiry": "${check_subscription.artifacts.subscription_expiry}",
+          "subscription_days_remaining": "${check_subscription.artifacts.subscription_days_remaining}",
+          "remediation_action": "${notify_expiring.artifacts.remediation_action}"
+        },
+        "job_template_name": "Subscription - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 250
+      }
+    },
+    {
+      "id": "notify_renewed",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom — Renewed",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_subscription.artifacts.notify_host}",
+          "subscription_status": "${renew_subscription.artifacts.subscription_status}",
+          "subscription_expiry": "${renew_subscription.artifacts.subscription_expiry_after}",
+          "remediation_action": "${renew_subscription.artifacts.remediation_action}"
+        },
+        "job_template_name": "Subscription - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 450
+      }
+    },
+    {
+      "id": "notify_registered_new",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom — Registered New",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_subscription.artifacts.notify_host}",
+          "subscription_status": "${register_system.artifacts.subscription_status}",
+          "remediation_action": "${register_system.artifacts.remediation_action}"
+        },
+        "job_template_name": "Subscription - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 650
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "trigger_schedule",
+      "to": "check_subscription"
+    },
+    {
+      "from": "check_subscription",
+      "to": "route_switch"
+    },
+    {
+      "from": "route_switch",
+      "to": "log_compliant",
+      "from_port": "case_0"
+    },
+    {
+      "from": "route_switch",
+      "to": "notify_expiring",
+      "from_port": "case_1"
+    },
+    {
+      "from": "route_switch",
+      "to": "renew_subscription",
+      "from_port": "case_2"
+    },
+    {
+      "from": "route_switch",
+      "to": "register_system",
+      "from_port": "case_3"
+    },
+    {
+      "from": "log_compliant",
+      "to": "notify_registered"
+    },
+    {
+      "from": "notify_expiring",
+      "to": "notify_expiring_chat"
+    },
+    {
+      "from": "renew_subscription",
+      "to": "notify_renewed"
+    },
+    {
+      "from": "register_system",
+      "to": "notify_registered_new"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+---
+- name: Start inactive service
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        service_name: "{{ service_name | default('httpd') }}"
+        service_state: "{{ service_state | default('inactive') }}"
+
+    - name: Preview service start (check mode)
+      ansible.builtin.debug:
+        msg: "[check mode] Would start {{ service_name }} on {{ inventory_hostname }}."
+      when: ansible_check_mode
+
+    - name: Start the service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: started
+      register: _start_result
+      when: not ansible_check_mode
+
+    - name: Verify service is running
+      ansible.builtin.service_facts:
+      when: not ansible_check_mode
+
+    - name: Resolve post-start state
+      ansible.builtin.set_fact:
+        service_state_after: >-
+          {%- set svc = ansible_facts.services.get(service_name ~ '.service', {}) -%}
+          {%- if svc.state | default('') == 'running' -%}active{%- else -%}{{ svc.state | default('unknown') }}{%- endif -%}
+      when: not ansible_check_mode
+
+    - name: Log start result
+      ansible.builtin.debug:
+        msg: >-
+          {{ service_name }} on {{ inventory_hostname }}:
+          {{ service_state }} → {{ service_state_after | default('pending') }}
+      when: not ansible_check_mode
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Start Service"
+          service_name: "{{ service_name }}"
+          service_state_before: "{{ service_state }}"
+          service_state_after: "{{ service_state_after | default('pending') }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

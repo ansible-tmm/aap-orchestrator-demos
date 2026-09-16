@@ -1,0 +1,218 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Patch Severity Routing",
+  "description": "Assess patch severity, switch on highest_severity, and route to the matching remediation strategy.",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "Manual trigger",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "node1",
+              "description": "Target hostname in AAP inventory"
+            }
+          }
+        }
+      },
+      "position": { "x": 0, "y": 300 }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_patches",
+      "type": "aap_job_template",
+      "name": "Patch Assessment",
+      "parameters": {
+        "diff_mode": false,
+        "limit": "${trigger.host}",
+        "job_template_name": "Patch Management - Check Patches",
+        "organization_name": "Default"
+      },
+      "position": { "x": 300, "y": 300 }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Switch on highest_severity",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "critical",
+            "condition": "${check_patches.artifacts.highest_severity} == 'critical'"
+          },
+          {
+            "label": "important",
+            "condition": "${check_patches.artifacts.highest_severity} == 'important'"
+          },
+          {
+            "label": "moderate",
+            "condition": "${check_patches.artifacts.highest_severity} == 'moderate'"
+          },
+          {
+            "label": "none",
+            "condition": "${check_patches.artifacts.highest_severity} == 'none'"
+          }
+        ]
+      },
+      "position": { "x": 650, "y": 300 }
+    },
+    {
+      "id": "patch_now",
+      "type": "aap_job_template",
+      "name": "Patch Now",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "advisory_count_critical": "${check_patches.artifacts.advisory_count_critical}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Patch Management - Patch Now",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 100 }
+    },
+    {
+      "id": "schedule_change",
+      "type": "aap_job_template",
+      "name": "Schedule Change",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "advisory_count_important": "${check_patches.artifacts.advisory_count_important}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Patch Management - Schedule Change",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 270 }
+    },
+    {
+      "id": "weekly_batch",
+      "type": "aap_job_template",
+      "name": "Weekly Batch",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "advisory_count_moderate": "${check_patches.artifacts.advisory_count_moderate}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Patch Management - Weekly Batch",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 440 }
+    },
+    {
+      "id": "report_compliant",
+      "type": "aap_job_template",
+      "name": "Report Compliant",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Patch Management - Report Compliant",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 610 }
+    },
+    {
+      "id": "notify_critical",
+      "type": "aap_job_template",
+      "name": "Notify — Patched",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "remediation_action": "${patch_now.artifacts.remediation_action}",
+          "advisory_count_critical": "${check_patches.artifacts.advisory_count_critical}",
+          "advisory_count_important": "${check_patches.artifacts.advisory_count_important}",
+          "advisory_count_moderate": "${check_patches.artifacts.advisory_count_moderate}",
+          "packages_updated": "${patch_now.artifacts.packages_updated}",
+          "reboot_required": "${patch_now.artifacts.reboot_required}",
+          "notify_host": "${check_patches.artifacts.notify_host}"
+        },
+        "job_template_name": "Patch Management - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 100 }
+    },
+    {
+      "id": "notify_scheduled",
+      "type": "aap_job_template",
+      "name": "Notify — Scheduled",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "remediation_action": "${schedule_change.artifacts.remediation_action}",
+          "advisory_count_critical": "${check_patches.artifacts.advisory_count_critical}",
+          "advisory_count_important": "${check_patches.artifacts.advisory_count_important}",
+          "advisory_count_moderate": "${check_patches.artifacts.advisory_count_moderate}",
+          "notify_host": "${check_patches.artifacts.notify_host}"
+        },
+        "job_template_name": "Patch Management - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 270 }
+    },
+    {
+      "id": "notify_batched",
+      "type": "aap_job_template",
+      "name": "Notify — Batched",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "remediation_action": "${weekly_batch.artifacts.remediation_action}",
+          "advisory_count_critical": "${check_patches.artifacts.advisory_count_critical}",
+          "advisory_count_important": "${check_patches.artifacts.advisory_count_important}",
+          "advisory_count_moderate": "${check_patches.artifacts.advisory_count_moderate}",
+          "notify_host": "${check_patches.artifacts.notify_host}"
+        },
+        "job_template_name": "Patch Management - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 440 }
+    },
+    {
+      "id": "notify_compliant",
+      "type": "aap_job_template",
+      "name": "Notify — Compliant",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "highest_severity": "${check_patches.artifacts.highest_severity}",
+          "remediation_action": "${report_compliant.artifacts.remediation_action}",
+          "advisory_count_critical": "${check_patches.artifacts.advisory_count_critical}",
+          "advisory_count_important": "${check_patches.artifacts.advisory_count_important}",
+          "advisory_count_moderate": "${check_patches.artifacts.advisory_count_moderate}",
+          "notify_host": "${check_patches.artifacts.notify_host}"
+        },
+        "job_template_name": "Patch Management - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 610 }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_manual", "to": "check_patches" },
+    { "from": "check_patches", "to": "route_switch" },
+    { "from": "route_switch", "to": "patch_now", "from_port": "case_0" },
+    { "from": "route_switch", "to": "schedule_change", "from_port": "case_1" },
+    { "from": "route_switch", "to": "weekly_batch", "from_port": "case_2" },
+    { "from": "route_switch", "to": "report_compliant", "from_port": "case_3" },
+    { "from": "patch_now", "to": "notify_critical" },
+    { "from": "schedule_change", "to": "notify_scheduled" },
+    { "from": "weekly_batch", "to": "notify_batched" },
+    { "from": "report_compliant", "to": "notify_compliant" }
+  ]
+}

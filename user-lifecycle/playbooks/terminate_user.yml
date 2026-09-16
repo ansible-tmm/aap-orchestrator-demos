@@ -1,0 +1,118 @@
+---
+- name: Terminate user account
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        target_username: "{{ target_username | default('') }}"
+        request_type: "{{ request_type | default('termination') }}"
+        archive_home: "{{ archive_home | default(true) | bool }}"
+        archive_dir: "{{ archive_dir | default('/var/archive/terminated') }}"
+
+    - name: Fail when target_username is missing
+      ansible.builtin.fail:
+        msg: "target_username is required for termination."
+      when: target_username | length == 0
+
+    - name: Check if user exists
+      ansible.builtin.command:
+        cmd: "id {{ target_username }}"
+      register: user_exists
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fail when user does not exist
+      ansible.builtin.fail:
+        msg: "User {{ target_username }} does not exist on {{ inventory_hostname }}."
+      when: user_exists.rc != 0
+
+    - name: Get user home directory
+      ansible.builtin.shell:
+        cmd: "getent passwd {{ target_username }} | cut -d: -f6"
+      register: user_home
+      changed_when: false
+      check_mode: false
+
+    - name: Lock the user account
+      ansible.builtin.command:
+        cmd: "usermod -L {{ target_username }}"
+      when: not ansible_check_mode
+      changed_when: true
+
+    - name: Expire the account immediately
+      ansible.builtin.command:
+        cmd: "chage -E 0 {{ target_username }}"
+      when: not ansible_check_mode
+      changed_when: true
+
+    - name: Kill all user processes
+      ansible.builtin.shell:
+        cmd: "pkill -u {{ target_username }} || true"
+      when: not ansible_check_mode
+      changed_when: true
+
+    - name: Ensure archive directory exists
+      ansible.builtin.file:
+        path: "{{ archive_dir }}"
+        state: directory
+        mode: '0700'
+      when:
+        - archive_home
+        - not ansible_check_mode
+
+    - name: Archive home directory
+      ansible.builtin.archive:
+        path: "{{ user_home.stdout | trim }}"
+        dest: "{{ archive_dir }}/{{ target_username }}-{{ ansible_date_time.date }}.tar.gz"
+        format: gz
+      when:
+        - archive_home
+        - user_home.stdout | trim | length > 0
+        - not ansible_check_mode
+      register: archive_result
+      ignore_errors: true
+
+    - name: Remove SSH authorized keys
+      ansible.builtin.file:
+        path: "{{ user_home.stdout | trim }}/.ssh/authorized_keys"
+        state: absent
+      when: not ansible_check_mode
+
+    - name: Remove sudo access
+      ansible.builtin.file:
+        path: "/etc/sudoers.d/{{ target_username }}"
+        state: absent
+      when: not ansible_check_mode
+
+    - name: Preview termination (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would lock, expire, kill processes, archive home,
+          and revoke keys for {{ target_username }}.
+      when: ansible_check_mode
+
+    - name: Log termination result
+      ansible.builtin.debug:
+        msg: >-
+          User {{ target_username }} terminated on {{ inventory_hostname }}.
+          Account locked, expired, processes killed,
+          home archived to {{ archive_dir }},
+          SSH keys and sudo revoked.
+
+    - name: Publish termination artifacts
+      ansible.builtin.set_stats:
+        data:
+          request_type: "{{ request_type }}"
+          target_username: "{{ target_username }}"
+          action_taken: "terminate_user"
+          account_locked: true
+          home_archived: "{{ archive_result.changed | default(false) }}"
+          ssh_keys_revoked: true
+          sudo_revoked: true
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -1,0 +1,225 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Service State Routing",
+  "description": "Check service state, switch on service_state, and route to the correct remediation path.",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "Manual trigger",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "node1",
+              "description": "Target hostname in AAP inventory"
+            },
+            "service_name": {
+              "type": "string",
+              "default": "httpd",
+              "description": "Systemd service name to check (e.g. httpd, nginx, postgresql)"
+            }
+          }
+        }
+      },
+      "position": { "x": 0, "y": 300 }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_service",
+      "type": "aap_job_template",
+      "name": "Check Service",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${trigger.service_name}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Service Health - Check Service",
+        "organization_name": "Default"
+      },
+      "position": { "x": 300, "y": 300 }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Switch on service_state",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "active",
+            "condition": "${check_service.artifacts.service_state} == 'active'"
+          },
+          {
+            "label": "inactive",
+            "condition": "${check_service.artifacts.service_state} == 'inactive'"
+          },
+          {
+            "label": "failed",
+            "condition": "${check_service.artifacts.service_state} == 'failed'"
+          },
+          {
+            "label": "not-found",
+            "condition": "${check_service.artifacts.service_state} == 'not-found'"
+          }
+        ]
+      },
+      "position": { "x": 650, "y": 300 }
+    },
+    {
+      "id": "remediate_log_ok",
+      "type": "aap_job_template",
+      "name": "Log OK",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${check_service.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Service Health - Log OK",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 100 }
+    },
+    {
+      "id": "remediate_start",
+      "type": "aap_job_template",
+      "name": "Start Service",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${check_service.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Service Health - Start Service",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 250 }
+    },
+    {
+      "id": "remediate_restart",
+      "type": "aap_job_template",
+      "name": "Restart Service",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${check_service.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Service Health - Restart Service",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 400 }
+    },
+    {
+      "id": "remediate_install",
+      "type": "aap_job_template",
+      "name": "Install Service",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${check_service.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}"
+        },
+        "limit": "${trigger.host}",
+        "job_template_name": "Service Health - Install Service",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1000, "y": 550 }
+    },
+    {
+      "id": "notify_active",
+      "type": "aap_job_template",
+      "name": "Notify — Active",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${remediate_log_ok.artifacts.service_name}",
+          "service_state": "${remediate_log_ok.artifacts.service_state}",
+          "remediation_action": "${remediate_log_ok.artifacts.remediation_action}",
+          "service_state_before": "${check_service.artifacts.service_state}",
+          "service_state_after": "${remediate_log_ok.artifacts.service_state}",
+          "notify_host": "${check_service.artifacts.notify_host}"
+        },
+        "job_template_name": "Service Health - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 100 }
+    },
+    {
+      "id": "notify_start",
+      "type": "aap_job_template",
+      "name": "Notify — Started",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${remediate_start.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}",
+          "remediation_action": "${remediate_start.artifacts.remediation_action}",
+          "service_state_before": "${remediate_start.artifacts.service_state_before}",
+          "service_state_after": "${remediate_start.artifacts.service_state_after}",
+          "notify_host": "${check_service.artifacts.notify_host}"
+        },
+        "job_template_name": "Service Health - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 250 }
+    },
+    {
+      "id": "notify_restart",
+      "type": "aap_job_template",
+      "name": "Notify — Restarted",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${remediate_restart.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}",
+          "remediation_action": "${remediate_restart.artifacts.remediation_action}",
+          "service_state_before": "${remediate_restart.artifacts.service_state_before}",
+          "service_state_after": "${remediate_restart.artifacts.service_state_after}",
+          "notify_host": "${check_service.artifacts.notify_host}"
+        },
+        "job_template_name": "Service Health - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 400 }
+    },
+    {
+      "id": "notify_install",
+      "type": "aap_job_template",
+      "name": "Notify — Installed",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "service_name": "${remediate_install.artifacts.service_name}",
+          "service_state": "${check_service.artifacts.service_state}",
+          "remediation_action": "${remediate_install.artifacts.remediation_action}",
+          "service_state_before": "${remediate_install.artifacts.service_state_before}",
+          "service_state_after": "${remediate_install.artifacts.service_state_after}",
+          "notify_host": "${check_service.artifacts.notify_host}"
+        },
+        "job_template_name": "Service Health - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": { "x": 1350, "y": 550 }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_manual", "to": "check_service" },
+    { "from": "check_service", "to": "route_switch" },
+    { "from": "route_switch", "to": "remediate_log_ok", "from_port": "case_0" },
+    { "from": "route_switch", "to": "remediate_start", "from_port": "case_1" },
+    { "from": "route_switch", "to": "remediate_restart", "from_port": "case_2" },
+    { "from": "route_switch", "to": "remediate_install", "from_port": "case_3" },
+    { "from": "remediate_log_ok", "to": "notify_active" },
+    { "from": "remediate_start", "to": "notify_start" },
+    { "from": "remediate_restart", "to": "notify_restart" },
+    { "from": "remediate_install", "to": "notify_install" }
+  ]
+}

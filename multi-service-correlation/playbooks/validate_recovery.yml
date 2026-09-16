@@ -1,0 +1,61 @@
+---
+- name: Validate service recovery after remediation
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        correlated_services: "{{ correlated_services | default('') | string }}"
+        validation_retries: "{{ validation_retries | default(3) | int }}"
+        validation_delay: "{{ validation_delay | default(10) | int }}"
+
+    - name: Check each correlated service status
+      ansible.builtin.shell: |
+        STATUS="ok"
+        DETAILS=""
+        for svc in {{ correlated_services | replace(',', ' ') }}; do
+          state=$(systemctl is-active "${svc}.service" 2>/dev/null || systemctl is-active "$svc" 2>/dev/null || echo "unknown")
+          DETAILS="${DETAILS}${svc}=${state} "
+          if [ "$state" != "active" ]; then
+            STATUS="degraded"
+          fi
+        done
+        echo "${STATUS}|${DETAILS}"
+      register: service_check
+      changed_when: false
+      until: "'ok|' in service_check.stdout"
+      retries: "{{ validation_retries }}"
+      delay: "{{ validation_delay }}"
+      ignore_errors: true
+
+    - name: Parse validation result
+      ansible.builtin.set_fact:
+        recovery_status: "{{ service_check.stdout.split('|')[0] }}"
+        service_details: "{{ service_check.stdout.split('|')[1] | default('') }}"
+
+    - name: Check system health post-remediation
+      ansible.builtin.shell: |
+        echo "disk=$(df -P / | tail -1 | awk '{print $5}')"
+        echo "mem=$(free | awk '/Mem:/{printf \"%.0f%%\", ($3/$2)*100}')"
+      register: post_health
+      changed_when: false
+
+    - name: Log validation result
+      ansible.builtin.debug:
+        msg: >-
+          Recovery validation on {{ inventory_hostname }}:
+          status={{ recovery_status }},
+          services={{ service_details | trim }}.
+          System health: {{ post_health.stdout_lines | join(', ') }}.
+
+    - name: Publish validation artifacts
+      ansible.builtin.set_stats:
+        data:
+          recovery_status: "{{ recovery_status }}"
+          service_details: "{{ service_details | trim }}"
+          validation_passed: "{{ recovery_status == 'ok' }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
