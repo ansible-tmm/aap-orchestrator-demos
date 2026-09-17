@@ -126,7 +126,8 @@ a {
 .sidebar-run__link,
 .sidebar-run__pill {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 8px;
   margin: 0 4px 8px;
   padding: 8px 12px;
@@ -136,8 +137,16 @@ a {
   font-size: 12px;
   font-weight: 500;
   line-height: 1.35;
+  text-align: left;
   color: #ccc;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.sidebar-run__link span,
+.sidebar-run__pill span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .sidebar-run__link:hover,
@@ -161,6 +170,7 @@ a {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+  margin-top: 1px;
   color: #7eb8ff;
 }
 
@@ -178,6 +188,45 @@ a {
   border-color: #5b3d7a;
   background: #1f1528;
   color: #e9d5ff;
+}
+
+.sidebar-run__playlist {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 4px 4px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  color: #aaa;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-run__playlist:hover {
+  background: #141414;
+  color: #fff;
+}
+
+.sidebar-run__playlist span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.sidebar-run__youtube-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: #ff0000;
+}
+
+.sidebar-run__playlist:hover .sidebar-run__youtube-icon {
+  color: #ff3333;
 }
 
 .sidebar-back {
