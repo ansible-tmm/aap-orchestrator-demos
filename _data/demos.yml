@@ -1,5 +1,6 @@
 # Demo marketplace catalog — one entry per demo.
 # Featured: exactly 3 demos (featured: true). See CLAUDE.md and .cursor/rules/demo-featured-cards.mdc.
+# youtube_url: optional walkthrough on the detail page (Demo video section after Playbooks). See .cursor/rules/demo-youtube-video.mdc.
 
 - slug: cve-remediation
   title: RHEL CVE Remediation
@@ -28,6 +29,7 @@
   workflow_json: cve-remediation/ao/rhel-cve-remediation.json
   arcade_embed: https://interact.redhat.com/share/WROy2xJc5Te0X1ru8hfo?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
   arcade_title: Automation orchestrator for CVE remediation
+  youtube_url: https://youtu.be/LD7faJXRpHM?si=l1ekXLwhLGdzQMEs
   workflow_mermaid: |
     flowchart LR
       A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "CVE Alert", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Triage Agent", pos: "b", h: 96, constraint: "on" }
@@ -72,6 +74,7 @@
   workflow_json: disk-utilization/ao/disk-demo-101.json
   arcade_embed: https://demo.arcade.software/e5sYTB1uh7yLV1UgKg5h?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
   arcade_title: Disk utilization and remediation with Automation Orchestrator
+  youtube_url: https://youtu.be/0aul1DEfU2o?si=vzjujCvezVRJCtUE
   workflow_mermaid: |
     flowchart LR
       A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Manual trigger", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Disk Utilization Check", pos: "b", h: 96, constraint: "on" }
@@ -187,6 +190,7 @@
   workflow_json: ticket-enrichment/ao/ticket-enrichment.json
   arcade_embed: https://interact.redhat.com/share/j5xLvTSv2GAkw6szxron?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
   arcade_title: Automation Orchestrator — Ticket Enrichment
+  youtube_url: https://youtu.be/bT4rqJWmigU?si=AXEugP3GyShIAWao
   workflow_mermaid: |
     flowchart LR
       A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "ServiceNow Trigger", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Triage Agent", pos: "b", h: 96, constraint: "on" }

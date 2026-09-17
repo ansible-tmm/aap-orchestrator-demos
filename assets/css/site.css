@@ -1087,6 +1087,47 @@ button.ao-block:focus-visible {
   font-weight: 500;
 }
 
+.demo-youtube__frame {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid #222;
+}
+
+.demo-youtube__frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.demo-youtube__actions {
+  margin: 16px 0 0;
+}
+
+.demo-youtube__subscribe {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #ee0000;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.demo-youtube__subscribe:hover {
+  background: #cc0000;
+  color: #fff;
+}
+
 .detail-section {
   margin-bottom: 40px;
 }

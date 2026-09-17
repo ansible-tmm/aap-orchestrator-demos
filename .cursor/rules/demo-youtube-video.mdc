@@ -1,0 +1,40 @@
+---
+description: Optional YouTube walkthrough on demo detail pages
+globs: _data/demos.yml,_layouts/demo-detail.html,_includes/demo-youtube.html,_includes/demo-sidebar-toc.html
+alwaysApply: false
+---
+
+# Demo YouTube video
+
+When a demo has a published walkthrough on YouTube, surface it on the GitHub Pages **detail page** — not on marketplace cards.
+
+## Data
+
+Add **`youtube_url`** to the demo’s entry in [`_data/demos.yml`](_data/demos.yml):
+
+```yaml
+youtube_url: https://youtu.be/VIDEO_ID
+```
+
+Accepted forms: `youtu.be/…`, `youtube.com/watch?v=…`, or `youtube.com/embed/…`. Store the canonical share URL from YouTube; the site derives the embed ID in [`_includes/demo-youtube.html`](_includes/demo-youtube.html).
+
+Omit `youtube_url` when no video exists. Do not add placeholder URLs.
+
+## Page behavior (automatic)
+
+When `youtube_url` is set:
+
+1. **`Demo video`** section renders **immediately after Playbooks** (before Demo ideas / planned artifacts). Wired in [`_layouts/demo-detail.html`](_layouts/demo-detail.html) via [`_includes/demo-youtube.html`](_includes/demo-youtube.html).
+2. Section **`id="demo-video"`** — anchor for the sidebar TOC link **Demo video** in [`_includes/demo-sidebar-toc.html`](_includes/demo-sidebar-toc.html).
+3. A red pill **Subscribe to our YouTube channel** links to [The Ansible Playbook on YouTube](https://www.youtube.com/ansibleautomation) (same on every demo that has a video).
+
+Do not duplicate embed markup on individual demo pages or in `demo_pages.yml`.
+
+## Checklist for new or updated demos
+
+1. Confirm a walkthrough URL exists and is public.
+2. Set `youtube_url` on the matching slug in `_data/demos.yml`.
+3. Build or preview the detail page — verify embed loads, TOC includes **Demo video** after **Playbooks**, and subscribe pill styling matches the site.
+4. Do not change `_includes/demo-youtube.html` or layout unless the product pattern changes for all demos.
+
+See also: [CLAUDE.md](../../CLAUDE.md), [demo-site-copy.mdc](demo-site-copy.mdc).

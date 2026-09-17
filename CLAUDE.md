@@ -36,6 +36,7 @@ The Featured section uses a **3-column grid**. Only **three** demos may have `fe
 | Change | File |
 |---|---|
 | Featured flag, title, blurb, status | `_data/demos.yml` |
+| Optional YouTube walkthrough URL | `_data/demos.yml` (`youtube_url`) |
 | Detail page copy, building blocks | `_data/demo_pages.yml` |
 | Card sort order (active vs coming soon) | `index.html` |
 | Featured / All demos section markup | `index.html` |
@@ -44,4 +45,5 @@ The Featured section uses a **3-column grid**. Only **three** demos may have `fe
 
 - `.cursor/rules/demo-featured-cards.mdc` — featured limit and marketplace layout
 - `.cursor/rules/demo-site-copy.mdc` — CTA labels and playbook tables
+- `.cursor/rules/demo-youtube-video.mdc` — optional `youtube_url` and Demo video section
 - `.cursor/rules/automation-orchestrator-naming.mdc` — automation orchestrator naming

@@ -29,6 +29,7 @@ Use these exact labels on GitHub Pages demo detail pages and in `_data/demos.yml
 | `setup_guide` | Optional setup doc; omit or duplicate `github_doc` if setup IS the README |
 | `workflow_json` | AO import JSON for active demos |
 | `github_path` | Repo folder path for display only (e.g. planned artifacts note) |
+| `youtube_url` | Optional YouTube walkthrough — renders **Demo video** after Playbooks (see demo-youtube-video.mdc) |
 
 Before adding or changing demo links, confirm the target file exists in git.
 

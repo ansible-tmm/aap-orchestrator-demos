@@ -1,0 +1,37 @@
+{% assign d = include.demo %}
+{% if d and d.youtube_url %}
+  {% assign youtube_url = d.youtube_url %}
+  {% if youtube_url contains "youtu.be/" %}
+    {% assign yt_tail = youtube_url | split: "youtu.be/" | last %}
+    {% assign youtube_id = yt_tail | split: "?" | first | split: "&" | first %}
+  {% elsif youtube_url contains "youtube.com/embed/" %}
+    {% assign yt_tail = youtube_url | split: "youtube.com/embed/" | last %}
+    {% assign youtube_id = yt_tail | split: "?" | first | split: "&" | first %}
+  {% elsif youtube_url contains "v=" %}
+    {% assign yt_tail = youtube_url | split: "v=" | last %}
+    {% assign youtube_id = yt_tail | split: "&" | first | split: "#" | first %}
+  {% endif %}
+
+  {% if youtube_id != blank %}
+<section class="detail-section demo-youtube" id="demo-video">
+  <h2>Demo video</h2>
+  <div class="demo-youtube__frame">
+    <iframe
+      src="https://www.youtube.com/embed/{{ youtube_id }}"
+      title="{{ d.title | escape }} demo video"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen
+    ></iframe>
+  </div>
+  <p class="demo-youtube__actions">
+    <a
+      href="https://www.youtube.com/ansibleautomation"
+      class="demo-youtube__subscribe"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Subscribe to our YouTube channel</a>
+  </p>
+</section>
+  {% endif %}
+{% endif %}
