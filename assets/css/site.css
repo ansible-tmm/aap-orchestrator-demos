@@ -164,9 +164,11 @@ a {
   color: #7eb8ff;
 }
 
+.sidebar-run__info-icon--cloud {
+  color: #a78bfa;
+}
+
 .sidebar-run__pill {
-  justify-content: center;
-  text-align: center;
   border-color: #3a2a4a;
   background: #151018;
   color: #c4b5fd;
