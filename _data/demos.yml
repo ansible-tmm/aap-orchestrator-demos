@@ -8,6 +8,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Approval
@@ -52,6 +53,7 @@
   status: active
   featured: false
   uses_ai: false
+  tmm_created: true
   tags:
     - Switch
     - Mattermost
@@ -94,6 +96,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Approval
@@ -166,6 +169,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Switch
@@ -364,6 +368,7 @@
   status: active
   featured: false
   uses_ai: false
+  tmm_created: true
   tags:
     - Conditional
     - Converge

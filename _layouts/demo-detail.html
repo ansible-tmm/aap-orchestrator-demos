@@ -16,6 +16,8 @@ mermaid: true
         {% endif %}
         {% if demo.ai_generated %}
           <p class="detail-status detail-status--ai-generated">AI Generated</p>
+        {% elsif demo.tmm_created %}
+          <p class="detail-status detail-status--tmm-created">TMM Created</p>
         {% endif %}
         <h1>{{ demo.title }}</h1>
         <p class="subtitle">{{ demo.subtitle }}</p>
