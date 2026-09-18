@@ -1,0 +1,72 @@
+---
+- name: Renew expired RHEL subscription
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        subscription_status: "{{ subscription_status | default('expired') }}"
+        subscription_expiry: "{{ subscription_expiry | default('unknown') }}"
+
+    - name: Capture subscription state before renewal
+      ansible.builtin.command:
+        cmd: subscription-manager status
+      register: _sm_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Preview renewal (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would run subscription-manager refresh
+          and subscription-manager attach --auto on {{ inventory_hostname }}.
+      when: ansible_check_mode
+
+    - name: Refresh subscription data
+      ansible.builtin.command:
+        cmd: subscription-manager refresh
+      register: _sm_refresh
+      when: not ansible_check_mode
+
+    - name: Auto-attach best available subscription
+      ansible.builtin.command:
+        cmd: subscription-manager attach --auto
+      register: _sm_attach
+      when: not ansible_check_mode
+
+    - name: Capture subscription state after renewal
+      ansible.builtin.command:
+        cmd: subscription-manager status
+      register: _sm_after
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Get new expiry date
+      ansible.builtin.shell:
+        cmd: subscription-manager list --consumed 2>/dev/null | grep -i 'ends' | head -1 | awk -F': ' '{print $2}'
+      register: _new_expiry
+      changed_when: false
+
+    - name: Log renewal result
+      ansible.builtin.debug:
+        msg: >-
+          Subscription renewed on {{ inventory_hostname }}.
+          New expiry: {{ _new_expiry.stdout | default('unknown') | trim }}.
+          Refresh: {{ _sm_refresh.stdout | default('skipped') }}.
+          Attach: {{ _sm_attach.stdout | default('skipped') }}.
+
+    - name: Publish renewal artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Renew Subscription"
+          subscription_status: "renewed"
+          subscription_expiry_before: "{{ subscription_expiry }}"
+          subscription_expiry_after: "{{ _new_expiry.stdout | default('unknown') | trim }}"
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

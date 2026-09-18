@@ -1,0 +1,40 @@
+---
+- name: Notify Mattermost chatroom — service health workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        service_name: "{{ service_name | default('unknown') | string }}"
+        service_state: "{{ service_state | default('unknown') | string | trim | lower }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        service_state_before: "{{ service_state_before | default(service_state | default('unknown')) | string }}"
+        service_state_after: "{{ service_state_after | default('unknown') | string }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if service_state | trim == 'active' -%}#4ade80
+              {%- elif service_state | trim == 'inactive' -%}#fbbf24
+              {%- elif service_state | trim == 'failed' -%}#f97316
+              {%- elif service_state | trim == 'not-found' -%}#ef4444
+              {%- else -%}#666{%- endif -%}
+            title: "Service Health — {{ remediation_action }}"
+            text: >-
+              **Host:** {{ notify_host }}
+
+              **Service:** {{ service_name }}
+
+              **State:** {{ service_state_before }} → {{ service_state_after }}
+
+              **Action:** {{ remediation_action }}
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

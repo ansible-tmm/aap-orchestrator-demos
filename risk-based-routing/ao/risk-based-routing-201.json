@@ -1,0 +1,242 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Risk-Based Certificate Routing",
+  "description": "AI-assessed risk tier routes certificate renewals to auto-renew, notify-and-renew, or approval-required paths.",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "Cert Renewal Request",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "host",
+            "cert_domain"
+          ],
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "node1",
+              "description": "Target hostname in AAP inventory"
+            },
+            "cert_domain": {
+              "type": "string",
+              "default": "",
+              "description": "Certificate domain to assess and renew"
+            }
+          }
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "risk_agent",
+      "type": "agentic",
+      "name": "AI Risk Assessment",
+      "parameters": {
+        "prompt": "You are a certificate risk assessor. Analyze the certificate for the domain '${trigger.cert_domain}' on host '${trigger.host}' and assess the renewal risk.\n\nConsider:\n- Certificate type (PEM, keystore, wildcard)\n- Number of services that depend on this certificate\n- Whether this is a production, staging, or dev host\n- Days remaining before expiry\n- Whether the certificate is externally facing\n\nAssign a risk tier:\n- 'low': Internal cert, single service, non-production, >30 days remaining\n- 'medium': Production cert, limited blast radius, 7-30 days remaining\n- 'high': Wildcard or externally-facing cert, multiple services, <7 days remaining or production-critical\n\nOutput ONLY valid JSON:\n{\n  \"risk_tier\": \"low or medium or high\",\n  \"confidence\": 0.0,\n  \"cert_domain\": \"${trigger.cert_domain}\",\n  \"cert_type\": \"pem or keystore or wildcard\",\n  \"days_remaining\": 0,\n  \"blast_radius\": \"description of affected services\",\n  \"reasoning\": \"one sentence explanation\"\n}",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "risk_tier": { "type": "string" },
+            "confidence": { "type": "number" },
+            "cert_domain": { "type": "string" },
+            "cert_type": { "type": "string" },
+            "days_remaining": { "type": "number" },
+            "blast_radius": { "type": "string" },
+            "reasoning": { "type": "string" }
+          }
+        }
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "risk_switch",
+      "type": "switch",
+      "name": "Route by Risk Tier",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "low",
+            "condition": "${risk_agent.result.content.risk_tier} == 'low'"
+          },
+          {
+            "label": "medium",
+            "condition": "${risk_agent.result.content.risk_tier} == 'medium'"
+          },
+          {
+            "label": "high",
+            "condition": "${risk_agent.result.content.risk_tier} == 'high'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "auto_renew",
+      "type": "aap_job_template",
+      "name": "Auto-Renew (Low Risk)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}"
+        },
+        "job_template_name": "Cert - Auto Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 100
+      }
+    },
+    {
+      "id": "notify_and_renew",
+      "type": "aap_job_template",
+      "name": "Notify + Renew (Medium Risk)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}",
+          "reasoning": "${risk_agent.result.content.reasoning}"
+        },
+        "job_template_name": "Cert - Notify and Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 300
+      }
+    },
+    {
+      "id": "approval_gate",
+      "type": "approval",
+      "name": "Approve High-Risk Renewal",
+      "parameters": {},
+      "position": {
+        "x": 950,
+        "y": 500
+      }
+    },
+    {
+      "id": "renew_after_approval",
+      "type": "aap_job_template",
+      "name": "Renew After Approval (High Risk)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}",
+          "reasoning": "${risk_agent.result.content.reasoning}"
+        },
+        "job_template_name": "Cert - Notify and Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1250,
+        "y": 500
+      }
+    },
+    {
+      "id": "validate_low",
+      "type": "aap_job_template",
+      "name": "Validate TLS (Low)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}"
+        },
+        "job_template_name": "Cert - Validate TLS",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1250,
+        "y": 100
+      }
+    },
+    {
+      "id": "validate_medium",
+      "type": "aap_job_template",
+      "name": "Validate TLS (Medium)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}"
+        },
+        "job_template_name": "Cert - Validate TLS",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1250,
+        "y": 300
+      }
+    },
+    {
+      "id": "validate_high",
+      "type": "aap_job_template",
+      "name": "Validate TLS (High)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}"
+        },
+        "job_template_name": "Cert - Validate TLS",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1550,
+        "y": 500
+      }
+    },
+    {
+      "id": "notify_result",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${trigger.cert_domain}",
+          "risk_tier": "${risk_agent.result.content.risk_tier}",
+          "reasoning": "${risk_agent.result.content.reasoning}",
+          "confidence": "${risk_agent.result.content.confidence}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1850,
+        "y": 300
+      }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_manual", "to": "risk_agent" },
+    { "from": "risk_agent", "to": "risk_switch" },
+    { "from": "risk_switch", "to": "auto_renew", "from_port": "case_0" },
+    { "from": "risk_switch", "to": "notify_and_renew", "from_port": "case_1" },
+    { "from": "risk_switch", "to": "approval_gate", "from_port": "case_2" },
+    { "from": "auto_renew", "to": "validate_low" },
+    { "from": "notify_and_renew", "to": "validate_medium" },
+    { "from": "approval_gate", "to": "renew_after_approval", "from_port": "approved" },
+    { "from": "renew_after_approval", "to": "validate_high" },
+    { "from": "validate_low", "to": "notify_result" },
+    { "from": "validate_medium", "to": "notify_result" },
+    { "from": "validate_high", "to": "notify_result" }
+  ]
+}

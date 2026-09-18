@@ -1,0 +1,64 @@
+---
+- name: Targeted remediation for identified root cause
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        root_cause: "{{ root_cause | default('unknown') | string }}"
+        correlated_services: "{{ correlated_services | default('') | string }}"
+        alert_hosts: "{{ alert_hosts | default('') | string }}"
+
+    - name: Check system resource state
+      ansible.builtin.shell: |
+        echo "disk=$(df -P / | tail -1 | awk '{print $5}')"
+        echo "mem=$(free | awk '/Mem:/{printf \"%.0f%%\", ($3/$2)*100}')"
+        echo "load=$(uptime | awk -F'load average:' '{print $2}' | xargs)"
+      register: system_state
+      changed_when: false
+
+    - name: Display system state
+      ansible.builtin.debug:
+        msg: "System state on {{ inventory_hostname }}: {{ system_state.stdout_lines }}"
+
+    - name: Restart affected services
+      ansible.builtin.shell: |
+        RESTARTED=0
+        for svc in {{ correlated_services | replace(',', ' ') }}; do
+          if systemctl is-enabled "$svc" 2>/dev/null; then
+            systemctl restart "$svc" 2>/dev/null && RESTARTED=$((RESTARTED+1))
+          elif systemctl is-enabled "${svc}.service" 2>/dev/null; then
+            systemctl restart "${svc}.service" 2>/dev/null && RESTARTED=$((RESTARTED+1))
+          fi
+        done
+        echo "Restarted $RESTARTED services"
+      register: restart_result
+      changed_when: "'Restarted 0' not in restart_result.stdout"
+      when: not ansible_check_mode
+
+    - name: Preview targeted remediation (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would restart services {{ correlated_services }}
+          on {{ inventory_hostname }} for root cause: {{ root_cause }}.
+      when: ansible_check_mode
+
+    - name: Log remediation result
+      ansible.builtin.debug:
+        msg: >-
+          Targeted remediation on {{ inventory_hostname }}.
+          Root cause: {{ root_cause }}.
+          {{ restart_result.stdout | default('check mode') }}.
+
+    - name: Publish remediation artifacts
+      ansible.builtin.set_stats:
+        data:
+          remediation_type: "targeted"
+          root_cause: "{{ root_cause }}"
+          remediation_result: "{{ restart_result.stdout | default('check mode') }}"
+          correlated_services: "{{ correlated_services }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

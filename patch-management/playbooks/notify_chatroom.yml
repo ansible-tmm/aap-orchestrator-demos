@@ -1,0 +1,51 @@
+---
+- name: Notify Mattermost chatroom — patch management workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        highest_severity: "{{ highest_severity | default('unknown') | string | trim | lower }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        advisory_count_critical: "{{ advisory_count_critical | default(0) | string }}"
+        advisory_count_important: "{{ advisory_count_important | default(0) | string }}"
+        advisory_count_moderate: "{{ advisory_count_moderate | default(0) | string }}"
+        packages_updated: "{{ packages_updated | default('0') | string }}"
+        reboot_required: "{{ reboot_required | default(false) | bool }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if highest_severity | trim == 'critical' -%}#ef4444
+              {%- elif highest_severity | trim == 'important' -%}#f97316
+              {%- elif highest_severity | trim == 'moderate' -%}#fbbf24
+              {%- else -%}#4ade80{%- endif -%}
+            title: "Patch Management — {{ remediation_action }}"
+            text: >-
+              **Host:** {{ notify_host }}
+
+              **Highest severity:** {{ highest_severity }}
+
+              **Advisories:** critical={{ advisory_count_critical }},
+              important={{ advisory_count_important }},
+              moderate={{ advisory_count_moderate }}
+
+              **Action:** {{ remediation_action }}
+              {%- if packages_updated != '0' %}
+
+              **Packages updated:** {{ packages_updated }}
+              {%- endif %}
+              {%- if reboot_required %}
+
+              **Reboot required:** yes
+              {%- endif %}
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

@@ -1,0 +1,77 @@
+---
+- name: Validate TLS certificate after renewal
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_domain: "{{ cert_domain | default(inventory_hostname) }}"
+        cert_path: "{{ cert_path | default('/etc/pki/tls/certs/server.crt') }}"
+        validate_port: "{{ validate_port | default('443') }}"
+
+    - name: Check certificate file exists
+      ansible.builtin.stat:
+        path: "{{ cert_path }}"
+      register: _cert_stat
+
+    - name: Get certificate details from file
+      ansible.builtin.shell:
+        cmd: openssl x509 -in {{ cert_path }} -noout -subject -issuer -dates -serial
+      register: _cert_details
+      changed_when: false
+      when: _cert_stat.stat.exists
+
+    - name: Get certificate expiry from file
+      ansible.builtin.shell:
+        cmd: openssl x509 -in {{ cert_path }} -noout -enddate | cut -d= -f2
+      register: _expiry_raw
+      changed_when: false
+      when: _cert_stat.stat.exists
+
+    - name: Calculate days remaining
+      ansible.builtin.shell:
+        cmd: |
+          expiry_epoch=$(date -d "{{ _expiry_raw.stdout }}" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "{{ _expiry_raw.stdout }}" +%s 2>/dev/null)
+          now_epoch=$(date +%s)
+          echo $(( (expiry_epoch - now_epoch) / 86400 ))
+      register: _days_remaining
+      changed_when: false
+      when: _cert_stat.stat.exists
+
+    - name: TLS handshake check
+      ansible.builtin.shell:
+        cmd: >-
+          echo | openssl s_client -connect 127.0.0.1:{{ validate_port }}
+          -servername {{ cert_domain }} 2>/dev/null
+      register: _tls_handshake
+      changed_when: false
+      failed_when: false
+
+    - name: Determine validation result
+      ansible.builtin.set_fact:
+        validation_passed: >-
+          {{
+            _cert_stat.stat.exists
+            and (_days_remaining.stdout | default('0') | int) > 0
+          }}
+
+    - name: Publish validation artifacts
+      ansible.builtin.set_stats:
+        data:
+          validation_passed: "{{ validation_passed }}"
+          cert_expiry_date: "{{ _expiry_raw.stdout | default('unknown') }}"
+          days_remaining: "{{ _days_remaining.stdout | default('0') | int }}"
+          cert_details: "{{ _cert_details.stdout | default('unknown') }}"
+          cert_domain: "{{ cert_domain }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Display validation result
+      ansible.builtin.debug:
+        msg:
+          - "Validation: {{ 'PASSED' if validation_passed else 'FAILED' }}"
+          - "Days remaining: {{ _days_remaining.stdout | default('unknown') }}"
+          - ""
+          - "{{ _cert_details.stdout | default('No cert details') }}"

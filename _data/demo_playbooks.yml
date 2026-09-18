@@ -63,19 +63,140 @@ cert-lifecycle:
       runs_on: localhost (Mattermost API)
 
 risk-based-routing:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: assess_risk.yml
+      path: risk-based-routing/playbooks/assess_risk.yml
+      description: Prepares AI agent risk assessment output into set_stats artifacts for the AO switch.
+      runs_on: RHEL node
+    - name: auto_renew.yml
+      path: risk-based-routing/playbooks/auto_renew.yml
+      description: Auto-renews a low-risk certificate with a self-signed cert for demo purposes.
+      runs_on: RHEL node
+    - name: notify_renew.yml
+      path: risk-based-routing/playbooks/notify_renew.yml
+      description: Notifies operators about medium-risk renewal, then proceeds with renewal.
+      runs_on: RHEL node
+    - name: validate_tls.yml
+      path: risk-based-routing/playbooks/validate_tls.yml
+      description: Validates TLS certificate file and expiry after renewal.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: risk-based-routing/playbooks/notify_chatroom.yml
+      description: Posts risk-based routing results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 proactive-assessment:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: scan_certificates.yml
+      path: proactive-assessment/playbooks/scan_certificates.yml
+      description: Scans configurable certificate paths, classifies expiring vs healthy, publishes cert_scan_result artifact.
+      runs_on: RHEL node
+    - name: renew_proactive.yml
+      path: proactive-assessment/playbooks/renew_proactive.yml
+      description: Proactively renews expiring certificates found by the scan.
+      runs_on: RHEL node
+    - name: log_ok.yml
+      path: proactive-assessment/playbooks/log_ok.yml
+      description: Logs healthy certificate estate when no renewals are needed.
+      runs_on: RHEL node
+    - name: compliance_report.yml
+      path: proactive-assessment/playbooks/compliance_report.yml
+      description: Generates a compliance percentage report of the certificate estate.
+      runs_on: localhost
+    - name: notify_chatroom.yml
+      path: proactive-assessment/playbooks/notify_chatroom.yml
+      description: Posts certificate scan results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 cert-expiry-switch:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_cert_expiry.yml
+      path: cert-expiry-switch/playbooks/check_cert_expiry.yml
+      description: Checks certificate expiry via openssl, classifies into cert_status (healthy, plan, renew, emergency).
+      runs_on: RHEL node
+    - name: skip_healthy.yml
+      path: cert-expiry-switch/playbooks/skip_healthy.yml
+      description: Logs OK for healthy certificates with more than 60 days remaining.
+      runs_on: RHEL node
+    - name: open_change_request.yml
+      path: cert-expiry-switch/playbooks/open_change_request.yml
+      description: Creates a change request marker for certificates in the 30-60 day planning window.
+      runs_on: RHEL node
+    - name: renew_cert.yml
+      path: cert-expiry-switch/playbooks/renew_cert.yml
+      description: Renews a certificate using community.crypto modules for the 7-30 day window.
+      runs_on: RHEL node
+    - name: emergency_renew.yml
+      path: cert-expiry-switch/playbooks/emergency_renew.yml
+      description: Emergency certificate renewal for less than 7 days remaining with urgency flag.
+      runs_on: RHEL node
+    - name: validate_tls.yml
+      path: cert-expiry-switch/playbooks/validate_tls.yml
+      description: Validates TLS handshake and certificate expiry after renewal.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: cert-expiry-switch/playbooks/notify_chatroom.yml
+      description: Posts cert expiry routing results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 service-health:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_service.yml
+      path: service-health/playbooks/check_service.yml
+      description: Checks httpd service state via service_facts and publishes service_state artifact for the AO switch.
+      runs_on: RHEL node
+    - name: remediate_log_ok.yml
+      path: service-health/playbooks/remediate_log_ok.yml
+      description: Logs healthy service state with no changes to the host.
+      runs_on: RHEL node
+    - name: remediate_start_service.yml
+      path: service-health/playbooks/remediate_start_service.yml
+      description: Starts an inactive service and verifies it is running.
+      runs_on: RHEL node
+    - name: remediate_restart_service.yml
+      path: service-health/playbooks/remediate_restart_service.yml
+      description: Captures journal errors, resets failed state, and restarts the service.
+      runs_on: RHEL node
+    - name: remediate_install_service.yml
+      path: service-health/playbooks/remediate_install_service.yml
+      description: Installs the httpd package via dnf, enables and starts the service.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: service-health/playbooks/notify_chatroom.yml
+      description: Posts service health status to Mattermost with color-coded severity.
+      runs_on: localhost (Mattermost API)
 
 patch-management:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_patches.yml
+      path: patch-management/playbooks/check_patches.yml
+      description: Runs dnf updateinfo assessment and publishes highest_severity artifact for the AO switch.
+      runs_on: RHEL node
+    - name: remediate_patch_now.yml
+      path: patch-management/playbooks/remediate_patch_now.yml
+      description: Applies critical security updates immediately and checks if reboot is required.
+      runs_on: RHEL node
+    - name: remediate_schedule_change.yml
+      path: patch-management/playbooks/remediate_schedule_change.yml
+      description: Logs important advisories for scheduling in the next change window.
+      runs_on: RHEL node
+    - name: remediate_weekly_batch.yml
+      path: patch-management/playbooks/remediate_weekly_batch.yml
+      description: Writes a batch manifest for moderate patches to be applied in the weekly window.
+      runs_on: RHEL node
+    - name: remediate_report_compliant.yml
+      path: patch-management/playbooks/remediate_report_compliant.yml
+      description: Logs compliant status when no patches are needed.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: patch-management/playbooks/notify_chatroom.yml
+      description: Posts patch assessment results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 multi-os-cloud-patching:
   status: active
@@ -119,16 +240,116 @@ multi-os-cloud-patching:
       runs_on: Report server
 
 user-lifecycle:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: process_request.yml
+      path: user-lifecycle/playbooks/process_request.yml
+      description: Validates request_type input and publishes it as an artifact for the AO switch.
+      runs_on: localhost
+    - name: provision_new_hire.yml
+      path: user-lifecycle/playbooks/provision_new_hire.yml
+      description: Creates user account with SSH key, sudo access, and group membership.
+      runs_on: RHEL node
+    - name: provision_contractor.yml
+      path: user-lifecycle/playbooks/provision_contractor.yml
+      description: Creates a contractor user with expiry date and limited sudo.
+      runs_on: RHEL node
+    - name: update_role.yml
+      path: user-lifecycle/playbooks/update_role.yml
+      description: Updates an existing user's groups and sudo rules with before/after state.
+      runs_on: RHEL node
+    - name: terminate_user.yml
+      path: user-lifecycle/playbooks/terminate_user.yml
+      description: Locks account, archives home directory, and revokes SSH keys.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: user-lifecycle/playbooks/notify_chatroom.yml
+      description: Posts user lifecycle action results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 backup-management:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_backup.yml
+      path: backup-management/playbooks/check_backup.yml
+      description: Reads backup status file and publishes backup_result artifact for the AO switch.
+      runs_on: RHEL node
+    - name: verify_backup.yml
+      path: backup-management/playbooks/verify_backup.yml
+      description: Verifies a successful backup by checking file integrity and size.
+      runs_on: RHEL node
+    - name: retry_backup.yml
+      path: backup-management/playbooks/retry_backup.yml
+      description: Retries partial backup targeting failed items.
+      runs_on: RHEL node
+    - name: escalate_backup.yml
+      path: backup-management/playbooks/escalate_backup.yml
+      description: Gathers log tail and creates escalation summary for failed backups.
+      runs_on: RHEL node
+    - name: log_skipped.yml
+      path: backup-management/playbooks/log_skipped.yml
+      description: Checks cron/timer schedules and logs skip reason.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: backup-management/playbooks/notify_chatroom.yml
+      description: Posts backup results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 subscription-management:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_subscription.yml
+      path: subscription-management/playbooks/check_subscription.yml
+      description: Checks RHEL subscription status and classifies as registered, expiring, expired, or unregistered.
+      runs_on: RHEL node
+    - name: log_compliant.yml
+      path: subscription-management/playbooks/log_compliant.yml
+      description: Logs compliance for properly registered systems.
+      runs_on: RHEL node
+    - name: notify_expiring.yml
+      path: subscription-management/playbooks/notify_expiring.yml
+      description: Logs expiring subscription advisory with expiry details.
+      runs_on: RHEL node
+    - name: renew_subscription.yml
+      path: subscription-management/playbooks/renew_subscription.yml
+      description: Refreshes and auto-attaches expired RHEL subscriptions.
+      runs_on: RHEL node
+    - name: register_system.yml
+      path: subscription-management/playbooks/register_system.yml
+      description: Registers unregistered systems with activation key.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: subscription-management/playbooks/notify_chatroom.yml
+      description: Posts subscription status to Mattermost with color-coded status.
+      runs_on: localhost (Mattermost API)
 
 kernel-compliance:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: check_kernel.yml
+      path: kernel-compliance/playbooks/check_kernel.yml
+      description: Checks running vs installed kernel, needs-restarting status, and EOL kernel list.
+      runs_on: RHEL node
+    - name: log_compliant.yml
+      path: kernel-compliance/playbooks/log_compliant.yml
+      description: Logs compliant kernel status with no action needed.
+      runs_on: RHEL node
+    - name: schedule_reboot.yml
+      path: kernel-compliance/playbooks/schedule_reboot.yml
+      description: Creates maintenance window marker for pending kernel reboot (no actual reboot).
+      runs_on: RHEL node
+    - name: apply_kernel_update.yml
+      path: kernel-compliance/playbooks/apply_kernel_update.yml
+      description: Updates kernel via dnf when drift is detected.
+      runs_on: RHEL node
+    - name: flag_eol_migration.yml
+      path: kernel-compliance/playbooks/flag_eol_migration.yml
+      description: Creates EOL advisory marker for migration planning.
+      runs_on: RHEL node
+    - name: notify_chatroom.yml
+      path: kernel-compliance/playbooks/notify_chatroom.yml
+      description: Posts kernel compliance results to Mattermost.
+      runs_on: localhost (Mattermost API)
 
 event-driven-xsos-rca:
   status: active
@@ -151,7 +372,12 @@ event-driven-xsos-rca:
       runs_on: RHEL target host (EDA or manual)
 
 ai-incident-triage:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: snow_auto_remediation.yml
+      path: ai-incident-triage/aap/playbooks/snow_auto_remediation.yml
+      description: Runs automated remediation on the target host for a ServiceNow incident — checks uptime, disk, and service status.
+      runs_on: RHEL node
 
 ticket-enrichment:
   status: active
@@ -170,4 +396,21 @@ ticket-enrichment:
       runs_on: RHEL target host
 
 multi-service-correlation:
-  status: under-development
+  status: ai-generated
+  items:
+    - name: correlate_alerts.yml
+      path: multi-service-correlation/playbooks/correlate_alerts.yml
+      description: Analyzes alert payloads for host and service correlation patterns, publishes correlation_result artifact.
+      runs_on: localhost
+    - name: targeted_remediation.yml
+      path: multi-service-correlation/playbooks/targeted_remediation.yml
+      description: Restarts affected services for known root cause with service-specific recovery.
+      runs_on: RHEL node
+    - name: validate_recovery.yml
+      path: multi-service-correlation/playbooks/validate_recovery.yml
+      description: Validates all correlated services have recovered with retry loop.
+      runs_on: RHEL node
+    - name: notify_operators.yml
+      path: multi-service-correlation/playbooks/notify_operators.yml
+      description: Posts correlation analysis and remediation results to Mattermost.
+      runs_on: localhost (Mattermost API)

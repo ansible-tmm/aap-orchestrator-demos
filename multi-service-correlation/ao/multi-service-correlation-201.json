@@ -1,0 +1,200 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Multi-Service Alert Correlation",
+  "description": "Correlate alerts across services, identify root cause, then route to targeted or AI-assisted remediation.",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "Correlated Alert Event",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "alert_payloads"
+          ],
+          "properties": {
+            "alert_payloads": {
+              "type": "string",
+              "default": "[{\"host\":\"node1\",\"service\":\"httpd\",\"severity\":\"critical\",\"message\":\"Service down\"},{\"host\":\"node1\",\"service\":\"postgres\",\"severity\":\"critical\",\"message\":\"Connection refused\"}]",
+              "description": "JSON array of alert objects with host, service, severity, and message fields"
+            }
+          }
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "correlate_alerts",
+      "type": "aap_job_template",
+      "name": "Correlate Alerts",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "alert_payloads": "${trigger.alert_payloads}"
+        },
+        "job_template_name": "Multi-Service - Correlate Alerts",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "correlation_switch",
+      "type": "switch",
+      "name": "Root Cause Found?",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "root_cause_found",
+            "condition": "${correlate_alerts.artifacts.correlation_result} == 'root_cause_found'"
+          },
+          {
+            "label": "unknown",
+            "condition": "${correlate_alerts.artifacts.correlation_result} == 'unknown'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "targeted_remediation",
+      "type": "aap_job_template",
+      "name": "Targeted Remediation",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "root_cause": "${correlate_alerts.artifacts.root_cause}",
+          "correlated_services": "${correlate_alerts.artifacts.correlated_services}",
+          "alert_hosts": "${correlate_alerts.artifacts.alert_hosts}"
+        },
+        "job_template_name": "Multi-Service - Targeted Remediation",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 150
+      }
+    },
+    {
+      "id": "ai_triage_agent",
+      "type": "agentic",
+      "name": "AI Triage Agent",
+      "parameters": {
+        "prompt": "You are an incident correlation analyst. Multiple alerts fired but no clear root cause was identified by automated correlation.\n\nAlert data:\n- Hosts: ${correlate_alerts.artifacts.alert_hosts}\n- Services: ${correlate_alerts.artifacts.correlated_services}\n- Alert count: ${correlate_alerts.artifacts.alert_count}\n- Same host: ${correlate_alerts.artifacts.same_host}\n\nAnalyze the pattern and recommend:\n1. Most likely root cause\n2. Recommended remediation steps\n3. Which service to investigate first\n\nOutput ONLY valid JSON:\n{\n  \"root_cause\": \"description of likely root cause\",\n  \"confidence\": 0.0,\n  \"investigate_first\": \"service name\",\n  \"recommended_actions\": [\"action 1\", \"action 2\"],\n  \"reasoning\": \"one sentence explanation\"\n}",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "root_cause": { "type": "string" },
+            "confidence": { "type": "number" },
+            "investigate_first": { "type": "string" },
+            "recommended_actions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "reasoning": { "type": "string" }
+          }
+        }
+      },
+      "position": {
+        "x": 950,
+        "y": 450
+      }
+    },
+    {
+      "id": "ai_remediation",
+      "type": "aap_job_template",
+      "name": "AI-Guided Remediation",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "root_cause": "${ai_triage_agent.result.content.root_cause}",
+          "correlated_services": "${correlate_alerts.artifacts.correlated_services}",
+          "alert_hosts": "${correlate_alerts.artifacts.alert_hosts}"
+        },
+        "job_template_name": "Multi-Service - Targeted Remediation",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1250,
+        "y": 450
+      }
+    },
+    {
+      "id": "validate_targeted",
+      "type": "aap_job_template",
+      "name": "Validate Recovery (Targeted)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "correlated_services": "${correlate_alerts.artifacts.correlated_services}"
+        },
+        "job_template_name": "Multi-Service - Validate Recovery",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1250,
+        "y": 150
+      }
+    },
+    {
+      "id": "validate_ai",
+      "type": "aap_job_template",
+      "name": "Validate Recovery (AI)",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "correlated_services": "${correlate_alerts.artifacts.correlated_services}"
+        },
+        "job_template_name": "Multi-Service - Validate Recovery",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1550,
+        "y": 450
+      }
+    },
+    {
+      "id": "notify_operators",
+      "type": "aap_job_template",
+      "name": "Notify Operators",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "correlation_result": "${correlate_alerts.artifacts.correlation_result}",
+          "root_cause": "${correlate_alerts.artifacts.root_cause}",
+          "alert_count": "${correlate_alerts.artifacts.alert_count}",
+          "alert_hosts": "${correlate_alerts.artifacts.alert_hosts}",
+          "correlated_services": "${correlate_alerts.artifacts.correlated_services}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1850,
+        "y": 300
+      }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_manual", "to": "correlate_alerts" },
+    { "from": "correlate_alerts", "to": "correlation_switch" },
+    { "from": "correlation_switch", "to": "targeted_remediation", "from_port": "case_0" },
+    { "from": "correlation_switch", "to": "ai_triage_agent", "from_port": "case_1" },
+    { "from": "targeted_remediation", "to": "validate_targeted" },
+    { "from": "ai_triage_agent", "to": "ai_remediation" },
+    { "from": "ai_remediation", "to": "validate_ai" },
+    { "from": "validate_targeted", "to": "notify_operators" },
+    { "from": "validate_ai", "to": "notify_operators" }
+  ]
+}

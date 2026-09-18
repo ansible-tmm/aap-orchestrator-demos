@@ -1,0 +1,41 @@
+---
+- name: Notify Mattermost chatroom — kernel compliance workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        kernel_compliance: "{{ kernel_compliance | default('unknown') | string | trim | lower }}"
+        kernel_running: "{{ kernel_running | default('unknown') | string }}"
+        kernel_latest: "{{ kernel_latest | default('unknown') | string }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        dry_run: "{{ dry_run | default(false) | bool }}"
+
+    - name: Build Mattermost message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if kernel_compliance == 'compliant' -%}#4ade80
+              {%- elif kernel_compliance == 'reboot_required' -%}#fbbf24
+              {%- elif kernel_compliance == 'drift' -%}#fb923c
+              {%- elif kernel_compliance == 'eol' -%}#ef4444
+              {%- else -%}#888888{%- endif -%}
+            title: "Kernel Compliance — {{ remediation_action }}"
+            text: |
+              | Field | Value |
+              |:------|:------|
+              | Host | {{ notify_host }} |
+              | Compliance | `{{ kernel_compliance }}` |
+              | Running Kernel | {{ kernel_running }} |
+              | Latest Kernel | {{ kernel_latest }} |
+              | Action | {{ remediation_action }} |
+              | Dry Run | {{ dry_run }} |
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

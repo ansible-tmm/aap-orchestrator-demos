@@ -9,6 +9,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Approval
@@ -54,6 +55,7 @@
   status: active
   featured: false
   uses_ai: false
+  tmm_created: true
   tags:
     - Switch
     - Mattermost
@@ -97,6 +99,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Approval
@@ -131,7 +134,8 @@
   title: Event-Driven xSOS RCA
   subtitle: Gather facts before you guess a fix
   category: incident-remediation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -168,6 +172,7 @@
   status: active
   featured: true
   uses_ai: true
+  tmm_created: true
   tags:
     - Task agent
     - Switch
@@ -210,72 +215,84 @@
   title: Risk-Based Routing
   subtitle: Risk-tier renewal decisions
   category: cert-rotation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: true
   tags:
     - Task agent
     - Switch
+    - Approval
   thumbnail:
     gradient: "linear-gradient(135deg, #2a2a3a 0%, #1a1a24 100%)"
     icon: "⚖️"
   blurb: Route certificate renewals by AI-assessed risk level — low, medium, and high paths get different treatment.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 5
     setup_minutes: 30
   url: /demos/risk-based-routing/
   github_path: risk-based-routing/
   github_doc: risk-based-routing/README.md
+  setup_guide: risk-based-routing/SETUP_GUIDE.md
+  workflow_json: risk-based-routing/ao/risk-based-routing-201.json
   workflow_mermaid: |
     flowchart LR
-      A[Cert expiry event] --> B[AI risk assessment]
-      B --> C{Risk tier}
-      C -->|Low| D[Auto-renew]
-      C -->|Medium| E[Notify + renew]
-      C -->|High| F@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approval required", pos: "b", h: 96, constraint: "on" }
-      D --> G[Validate TLS]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Cert Expiry Event", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Risk Assessment", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "Risk Tier", pos: "b", h: 96, constraint: "on" }
+      C -->|Low| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Auto-Renew", pos: "b", h: 96, constraint: "on" }
+      C -->|Medium| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify + Renew", pos: "b", h: 96, constraint: "on" }
+      C -->|High| F@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approval Required", pos: "b", h: 96, constraint: "on" }
+      F --> F1@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Renew After Approval", pos: "b", h: 96, constraint: "on" }
+      D --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Validate TLS", pos: "b", h: 96, constraint: "on" }
       E --> G
-      F --> H[Run renewal after approval]
-      H --> G
+      F1 --> G
+      G --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
       classDef noBorder fill:transparent,stroke:transparent
-      class F noBorder
+      class A,B,C,D,E,F,F1,G,H noBorder
 
 - slug: proactive-assessment
   title: Proactive Assessment
   subtitle: Scan before expiry
   category: cert-rotation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
     - Scheduled
-    - Monitoring
+    - Switch
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0d1520 100%)"
     icon: "📅"
   blurb: Scheduled proactive scans find expiring certificates before they become incidents.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 5
     setup_minutes: 45
   url: /demos/proactive-assessment/
   github_path: proactive-assessment/
   github_doc: proactive-assessment/README.md
+  setup_guide: proactive-assessment/SETUP_GUIDE.md
+  workflow_json: proactive-assessment/ao/proactive-assessment-301.json
   workflow_mermaid: |
     flowchart LR
-      A[Scheduled scan trigger] --> B[Inventory certificate expiry]
-      B --> C{Expires within window?}
-      C -->|Yes| D[Renew proactively]
-      C -->|No| E[Log OK — no action]
-      D --> F[Validate TLS]
-      F --> G[Compliance report]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Scheduled Scan", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Scan Certificates", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "Scan Result", pos: "b", h: 96, constraint: "on" }
+      C -->|Needs Renewal| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Renew Proactively", pos: "b", h: 96, constraint: "on" }
+      C -->|All OK| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Log OK", pos: "b", h: 96, constraint: "on" }
+      D --> F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Compliance Report", pos: "b", h: 96, constraint: "on" }
+      E --> F
+      F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G noBorder
 
 - slug: cert-expiry-switch
   title: Expiry Threshold Routing
   subtitle: Rule-based cert countdown switch
   category: cert-rotation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -286,28 +303,36 @@
     icon: "⏳"
   blurb: Switch on cert_status from days remaining — skip, plan, renew, or emergency — no AI required.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 7
     setup_minutes: 15
   url: /demos/cert-expiry-switch/
   github_path: cert-expiry-switch/
   github_doc: cert-expiry-switch/README.md
+  setup_guide: cert-expiry-switch/SETUP_GUIDE.md
+  workflow_json: cert-expiry-switch/ao/cert-expiry-switch-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Manual or schedule] --> B[Check cert expiry]
-      B --> C{cert_status}
-      C -->|healthy| D[Log OK]
-      C -->|plan| E[Open change request]
-      C -->|renew| F[Renew certificate]
-      C -->|emergency| G[Emergency renew]
-      F --> H[Validate TLS]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Manual or Schedule", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Check Cert Expiry", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "cert_status", pos: "b", h: 96, constraint: "on" }
+      C -->|healthy| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Skip Healthy", pos: "b", h: 96, constraint: "on" }
+      C -->|plan| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Open Change Request", pos: "b", h: 96, constraint: "on" }
+      C -->|renew| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Renew Certificate", pos: "b", h: 96, constraint: "on" }
+      C -->|emergency| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Emergency Renew", pos: "b", h: 96, constraint: "on" }
+      F --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Validate TLS", pos: "b", h: 96, constraint: "on" }
       G --> H
+      D --> I@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> I
+      H --> I
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I noBorder
 
 - slug: service-health
   title: Service State Routing
   subtitle: Four fixes from one service check
   category: service-health
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -317,20 +342,28 @@
     icon: "🩺"
   blurb: Check httpd state, switch on service_state — log OK, start, restart, or install in one workflow.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 15
   url: /demos/service-health/
   github_path: service-health/
   github_doc: service-health/README.md
+  setup_guide: service-health/SETUP_GUIDE.md
+  workflow_json: service-health/ao/service-health-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Manual or schedule] --> B[Check service]
-      B --> C{service_state}
-      C -->|active| D[Log OK]
-      C -->|inactive| E[Start service]
-      C -->|failed| F[Restart service]
-      C -->|not-found| G[Install service]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Manual Trigger", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Check Service", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "service_state", pos: "b", h: 96, constraint: "on" }
+      C -->|active| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Log OK", pos: "b", h: 96, constraint: "on" }
+      C -->|inactive| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Start Service", pos: "b", h: 96, constraint: "on" }
+      C -->|failed| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Restart Service", pos: "b", h: 96, constraint: "on" }
+      C -->|not-found| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Install Service", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: multi-os-cloud-patching
   title: Multi-OS Cloud Patching
@@ -339,6 +372,7 @@
   status: active
   featured: false
   uses_ai: false
+  tmm_created: true
   tags:
     - Conditional
     - Converge
@@ -380,7 +414,8 @@
   title: Patch Severity Routing
   subtitle: Switch routing — one scan, four remediation strategies
   category: patching
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -390,26 +425,35 @@
     icon: "🩹"
   blurb: Assess patch severity, switch on highest_severity — patch now, schedule, batch, or report compliant.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 20
   url: /demos/patch-management/
   github_path: patch-management/
   github_doc: patch-management/README.md
+  setup_guide: patch-management/SETUP_GUIDE.md
+  workflow_json: patch-management/ao/patch-management-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Manual or schedule] --> B[Patch assessment]
-      B --> C{highest_severity}
-      C -->|critical| D[Patch now]
-      C -->|important| E[Schedule change]
-      C -->|moderate| F[Weekly batch]
-      C -->|none| G[Report compliant]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Manual Trigger", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Patch Assessment", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "highest_severity", pos: "b", h: 96, constraint: "on" }
+      C -->|critical| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Patch Now", pos: "b", h: 96, constraint: "on" }
+      C -->|important| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Schedule Change", pos: "b", h: 96, constraint: "on" }
+      C -->|moderate| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Weekly Batch", pos: "b", h: 96, constraint: "on" }
+      C -->|none| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Report Compliant", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: user-lifecycle
   title: Request Type Routing
   subtitle: One form, four runbooks
   category: user-lifecycle
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -420,25 +464,35 @@
     icon: "👤"
   blurb: Survey or webhook sets request_type — provision new hire, contractor, role change, or termination.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 20
   url: /demos/user-lifecycle/
   github_path: user-lifecycle/
   github_doc: user-lifecycle/README.md
+  setup_guide: user-lifecycle/SETUP_GUIDE.md
+  workflow_json: user-lifecycle/ao/user-lifecycle-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Survey or webhook] --> B{request_type}
-      B -->|new_hire| C[Provision new hire]
-      B -->|contractor| D[Provision contractor]
-      B -->|role_change| E[Update role]
-      B -->|termination| F[Terminate user]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Survey or Webhook", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Process Request", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "request_type", pos: "b", h: 96, constraint: "on" }
+      C -->|new_hire| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Provision New Hire", pos: "b", h: 96, constraint: "on" }
+      C -->|contractor| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Provision Contractor", pos: "b", h: 96, constraint: "on" }
+      C -->|role_change| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Update Role", pos: "b", h: 96, constraint: "on" }
+      C -->|termination| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Terminate User", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: backup-management
   title: Backup Result Routing
   subtitle: Partial is neither pass nor fail
   category: backup-management
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -448,26 +502,35 @@
     icon: "💾"
   blurb: Switch on backup_result — verify success, retry partial, escalate failed, or log skipped.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 15
   url: /demos/backup-management/
   github_path: backup-management/
   github_doc: backup-management/README.md
+  setup_guide: backup-management/SETUP_GUIDE.md
+  workflow_json: backup-management/ao/backup-management-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Schedule or event] --> B[Check backup result]
-      B --> C{backup_result}
-      C -->|success| D[Verify backup]
-      C -->|partial| E[Retry partial]
-      C -->|failed| F[Escalate]
-      C -->|skipped| G[Log skipped]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Schedule or Event", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Check Backup Result", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "backup_result", pos: "b", h: 96, constraint: "on" }
+      C -->|success| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Verify Backup", pos: "b", h: 96, constraint: "on" }
+      C -->|partial| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Retry Partial", pos: "b", h: 96, constraint: "on" }
+      C -->|failed| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Escalate", pos: "b", h: 96, constraint: "on" }
+      C -->|skipped| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Log Skipped", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: subscription-management
   title: RHEL Subscription Routing
   subtitle: Route by registration state
   category: subscription-management
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -477,26 +540,35 @@
     icon: "📋"
   blurb: Check RHEL subscription status — registered, expiring, expired, or unregistered — each gets a different path.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 15
   url: /demos/subscription-management/
   github_path: subscription-management/
   github_doc: subscription-management/README.md
+  setup_guide: subscription-management/SETUP_GUIDE.md
+  workflow_json: subscription-management/ao/subscription-management-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Schedule] --> B[Check subscription]
-      B --> C{subscription_status}
-      C -->|registered| D[Log compliant]
-      C -->|expiring| E[Notify expiring]
-      C -->|expired| F[Renew subscription]
-      C -->|unregistered| G[Register system]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Schedule", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Check Subscription", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "subscription_status", pos: "b", h: 96, constraint: "on" }
+      C -->|registered| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Log Compliant", pos: "b", h: 96, constraint: "on" }
+      C -->|expiring| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Expiring", pos: "b", h: 96, constraint: "on" }
+      C -->|expired| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Renew Subscription", pos: "b", h: 96, constraint: "on" }
+      C -->|unregistered| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Register System", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: kernel-compliance
   title: Kernel Compliance Routing
   subtitle: Reboot required ≠ drift ≠ EOL
   category: kernel-compliance
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: false
   tags:
@@ -506,76 +578,98 @@
     icon: "🐧"
   blurb: Scan kernel compliance — compliant, reboot required, drift, or EOL — switch to the right response.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 6
     setup_minutes: 15
   url: /demos/kernel-compliance/
   github_path: kernel-compliance/
   github_doc: kernel-compliance/README.md
+  setup_guide: kernel-compliance/SETUP_GUIDE.md
+  workflow_json: kernel-compliance/ao/kernel-compliance-101.json
   workflow_mermaid: |
     flowchart LR
-      A[Schedule] --> B[Scan kernel compliance]
-      B --> C{kernel_compliance}
-      C -->|compliant| D[Log OK]
-      C -->|reboot_required| E[Schedule reboot]
-      C -->|drift| F[Apply kernel update]
-      C -->|eol| G[Flag EOL migration]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Schedule", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Scan Kernel Compliance", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "kernel_compliance", pos: "b", h: 96, constraint: "on" }
+      C -->|compliant| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Log OK", pos: "b", h: 96, constraint: "on" }
+      C -->|reboot_required| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Schedule Reboot", pos: "b", h: 96, constraint: "on" }
+      C -->|drift| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Apply Kernel Update", pos: "b", h: 96, constraint: "on" }
+      C -->|eol| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Flag EOL Migration", pos: "b", h: 96, constraint: "on" }
+      D --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Chatroom", pos: "b", h: 96, constraint: "on" }
+      E --> H
+      F --> H
+      G --> H
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
 
 - slug: ai-incident-triage
   title: AI Incident Triage
   subtitle: Intelligent incident response
   category: incident-remediation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: true
   tags:
     - Task agent
+    - Switch
+    - Approval
+    - MCP
   thumbnail:
     gradient: "linear-gradient(135deg, #2a1a2a 0%, #150d18 100%)"
     icon: "🤖"
   blurb: AI agent triages incidents, selects remediation strategy, and routes to the right playbook.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 1
     setup_minutes: 30
   url: /demos/ai-incident-triage/
   github_path: ai-incident-triage/
   github_doc: ai-incident-triage/README.md
+  setup_guide: ai-incident-triage/REQUIREMENTS.md
+  workflow_json: ai-incident-triage/ao/snow-incident-response.json
   workflow_mermaid: |
     flowchart LR
-      A[Incident alert] --> B[AI triage agent]
-      B --> C[Select remediation strategy]
-      C --> D[Run playbook]
-      D --> E[Validate recovery]
-      E --> F[Notify operators]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Incident Alert", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Triage Agent", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "Route Decision", pos: "b", h: 96, constraint: "on" }
+      C -->|Auto Remediate| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Remediation", pos: "b", h: 96, constraint: "on" }
+      C -->|Needs Approval| E@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve Remediation", pos: "b", h: 96, constraint: "on" }
+      E -->|Approved| E1@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Approved Remediation", pos: "b", h: 96, constraint: "on" }
+      C -->|Inform Only| F@{ img: "__ASSET__/assets/icons/task-agent.png", label: "Enrich and Assign", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,E1,F noBorder
 
 - slug: multi-service-correlation
   title: Multi-Service Correlation
   subtitle: Correlate alerts before remediation
   category: incident-remediation
-  status: coming-soon
+  status: active
+  ai_generated: true
   featured: false
   uses_ai: true
   tags:
     - Task agent
-    - Event-Driven
+    - Switch
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0a1018 100%)"
     icon: "🔗"
   blurb: Correlate alerts across services, identify root cause, then route to targeted or AI-assisted remediation.
   stats:
-    workflows: 0
-    playbooks: 0
+    workflows: 1
+    playbooks: 4
     setup_minutes: 45
   url: /demos/multi-service-correlation/
   github_path: multi-service-correlation/
   github_doc: multi-service-correlation/README.md
+  setup_guide: multi-service-correlation/SETUP_GUIDE.md
+  workflow_json: multi-service-correlation/ao/multi-service-correlation-201.json
   workflow_mermaid: |
     flowchart LR
-      A[Multiple correlated alerts] --> B[Correlate services]
-      B --> C{Root cause identified?}
-      C -->|Yes| D[Targeted remediation]
-      C -->|No| E[AI triage agent]
-      D --> F[Validate recovery]
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Alert Payload", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Correlate Alerts", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/switch-node.png", label: "Root Cause?", pos: "b", h: 96, constraint: "on" }
+      C -->|Yes| D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Targeted Remediation", pos: "b", h: 96, constraint: "on" }
+      C -->|No| E@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Triage Agent", pos: "b", h: 96, constraint: "on" }
+      D --> F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Validate Recovery", pos: "b", h: 96, constraint: "on" }
       E --> F
-      F --> G[Notify operators]
+      F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Operators", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G noBorder

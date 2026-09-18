@@ -1,0 +1,27 @@
+---
+- name: Log OK — service is healthy
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        service_name: "{{ service_name | default('httpd') }}"
+        service_state: "{{ service_state | default('active') }}"
+
+    - name: Log healthy status
+      ansible.builtin.debug:
+        msg: >-
+          {{ service_name }} is {{ service_state }} on {{ inventory_hostname }}.
+          No action required.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Log OK"
+          service_name: "{{ service_name }}"
+          service_state: "{{ service_state }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

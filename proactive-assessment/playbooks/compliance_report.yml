@@ -1,0 +1,59 @@
+---
+- name: Generate certificate compliance report
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        certs_total: "{{ certs_total | default(0) | int }}"
+        certs_expiring: "{{ certs_expiring | default(0) | int }}"
+        certs_healthy: "{{ certs_healthy | default(0) | int }}"
+        certs_renewed: "{{ certs_renewed | default(0) | int }}"
+        cert_scan_result: "{{ cert_scan_result | default('unknown') | string }}"
+        expiry_window_days: "{{ expiry_window_days | default(30) | int }}"
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        report_dir: "{{ report_dir | default('/tmp') }}"
+
+    - name: Calculate compliance percentage
+      ansible.builtin.set_fact:
+        compliance_pct: >-
+          {{
+            ((certs_healthy | int) / (certs_total | int) * 100) | round(1)
+            if (certs_total | int) > 0
+            else 100.0
+          }}
+
+    - name: Build compliance report
+      ansible.builtin.set_fact:
+        compliance_report: |
+          ============================================================
+          CERTIFICATE COMPLIANCE REPORT
+          ============================================================
+          Host(s): {{ notify_host }}
+          Scan window: {{ expiry_window_days }} days
+
+          Total certificates scanned: {{ certs_total }}
+          Healthy (not expiring): {{ certs_healthy }}
+          Expiring within window: {{ certs_expiring }}
+          Renewed this run: {{ certs_renewed }}
+
+          Compliance: {{ compliance_pct }}%
+          Status: {{ 'COMPLIANT' if (certs_expiring | int) == 0 else 'ACTION TAKEN' }}
+          ============================================================
+
+    - name: Display compliance report
+      ansible.builtin.debug:
+        msg: "{{ compliance_report }}"
+
+    - name: Publish compliance artifacts
+      ansible.builtin.set_stats:
+        data:
+          compliance_pct: "{{ compliance_pct }}"
+          compliance_status: "{{ 'compliant' if (certs_expiring | int) == 0 else 'action_taken' }}"
+          certs_total: "{{ certs_total }}"
+          certs_expiring: "{{ certs_expiring }}"
+          certs_renewed: "{{ certs_renewed }}"
+          notify_host: "{{ notify_host }}"
+        per_host: false
+        aggregate: false

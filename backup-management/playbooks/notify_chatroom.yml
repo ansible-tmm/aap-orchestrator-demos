@@ -1,0 +1,49 @@
+---
+- name: Notify Mattermost chatroom — backup management workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        backup_result: "{{ backup_result | default('unknown') | string | trim | lower }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        backup_timestamp: "{{ backup_timestamp | default('unknown') | string }}"
+        backup_target_count: "{{ backup_target_count | default(0) | string }}"
+        backup_failed_targets: "{{ backup_failed_targets | default('') | string }}"
+        backup_verified: "{{ backup_verified | default('N/A') | string }}"
+        backup_size_mb: "{{ backup_size_mb | default('0') | string }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if backup_result | trim == 'success' -%}#4ade80
+              {%- elif backup_result | trim == 'partial' -%}#fbbf24
+              {%- elif backup_result | trim == 'failed' -%}#ef4444
+              {%- else -%}#666{%- endif -%}
+            title: "Backup Management — {{ remediation_action }}"
+            text: >-
+              **Host:** {{ notify_host }}
+
+              **Backup result:** {{ backup_result }}
+
+              **Timestamp:** {{ backup_timestamp }}
+
+              **Action:** {{ remediation_action }}
+              {%- if backup_verified != 'N/A' %}
+
+              **Verified:** {{ backup_verified }}
+              {%- endif %}
+              {%- if backup_failed_targets | length > 0 %}
+
+              **Failed targets:** {{ backup_failed_targets }}
+              {%- endif %}
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

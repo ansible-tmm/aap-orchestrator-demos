@@ -1,0 +1,80 @@
+---
+- name: Proactively renew expiring certificates
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  vars:
+    tmp_prefix: "/tmp/proactive-renew-{{ ansible_date_time.epoch }}"
+
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_dir: "{{ cert_dir | default('/etc/pki/tls/certs') }}"
+        cert_key_dir: "{{ cert_key_dir | default('/etc/pki/tls/private') }}"
+        cert_valid_days: "{{ cert_valid_days | default(365) | int }}"
+        expiry_window_days: "{{ expiry_window_days | default(30) | int }}"
+
+    - name: Find expiring certificates
+      ansible.builtin.shell: |
+        find {{ cert_dir }} -name "*.crt" -o -name "*.pem" | while read cert; do
+          end_date=$(openssl x509 -in "$cert" -noout -enddate 2>/dev/null | cut -d= -f2)
+          [ -z "$end_date" ] && continue
+          expiry_epoch=$(date -d "$end_date" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$end_date" +%s 2>/dev/null)
+          now_epoch=$(date +%s)
+          days_left=$(( (expiry_epoch - now_epoch) / 86400 ))
+          if [ "$days_left" -lt {{ expiry_window_days }} ]; then
+            cn=$(openssl x509 -in "$cert" -noout -subject 2>/dev/null | sed 's/.*CN *= *//')
+            echo "${cert}|${cn}|${days_left}"
+          fi
+        done
+      register: expiring_list
+      changed_when: false
+      check_mode: false
+
+    - name: Preview renewal (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would renew {{ expiring_list.stdout_lines | length }}
+          expiring certificates on {{ inventory_hostname }}.
+      when: ansible_check_mode
+
+    - name: Renew each expiring certificate (self-signed for demo)
+      ansible.builtin.shell: |
+        CERT_PATH="{{ item.split('|')[0] }}"
+        CN="{{ item.split('|')[1] }}"
+        KEY_PATH="{{ cert_key_dir }}/$(basename ${CERT_PATH} .crt).key"
+
+        cp "${CERT_PATH}" "${CERT_PATH}.backup"
+
+        openssl req -x509 -newkey rsa:4096 -keyout "${KEY_PATH}" \
+          -out "${CERT_PATH}" -days {{ cert_valid_days }} -nodes \
+          -subj "/CN=${CN}" 2>/dev/null
+
+        echo "Renewed ${CERT_PATH} (CN=${CN}) for {{ cert_valid_days }} days"
+      loop: "{{ expiring_list.stdout_lines }}"
+      loop_control:
+        label: "{{ item.split('|')[0] }}"
+      register: renewal_results
+      when:
+        - expiring_list.stdout_lines | length > 0
+        - not ansible_check_mode
+      changed_when: true
+
+    - name: Log renewal results
+      ansible.builtin.debug:
+        msg: >-
+          Proactive renewal on {{ inventory_hostname }}:
+          renewed {{ renewal_results.results | default([]) | selectattr('changed', 'defined') | selectattr('changed') | list | length }}
+          of {{ expiring_list.stdout_lines | length }} expiring certificates.
+
+    - name: Publish renewal artifacts
+      ansible.builtin.set_stats:
+        data:
+          certs_renewed: "{{ renewal_results.results | default([]) | selectattr('changed', 'defined') | selectattr('changed') | list | length }}"
+          certs_attempted: "{{ expiring_list.stdout_lines | length }}"
+          cert_valid_days: "{{ cert_valid_days }}"
+          action_taken: "proactive_renewal"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

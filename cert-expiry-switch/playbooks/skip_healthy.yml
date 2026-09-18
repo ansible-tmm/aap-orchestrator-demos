@@ -1,0 +1,31 @@
+---
+- name: Skip — certificate healthy
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_status: "{{ cert_status | default('healthy') }}"
+        days_remaining: "{{ days_remaining | default(0) | int }}"
+        cert_expiry_date: "{{ cert_expiry_date | default('unknown') }}"
+        cert_domain: "{{ cert_domain | default(inventory_hostname) }}"
+
+    - name: Log healthy certificate
+      ansible.builtin.debug:
+        msg: >-
+          {{ cert_domain }} on {{ inventory_hostname }} is healthy.
+          {{ days_remaining }} days remaining (expires {{ cert_expiry_date }}).
+          No action required.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Skip — Healthy"
+          cert_status: "{{ cert_status }}"
+          days_remaining: "{{ days_remaining }}"
+          cert_domain: "{{ cert_domain }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

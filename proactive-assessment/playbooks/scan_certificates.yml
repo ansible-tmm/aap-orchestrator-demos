@@ -1,0 +1,85 @@
+---
+- name: Scan certificate estate for expiring certs
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_scan_paths:
+          - /etc/pki/tls/certs
+          - /etc/ssl/certs
+          - /etc/nginx/ssl
+        expiry_window_days: "{{ expiry_window_days | default(30) | int }}"
+
+    - name: Find certificate files
+      ansible.builtin.find:
+        paths: "{{ cert_scan_paths }}"
+        patterns:
+          - "*.crt"
+          - "*.pem"
+        file_type: file
+        recurse: true
+      register: cert_files
+
+    - name: Check expiry for each certificate
+      ansible.builtin.shell: |
+        end_date=$(openssl x509 -in "{{ item.path }}" -noout -enddate 2>/dev/null | cut -d= -f2)
+        if [ -z "$end_date" ]; then
+          echo "SKIP|{{ item.path }}|not_a_cert|0"
+          exit 0
+        fi
+        expiry_epoch=$(date -d "$end_date" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$end_date" +%s 2>/dev/null)
+        now_epoch=$(date +%s)
+        days_left=$(( (expiry_epoch - now_epoch) / 86400 ))
+        subject=$(openssl x509 -in "{{ item.path }}" -noout -subject 2>/dev/null | sed 's/subject=//')
+        echo "OK|{{ item.path }}|${subject}|${days_left}"
+      loop: "{{ cert_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: cert_checks
+      changed_when: false
+      check_mode: false
+
+    - name: Parse certificate check results
+      ansible.builtin.set_fact:
+        all_certs: >-
+          {{
+            cert_checks.results
+            | map(attribute='stdout')
+            | select('match', '^OK\\|')
+            | map('regex_replace', '^OK\\|(.*)\\|(.*)\\|(.*)$', '{"path": "\\1", "subject": "\\2", "days_remaining": \\3}')
+            | map('from_json')
+            | list
+          }}
+
+    - name: Identify expiring certificates
+      ansible.builtin.set_fact:
+        expiring_certs: "{{ all_certs | selectattr('days_remaining', 'lt', expiry_window_days | int) | list }}"
+        healthy_certs: "{{ all_certs | rejectattr('days_remaining', 'lt', expiry_window_days | int) | list }}"
+
+    - name: Determine scan result
+      ansible.builtin.set_fact:
+        cert_scan_result: "{{ 'needs_renewal' if (expiring_certs | length) > 0 else 'all_ok' }}"
+
+    - name: Log scan summary
+      ansible.builtin.debug:
+        msg: >-
+          Certificate scan on {{ inventory_hostname }}:
+          {{ all_certs | length }} total,
+          {{ expiring_certs | length }} expiring within {{ expiry_window_days }} days,
+          {{ healthy_certs | length }} healthy.
+          Result: {{ cert_scan_result }}.
+
+    - name: Publish scan artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          cert_scan_result: "{{ cert_scan_result }}"
+          certs_total: "{{ all_certs | length }}"
+          certs_expiring: "{{ expiring_certs | length }}"
+          certs_healthy: "{{ healthy_certs | length }}"
+          expiry_window_days: "{{ expiry_window_days }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

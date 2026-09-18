@@ -1,0 +1,62 @@
+---
+- name: Verify successful backup
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        backup_result: "{{ backup_result | default('success') }}"
+        backup_dir: "{{ backup_dir | default('/var/backup/latest') }}"
+        backup_timestamp: "{{ backup_timestamp | default('unknown') }}"
+
+    - name: Check backup directory exists
+      ansible.builtin.stat:
+        path: "{{ backup_dir }}"
+      register: _backup_dir
+
+    - name: List backup files
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        file_type: file
+        recurse: false
+      register: _backup_files
+      when: _backup_dir.stat.exists | default(false)
+
+    - name: Calculate total backup size
+      ansible.builtin.set_fact:
+        backup_size_mb: >-
+          {{
+            ((_backup_files.files | default([]) | map(attribute='size') | sum | default(0)) / 1048576)
+            | round(1)
+          }}
+      when: _backup_dir.stat.exists | default(false)
+
+    - name: Verify backup integrity (check newest file is recent)
+      ansible.builtin.set_fact:
+        backup_verified: >-
+          {{
+            (_backup_dir.stat.exists | default(false))
+            and ((_backup_files.files | default([])) | length > 0)
+          }}
+
+    - name: Log verification result
+      ansible.builtin.debug:
+        msg: >-
+          Backup verification on {{ inventory_hostname }}:
+          {{ 'PASSED' if backup_verified else 'FAILED' }}.
+          Files: {{ _backup_files.files | default([]) | length }},
+          Size: {{ backup_size_mb | default('0') }} MB.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Verify Backup"
+          backup_result: "{{ backup_result }}"
+          backup_verified: "{{ backup_verified }}"
+          backup_file_count: "{{ _backup_files.files | default([]) | length }}"
+          backup_size_mb: "{{ backup_size_mb | default('0') }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

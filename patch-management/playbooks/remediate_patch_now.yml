@@ -1,0 +1,74 @@
+---
+- name: Patch now — apply critical security updates
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        highest_severity: "{{ highest_severity | default('critical') }}"
+        advisory_count_critical: "{{ advisory_count_critical | default(0) | int }}"
+
+    - name: Capture installed kernel before patching
+      ansible.builtin.command:
+        cmd: uname -r
+      register: _kernel_before
+      changed_when: false
+      check_mode: false
+
+    - name: Preview critical patch (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would apply {{ advisory_count_critical }} critical
+          security updates on {{ inventory_hostname }}.
+      when: ansible_check_mode
+
+    - name: Apply critical security updates
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        security: true
+        bugfix: false
+        update_only: true
+      register: _patch_result
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - not ansible_check_mode
+
+    - name: Capture installed kernel after patching
+      ansible.builtin.command:
+        cmd: uname -r
+      register: _kernel_after
+      changed_when: false
+      check_mode: false
+      when: not ansible_check_mode
+
+    - name: Check if reboot is needed
+      ansible.builtin.command:
+        cmd: needs-restarting -r
+      register: _reboot_check
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: not ansible_check_mode
+
+    - name: Log patching result
+      ansible.builtin.debug:
+        msg: >-
+          Critical patching on {{ inventory_hostname }} complete.
+          Packages updated: {{ _patch_result.results | default([]) | length }}.
+          Reboot needed: {{ 'yes' if (_reboot_check.rc | default(0)) == 1 else 'no' }}.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Patch Now"
+          highest_severity: "{{ highest_severity }}"
+          packages_updated: "{{ _patch_result.results | default([]) | length }}"
+          reboot_required: "{{ (_reboot_check.rc | default(0)) == 1 }}"
+          kernel_before: "{{ _kernel_before.stdout }}"
+          kernel_after: "{{ _kernel_after.stdout | default(_kernel_before.stdout) }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

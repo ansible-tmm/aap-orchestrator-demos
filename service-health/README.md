@@ -1,6 +1,6 @@
 # Service Health 101: Service State Routing
 
-**Status: Coming soon** — scaffold only. Playbooks and AO workflow JSON not built yet.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -27,21 +27,33 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`check_service.yml`](playbooks/check_service.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`remediate_install_service.yml`](playbooks/remediate_install_service.yml) |
+| [`remediate_log_ok.yml`](playbooks/remediate_log_ok.yml) |
+| [`remediate_restart_service.yml`](playbooks/remediate_restart_service.yml) |
+| [`remediate_start_service.yml`](playbooks/remediate_start_service.yml) |
 
 ## Why not binary branching?
 
 The same four outcomes in a Controller-style workflow require nested success/failure nodes that still guess at failure meaning. The switch reads one artifact and routes by **meaning**.
 
-## Planned artifacts
-
-When built, this level will include:
+## Artifacts
 
 ```
-
-  ao/               # automation orchestrator workflow JSON
-  playbooks/    # check_service + four remediate playbooks
-  README.md         # this file
+  ao/
+    service-health-101.json
+  playbooks/
+    check_service.yml
+    notify_chatroom.yml
+    remediate_install_service.yml
+    remediate_log_ok.yml
+    remediate_restart_service.yml
+    remediate_start_service.yml
+  README.md
+  SETUP_GUIDE.md
 ```
 
 ## Demo ideas

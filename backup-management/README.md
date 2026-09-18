@@ -1,6 +1,6 @@
 # Backup Management 101: Backup Result Routing
 
-**Status: Coming soon** — scaffold only.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -27,13 +27,27 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`check_backup.yml`](playbooks/check_backup.yml) |
+| [`escalate_backup.yml`](playbooks/escalate_backup.yml) |
+| [`log_skipped.yml`](playbooks/log_skipped.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`retry_backup.yml`](playbooks/retry_backup.yml) |
+| [`verify_backup.yml`](playbooks/verify_backup.yml) |
 
-## Planned artifacts
+## Artifacts
 
 ```
-
   ao/
+    backup-management-101.json
   playbooks/
+    check_backup.yml
+    escalate_backup.yml
+    log_skipped.yml
+    notify_chatroom.yml
+    retry_backup.yml
+    verify_backup.yml
   README.md
+  SETUP_GUIDE.md
 ```

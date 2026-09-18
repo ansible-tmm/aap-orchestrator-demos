@@ -1,0 +1,64 @@
+---
+- name: Install missing service package
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        service_name: "{{ service_name | default('httpd') }}"
+        service_state: "{{ service_state | default('not-found') }}"
+
+    - name: Preview install (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would install {{ service_name }} on {{ inventory_hostname }}
+          and enable the service unit.
+      when: ansible_check_mode
+
+    - name: Install service package
+      ansible.builtin.dnf:
+        name: "{{ service_name }}"
+        state: present
+      register: _install_result
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - not ansible_check_mode
+
+    - name: Enable and start the service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: started
+        enabled: true
+      when: not ansible_check_mode
+
+    - name: Verify service is running after install
+      ansible.builtin.service_facts:
+      when: not ansible_check_mode
+
+    - name: Resolve post-install state
+      ansible.builtin.set_fact:
+        service_state_after: >-
+          {%- set svc = ansible_facts.services.get(service_name ~ '.service', {}) -%}
+          {%- if svc.state | default('') == 'running' -%}active{%- else -%}{{ svc.state | default('unknown') }}{%- endif -%}
+      when: not ansible_check_mode
+
+    - name: Log install result
+      ansible.builtin.debug:
+        msg: >-
+          {{ service_name }} on {{ inventory_hostname }}:
+          installed {{ _install_result.results | default(['package']) | length }} package(s),
+          service is now {{ service_state_after | default('pending') }}.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Install Service"
+          service_name: "{{ service_name }}"
+          service_state_before: "{{ service_state }}"
+          service_state_after: "{{ service_state_after | default('pending') }}"
+          packages_installed: "{{ _install_result.results | default([]) | length }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

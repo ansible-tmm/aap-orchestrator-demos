@@ -1,0 +1,266 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Kernel Compliance Routing",
+  "description": "Scan kernel compliance and route remediation by compliance state",
+  "triggers": [
+    {
+      "id": "trigger_schedule",
+      "type": "schedule_trigger",
+      "name": "Scheduled Kernel Scan",
+      "parameters": {},
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_kernel",
+      "type": "aap_job_template",
+      "name": "Check Kernel Compliance",
+      "parameters": {
+        "diff_mode": false,
+        "job_template_name": "Kernel - Check Compliance",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Route by kernel_compliance",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "compliant",
+            "expression": "${check_kernel.artifacts.kernel_compliance} == 'compliant'"
+          },
+          {
+            "label": "reboot_required",
+            "expression": "${check_kernel.artifacts.kernel_compliance} == 'reboot_required'"
+          },
+          {
+            "label": "drift",
+            "expression": "${check_kernel.artifacts.kernel_compliance} == 'drift'"
+          },
+          {
+            "label": "eol",
+            "expression": "${check_kernel.artifacts.kernel_compliance} == 'eol'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "log_compliant",
+      "type": "aap_job_template",
+      "name": "Log OK",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "kernel_compliance": "${check_kernel.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${check_kernel.artifacts.kernel_latest}"
+        },
+        "job_template_name": "Kernel - Log Compliant",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 50
+      }
+    },
+    {
+      "id": "schedule_reboot",
+      "type": "aap_job_template",
+      "name": "Schedule Reboot",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "kernel_compliance": "${check_kernel.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${check_kernel.artifacts.kernel_latest}"
+        },
+        "job_template_name": "Kernel - Schedule Reboot",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 250
+      }
+    },
+    {
+      "id": "apply_kernel_update",
+      "type": "aap_job_template",
+      "name": "Apply Kernel Update",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "kernel_compliance": "${check_kernel.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${check_kernel.artifacts.kernel_latest}"
+        },
+        "job_template_name": "Kernel - Apply Update",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 450
+      }
+    },
+    {
+      "id": "flag_eol",
+      "type": "aap_job_template",
+      "name": "Flag EOL Migration",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "kernel_compliance": "${check_kernel.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}"
+        },
+        "job_template_name": "Kernel - Flag EOL Migration",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 650
+      }
+    },
+    {
+      "id": "notify_compliant",
+      "type": "aap_job_template",
+      "name": "Notify — Compliant",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_kernel.artifacts.notify_host}",
+          "kernel_compliance": "${log_compliant.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${check_kernel.artifacts.kernel_latest}",
+          "remediation_action": "${log_compliant.artifacts.remediation_action}"
+        },
+        "job_template_name": "Kernel - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 50
+      }
+    },
+    {
+      "id": "notify_reboot",
+      "type": "aap_job_template",
+      "name": "Notify — Reboot Scheduled",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_kernel.artifacts.notify_host}",
+          "kernel_compliance": "${schedule_reboot.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${check_kernel.artifacts.kernel_latest}",
+          "remediation_action": "${schedule_reboot.artifacts.remediation_action}"
+        },
+        "job_template_name": "Kernel - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 250
+      }
+    },
+    {
+      "id": "notify_update",
+      "type": "aap_job_template",
+      "name": "Notify — Kernel Updated",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_kernel.artifacts.notify_host}",
+          "kernel_compliance": "${apply_kernel_update.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "kernel_latest": "${apply_kernel_update.artifacts.kernel_latest}",
+          "remediation_action": "${apply_kernel_update.artifacts.remediation_action}"
+        },
+        "job_template_name": "Kernel - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 450
+      }
+    },
+    {
+      "id": "notify_eol",
+      "type": "aap_job_template",
+      "name": "Notify — EOL Flagged",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_kernel.artifacts.notify_host}",
+          "kernel_compliance": "${flag_eol.artifacts.kernel_compliance}",
+          "kernel_running": "${check_kernel.artifacts.kernel_running}",
+          "remediation_action": "${flag_eol.artifacts.remediation_action}"
+        },
+        "job_template_name": "Kernel - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 650
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "trigger_schedule",
+      "to": "check_kernel"
+    },
+    {
+      "from": "check_kernel",
+      "to": "route_switch"
+    },
+    {
+      "from": "route_switch",
+      "to": "log_compliant",
+      "from_port": "case_0"
+    },
+    {
+      "from": "route_switch",
+      "to": "schedule_reboot",
+      "from_port": "case_1"
+    },
+    {
+      "from": "route_switch",
+      "to": "apply_kernel_update",
+      "from_port": "case_2"
+    },
+    {
+      "from": "route_switch",
+      "to": "flag_eol",
+      "from_port": "case_3"
+    },
+    {
+      "from": "log_compliant",
+      "to": "notify_compliant"
+    },
+    {
+      "from": "schedule_reboot",
+      "to": "notify_reboot"
+    },
+    {
+      "from": "apply_kernel_update",
+      "to": "notify_update"
+    },
+    {
+      "from": "flag_eol",
+      "to": "notify_eol"
+    }
+  ]
+}
