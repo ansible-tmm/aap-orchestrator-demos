@@ -76,7 +76,7 @@ terms:
     label: Task agent
     icon: assets/icons/glossary/ai-node.svg
     category: ai
-    description: Adds LLM reasoning to a workflow — the node receives a natural-language prompt, can call enabled tools, and returns structured output that downstream steps reference through expressions. Use it for unstructured data (logs, tickets, alerts) to summarize, classify, triage, and recommend remediation actions; pair with an approval step for human oversight.
+    description: Adds LLM reasoning to a workflow — the step receives a natural-language prompt, can call enabled tools, and returns structured output that downstream steps reference through expressions. Use it for unstructured data (logs, tickets, alerts) to summarize, classify, triage, and recommend remediation actions; pair with an approval step for human oversight.
     nexus_source: workflows/understand-workflow-ai-agents.md
 
   mcp_integration:
@@ -94,42 +94,42 @@ terms:
     nexus_source: workflows/add-action-steps.md
 
   switch:
-    label: Switch node
+    label: Switch step
     icon: assets/icons/glossary/switch-node.svg
     category: control_flow
     description: Evaluates conditions and routes execution to the first matching branch, supporting up to 100 ordered paths plus a fallback when nothing matches. Use it to branch on severity tiers, environment (dev/staging/prod), or AI agent output categories where a binary conditional isn't enough.
     nexus_source: workflows/understand-control-flow-steps.md
 
   approval:
-    label: Approval node
+    label: Approval step
     icon: assets/icons/glossary/approval-node.svg
     category: approval_cat
     description: Pauses the branch and creates an approval request; an approver reviews context, approves or rejects, and the workflow continues on the matching path. Place approvals before destructive or production changes, with configurable approver users/groups, a decision window, and fallback behavior if no one responds in time.
     nexus_source: workflows/understand-workflow-approvals.md
 
   conditional:
-    label: Conditional node
+    label: Conditional step
     icon: assets/icons/glossary/conditional-node.svg
     category: control_flow
-    description: Evaluates one expression and routes to a true or false branch, sharing the same expression builder as switch nodes. Use it for simple binary branching, and leave the false path unconnected to end the branch when the condition isn't met.
+    description: Evaluates one expression and routes to a true or false branch, sharing the same expression builder as switch steps. Use it for simple binary branching, and leave the false path unconnected to end the branch when the condition isn't met.
     nexus_source: workflows/understand-control-flow-steps.md
 
   loop:
-    label: Loop node
+    label: Loop step
     icon: assets/icons/glossary/loop-node.svg
     category: control_flow
     description: Repeats a set of steps for each item in a collection or while a condition is true, giving downstream steps access to loop variables such as the current item and index. Ideal for processing batches — hosts, tickets, certificates — without duplicating canvas steps; combine with converge when parallel iterations need to rejoin.
     nexus_source: workflows/understand-control-flow-steps.md
 
   converge:
-    label: Converge node
+    label: Converge step
     icon: assets/icons/glossary/converge-node.svg
     category: control_flow
     description: Joins multiple parallel branches back into a single execution path, waiting until every connected upstream branch completes before continuing. Place it after switch or conditional branches that must rejoin so the workflow proceeds as a single thread.
     nexus_source: workflows/understand-control-flow-steps.md
 
   wait:
-    label: Wait node
+    label: Wait step
     icon: assets/icons/glossary/wait-node.svg
     category: control_flow
     description: Pauses workflow execution for a fixed delay or expression-based duration before continuing to the next step. Useful between retries, after triggering external processes that need time to complete, or for scheduled follow-ups.
@@ -157,7 +157,7 @@ terms:
     nexus_source: workflows/understand-aap-execution-steps.md
 
   script:
-    label: Script node
+    label: Script step
     icon: assets/icons/glossary/script-node.svg
     category: actions
     description: Runs Python or Bash to parse, transform, or reshape data between steps — for example, normalizing an API response before a Task agent or AAP job consumes it. Lightweight alternative to launching a playbook; test with mock upstream output in the builder before publishing. Disabled by default until execution-plane capabilities are available in your deployment — intended for demos and early evaluation today. Additional scripting languages may be supported later based on demand.

@@ -71,7 +71,7 @@ curl -vk https://100.48.81.58
 1. Webhook alert arrives at AO (simulating Splunk, Prometheus, or Dynatrace)
 2. Normalize Alert script extracts hostname, service, cert CN from the payload
 3. AI agent analyzes the alert and selects "Renew Certificate" job template with correct variables
-4. Condition node verifies the agent produced a valid plan
+4. Condition step verifies the agent produced a valid plan
 5. Operator approves the renewal in the AO UI
 6. AAP runs the renewal playbook: pulls CA from Vault, generates new key + CSR, signs with valid dates, deploys to nginx, reloads
 7. AAP runs the validation playbook: TLS handshake, checks days remaining > 0, confirms HTTP 200
@@ -81,7 +81,7 @@ curl -vk https://100.48.81.58
 
 | Step | AO Workflow | AAP Workflow |
 |------|------------|-------------|
-| Template selection | AI agent picks dynamically based on alert context | Hardcoded in workflow node |
+| Template selection | AI agent picks dynamically based on alert context | Hardcoded in workflow step |
 | Approval context | Agent reasoning and blast radius shown to approver | Basic approve/deny |
 | Event ingestion | Native webhook trigger | Requires EDA rulebook |
-| Execution visibility | Visual flow with per-node status | Job list view |
+| Execution visibility | Visual flow with per-step status | Job list view |

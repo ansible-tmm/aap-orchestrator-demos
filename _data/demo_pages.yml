@@ -47,11 +47,11 @@ risk-based-routing:
   description: This demo extends Intelligent Cert Lifecycle with AI-assessed risk scoring per certificate. A switch routes low, medium, and high risk renewals to different approval and execution paths.
   why_it_matters:
     - Risk scoring separates low-touch auto-renewals from high-risk changes that need human approval.
-    - One switch node routes by AI-assessed tier instead of brittle per-host workflow forks.
+    - One switch step routes by AI-assessed tier instead of brittle per-host workflow forks.
     - Blast radius analysis gives approvers context before they sign off on production cert changes.
   bullets:
     - Risk scoring per certificate (low/medium/high)
-    - Switch-node routing to different approval flows per risk level
+    - Switch-step routing to different approval flows per risk level
     - Blast radius analysis
     - Multiple hosts with different cert types
   routes:
@@ -139,7 +139,7 @@ patch-management:
       - [none, "Report compliant, exit"]
 
 multi-os-cloud-patching:
-  description: Automation orchestrator version of Patch Cloud Stack in AWS from ansible/product-demos. Snapshot EC2 instances, run parallel RHEL and Windows pre-check and patch jobs, branch on patch success with conditional nodes, restore from EBS snapshot on failure, converge both OS paths, and publish an HTML compliance report.
+  description: Automation orchestrator version of Patch Cloud Stack in AWS from ansible/product-demos. Snapshot EC2 instances, run parallel RHEL and Windows pre-check and patch jobs, branch on patch success with conditional steps, restore from EBS snapshot on failure, converge both OS paths, and publish an HTML compliance report.
   ao_building_blocks:
     - manual_trigger
     - conditional
@@ -149,7 +149,7 @@ multi-os-cloud-patching:
   why_it_matters:
     - Parallel RHEL and Windows paths show heterogeneous fleet patching without duplicating workflows per OS.
     - EBS snapshot rollback gives change-management audiences a concrete safety net when patching fails.
-    - Conditional nodes route on job status — post-check on success, restore on failure — without AI or switch artifacts.
+    - Conditional steps route on job status — post-check on success, restore on failure — without AI or switch artifacts.
     - Playbooks and job templates come from product-demos; this repo holds the automation orchestrator workflow JSON.
   related_table:
     heading: Patching demos in this catalog
@@ -247,7 +247,7 @@ ai-incident-triage:
     - Post-remediation validation and operator notification
 
 ticket-enrichment:
-  description: ServiceNow posts an incident number to a webhook. An AI triage agent fetches the ticket via ServiceNow MCP, discovers available AAP job templates, and classifies the incident into one of three routes — auto-remediate, needs-approval, or inform-only. A switch node routes the workflow accordingly. Auto-remediate and approved paths launch a dynamic AAP job template selected by the triage agent. The inform-only path uses a second AI agent to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an Update SNOW Ticket step.
+  description: ServiceNow posts an incident number to a webhook. An AI triage agent fetches the ticket via ServiceNow MCP, discovers available AAP job templates, and classifies the incident into one of three routes — auto-remediate, needs-approval, or inform-only. A switch step routes the workflow accordingly. Auto-remediate and approved paths launch a dynamic AAP job template selected by the triage agent. The inform-only path uses a second AI agent to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an Update SNOW Ticket step.
   ao_building_blocks:
     - webhook_trigger
     - agentic

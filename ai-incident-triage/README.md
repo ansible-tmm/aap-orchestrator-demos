@@ -19,7 +19,7 @@ Trigger (incident number)
 |---------|-------|
 | ServiceNow MCP native integration | All Task agents |
 | AI incident classification | Triage Agent |
-| Switch (3-way routing) | Route Decision node |
+| Switch (3-way routing) | Route Decision step |
 | Human Approval | Approval branch |
 | AAP Job Template execution | Both remediation branches |
 

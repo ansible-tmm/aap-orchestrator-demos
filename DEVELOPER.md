@@ -117,9 +117,9 @@ See [disk-utilization/SETUP_GUIDE.md](disk-utilization/SETUP_GUIDE.md) for envir
 
 | Capability | AAP Workflow | AO Workflow |
 |---|---|---|
-| Template selection | Hardcoded in workflow node | AI agent discovers and selects at runtime |
+| Template selection | Hardcoded in workflow step | AI agent discovers and selects at runtime |
 | Multi-cert routing | Requires conditions per cert type | Agent reasons about cert type automatically |
-| Threshold routing | Nested success/failure nodes | Switch node routes on `disk_use_percent` with comparison expressions |
+| Threshold routing | Nested success/failure steps | Switch step routes on `disk_use_percent` with comparison expressions |
 | Approval context | Basic approve/deny | Agent analysis, confidence %, blast radius |
 | Event triggers | Requires EDA rulebook | Native webhook triggers (Splunk, Prometheus, etc.) |
 | Visual builder | YAML defined | Drag-and-drop with live execution view |
@@ -132,7 +132,7 @@ See [disk-utilization/SETUP_GUIDE.md](disk-utilization/SETUP_GUIDE.md) for envir
 | Demo VM | 1x RHEL 9, t3.small or equivalent |
 | HashiCorp Vault | Container on demo VM (cert demo; provisioned automatically) |
 | Splunk | Container on bastion/monitoring host (cert demo) |
-| LiteLLM | AI proxy for AO agent nodes (cert demo) |
+| LiteLLM | AI proxy for AO agent steps (cert demo) |
 | AWS credentials | Execution environment for EBS expand (disk demo) |
 | Mattermost | API token on notify job template (disk demo) |
 | DNS | `certdemo.demoredhat.com` pointing to demo VM (cert demo) |

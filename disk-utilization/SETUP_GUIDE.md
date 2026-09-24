@@ -89,7 +89,7 @@ Create six job templates from `disk-utilization/playbooks/`:
 | `api_chat_token` | Mattermost bot API token |
 | `mattermost_server` | Host:port (default `44.209.231.244:8065`) |
 
-Enable **Prompt on launch → Extra Variables** on JT 117 so AO can pass artifact values from upstream remediate nodes.
+Enable **Prompt on launch → Extra Variables** on JT 117 so AO can pass artifact values from upstream remediate steps.
 
 ### 4. Configure Mattermost
 
@@ -123,11 +123,11 @@ Both use the same check job and publish `disk_use_percent` plus `disk_tier`.
 
 **After import, update environment-specific values:**
 
-1. `job_template_id` on each AAP job node (if your Controller IDs differ from nostromo)
-2. `credential_id` on each node
-3. `test_disk_use_percent` on the check node — exported default is `50` (routes to Continue); change or remove for live disk checks
+1. `job_template_id` on each AAP job step (if your Controller IDs differ from nostromo)
+2. `credential_id` on each step
+3. `test_disk_use_percent` on the check step — exported default is `50` (routes to Continue); change or remove for live disk checks
 
-### 6. Configure the Switch Node
+### 6. Configure the Switch Step
 
 | Switch port | Condition | Remediate | Notify title |
 |-------------|-----------|-----------|--------------|
@@ -142,7 +142,7 @@ After a check run, confirm **Input → Schema** on the Switch step shows `disk_u
 
 `check_disk.yml` accepts `test_disk_use_percent` as an extra var. When set, it skips live `df` and simulates usage for routing.
 
-On the **Check** node in AO, set `extra_vars`:
+On the **Check** step in AO, set `extra_vars`:
 
 | Branch | `test_disk_use_percent` |
 |--------|-------------------------|

@@ -20,7 +20,7 @@ The flow is always the same shape: **check → route → remediate → notify**.
 | Classic workflow branching | automation orchestrator switch |
 |---|---|
 | Success / failure / always | Route on a **value** (`disk_use_percent`) |
-| Nested decision nodes | One switch, four ports |
+| Nested decision steps | One switch, four ports |
 | One recovery playbook with `when:` soup | Small single-purpose job templates |
 
 The check playbook publishes `disk_use_percent` (as a **number**) and `disk_tier` via `set_stats`. The AO **Switch** routes on `disk_use_percent` using comparison expressions (`< 80`, `>= 80 and <= 95`, `> 95`). Ansible requires quoted Jinja in YAML (`disk_use_percent: "{{ ... }}"`); unquoted `{{ ... }}` at the start of a value is a syntax error. To keep `disk_use_percent` numeric, `set_stats` passes a single Jinja dict expression so `disk_use_percent | int` stays an integer in the artifact payload. After a check run, confirm **Input → Schema** on the Switch step shows `number`, not `string`.
@@ -47,7 +47,7 @@ flowchart LR
 |---|---|
 | [SETUP_GUIDE.md](SETUP_GUIDE.md) | Step-by-step environment setup |
 
-Import [`ao/disk-demo-101.json`](ao/disk-demo-101.json) — this is the **working nostromo export** with all four branches and per-branch notify nodes. Activity UUIDs and `credential_id` are environment-specific; update `job_template_id` values if your Controller IDs differ.
+Import [`ao/disk-demo-101.json`](ao/disk-demo-101.json) — this is the **working nostromo export** with all four branches and per-branch notify steps. Activity UUIDs and `credential_id` are environment-specific; update `job_template_id` values if your Controller IDs differ.
 
 ### Nostromo job template map
 
@@ -79,7 +79,7 @@ See [SETUP_GUIDE.md](SETUP_GUIDE.md) for infrastructure prerequisites, AAP job t
 
 `check_disk.yml` accepts `test_disk_use_percent` as an extra var. When set, it skips live `df` and simulates usage for routing.
 
-On the **Check** node in AO, set `extra_vars`:
+On the **Check** step in AO, set `extra_vars`:
 
 | Branch | `test_disk_use_percent` |
 |---|---|
@@ -90,11 +90,11 @@ On the **Check** node in AO, set `extra_vars`:
 
 Remove `test_disk_use_percent` (or leave empty) for a real disk check.
 
-The exported workflow currently has `"test_disk_use_percent": 50` on the check node — safe default that routes to **Continue**. Change or remove it before a production run.
+The exported workflow currently has `"test_disk_use_percent": 50` on the check step — safe default that routes to **Continue**. Change or remove it before a production run.
 
 ## Per-branch notify pattern
 
-Each remediate branch has its **own** notify node (same JT 117). Every notify `extra_vars` key references **only** the upstream remediate activity on that branch — never a mix of cleanup + expand + continue in one block.
+Each remediate branch has its **own** notify step (same JT 117). Every notify `extra_vars` key references **only** the upstream remediate activity on that branch — never a mix of cleanup + expand + continue in one block.
 
 Example — warn path references cleanup only:
 
@@ -102,7 +102,7 @@ Example — warn path references cleanup only:
 "disk_use_percent": "${activity_5f6d0c2e_a677_4517_b013_ab2a9f8c2d59.artifacts.disk_use_percent}"
 ```
 
-This avoids AO namespace errors when a converged notify node tries to read artifacts from branches that never ran.
+This avoids AO namespace errors when a converged notify step tries to read artifacts from branches that never ran.
 
 ### Artifact contract
 

@@ -92,14 +92,14 @@ Create three job templates from `ticket-enrichment/playbooks/`:
 | `notification_body` | Work note body from triage agent |
 | `snow_ticket_state` | SNOW state value (`2` = In Progress, `6` = Resolved) |
 
-Enable **Prompt on launch → Extra Variables** on the Update Ticket template so AO can pass values from upstream nodes.
+Enable **Prompt on launch → Extra Variables** on the Update Ticket template so AO can pass values from upstream steps.
 
 ### 5. Configure AI Credential
 
 1. Create an AI credential in automation orchestrator for your chosen model provider.
 2. Tested with `claude-sonnet-4-6` — any supported model works on both Task agents.
-3. Configure ServiceNow MCP and AAP MCP tool connections on the **AI Triage Agent** node.
-4. Configure ServiceNow MCP tool connections on the **Enrich and Assign** node.
+3. Configure ServiceNow MCP and AAP MCP tool connections on the **AI Triage Agent** step.
+4. Configure ServiceNow MCP tool connections on the **Enrich and Assign** step.
 
 ### 6. Import AO Workflow
 
@@ -111,8 +111,8 @@ Import the workflow JSON into automation orchestrator:
 
 **After import, update environment-specific values:**
 
-1. `credential_id` on each node — replace `REPLACE_WITH_AAP_CREDENTIAL_ID` and `REPLACE_WITH_AI_CREDENTIAL_ID`
-2. `integration_id` on AAP job nodes — replace `REPLACE_WITH_INTEGRATION_ID`
+1. `credential_id` on each step — replace `REPLACE_WITH_AAP_CREDENTIAL_ID` and `REPLACE_WITH_AI_CREDENTIAL_ID`
+2. `integration_id` on AAP job steps — replace `REPLACE_WITH_INTEGRATION_ID`
 3. ServiceNow credentials in extra vars — replace `YOUR_SNOW_*` placeholders
 4. Re-select MCP tools on both Task agents (tool UUIDs are environment-specific)
 
@@ -130,7 +130,7 @@ Example test payload:
 }
 ```
 
-### 8. Configure the Switch Node
+### 8. Configure the Switch Step
 
 | Switch port | Condition | Path |
 |-------------|-----------|------|
@@ -142,7 +142,7 @@ The switch routes on `${triage_agent.result.content.route}` — this is configur
 
 ## Dynamic Job Template
 
-The **Run Auto Remediation** and **Run Approved Remediation** nodes use an expression for the job template name:
+The **Run Auto Remediation** and **Run Approved Remediation** steps use an expression for the job template name:
 
 ```text
 ${triage_agent.result.content.job_template_name}

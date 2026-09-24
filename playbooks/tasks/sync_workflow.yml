@@ -22,7 +22,7 @@
          | items2dict
          | combine({'parameters': __ao_trigger_item.parameters | default(__ao_trigger_item.config | default({}))}) }}"
 
-- name: Normalize workflow nodes
+- name: Normalize workflow steps
   ansible.builtin.set_fact:
     __ao_nodes: "{{ __ao_nodes | default([]) + [__ao_node] }}"
   loop: "{{ __ao_workflow.nodes | default([]) }}"

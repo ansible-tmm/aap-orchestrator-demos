@@ -10,7 +10,7 @@ A monitoring or ticketing integration cannot classify an incident. Instead of gu
 2. **EDA** launches an AAP job that **POSTs** the event to the **automation orchestrator (AO) webhook**
 3. **AO** starts a workflow and launches **Linux - Run xSOS Analysis** and **Linux - Gather Host Facts** in parallel on the reported host
 4. **xSOS** collects a fast, human-readable system summary; the facts playbook publishes structured OS/CPU/memory/load artifacts alongside it
-5. An AO **Task Agent (AI)** node reasons over both artifact sets and produces a plain-language RCA summary
+5. An AO **Task Agent (AI)** step reasons over both artifact sets and produces a plain-language RCA summary
 6. **Linux - Notify RCA Chatroom** posts that summary to **Mattermost** for a human to read and decide next steps
 
 This pattern complements automation orchestrator agent workflows: EDA reacts to the event; xSOS and the facts playbook gather evidence in parallel; a Task agent reasons over both; a human reviews the result in chat.
@@ -75,18 +75,18 @@ An alternate rulebook using `run_module` + `ansible.builtin.uri` lives at [`eda/
 | [`post_ao_webhook.yml`](playbooks/post_ao_webhook.yml) | POST event JSON to AO webhook | **EDA** via `run_job_template` (JT: Linux - Post AO Webhook) |
 | [`run_xsos_analysis.yml`](playbooks/run_xsos_analysis.yml) | Install xSOS, run analysis, save report, publish artifacts | **AO workflow** (JT: Linux - Run xSOS Analysis) |
 | [`gather_host_facts.yml`](playbooks/gather_host_facts.yml) | Gather Linux facts (OS, CPU, memory, load, mounts) and publish artifacts | **AO workflow**, in parallel with xSOS analysis (JT: Linux - Gather Host Facts) |
-| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) | Post an AI-generated RCA summary to Mattermost | **AO workflow**, after an AI/Task Agent node reasons over the artifacts (JT: Linux - Notify RCA Chatroom) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) | Post an AI-generated RCA summary to Mattermost | **AO workflow**, after an AI/Task Agent step reasons over the artifacts (JT: Linux - Notify RCA Chatroom) |
 
 ### Facts and artifacts published via `set_stats`
 
-`run_xsos_analysis.yml` and `gather_host_facts.yml` both run against the reported host and publish their findings with `ansible.builtin.set_stats`, so every value below is available as an artifact on later AO workflow nodes (including an AI/Task Agent node) without re-reading the host:
+`run_xsos_analysis.yml` and `gather_host_facts.yml` both run against the reported host and publish their findings with `ansible.builtin.set_stats`, so every value below is available as an artifact on later AO workflow steps (including an AI/Task Agent step) without re-reading the host:
 
 | Source playbook | Artifacts |
 |---|---|
 | `run_xsos_analysis.yml` | `analyzed_host`, `issue_summary`, `analyzed_at`, `xsos_report_path`, `xsos_report_preview` |
 | `gather_host_facts.yml` | `analyzed_host`, `gathered_at`, `os_distribution`, `kernel`, `architecture`, `uptime_seconds`, `total_memory_mb`, `free_memory_mb`, `swap_total_mb`, `swap_free_mb`, `cpu_count`, `load_1m`/`load_5m`/`load_15m`, `default_ipv4`, `mounts`, `selinux_status` |
 
-`notify_chatroom.yml` expects an `ai_summary` (or `rca_summary`) extra var — the text an AO AI/Task Agent node produced after reasoning over the artifacts above — plus `notify_host`, `issue_summary`, `os_distribution`, and `xsos_report_path` to build the Mattermost message. All have sane defaults if a field wasn't threaded through.
+`notify_chatroom.yml` expects an `ai_summary` (or `rca_summary`) extra var — the text an AO AI/Task Agent step produced after reasoning over the artifacts above — plus `notify_host`, `issue_summary`, `os_distribution`, and `xsos_report_path` to build the Mattermost message. All have sane defaults if a field wasn't threaded through.
 
 ## Quick start
 
@@ -142,10 +142,10 @@ Summary:
 2. Create job templates:
    - **`Linux - Post AO Webhook`** → `event-driven-xsos-rca/playbooks/post_ao_webhook.yml` (called by EDA)
    - **`Linux - Run xSOS Analysis`** → `event-driven-xsos-rca/playbooks/run_xsos_analysis.yml` (called by AO workflow)
-   - **`Linux - Gather Host Facts`** → `event-driven-xsos-rca/playbooks/gather_host_facts.yml` (called by AO workflow, in parallel with the xSOS node — same inventory/credential as xSOS)
-   - **`Linux - Notify RCA Chatroom`** → `event-driven-xsos-rca/playbooks/notify_chatroom.yml` (called by AO workflow, after the AI reasoning node — needs `api_chat_token` on the Mattermost credential, same as the disk-utilization demo's Notify Chatroom template). Use an execution environment with the `community.general` collection (e.g. the `Rhel` EE); the default supported EE doesn't ship it and the `mattermost` module will fail to resolve.
+   - **`Linux - Gather Host Facts`** → `event-driven-xsos-rca/playbooks/gather_host_facts.yml` (called by AO workflow, in parallel with the xSOS step — same inventory/credential as xSOS)
+   - **`Linux - Notify RCA Chatroom`** → `event-driven-xsos-rca/playbooks/notify_chatroom.yml` (called by AO workflow, after the AI reasoning step — needs `api_chat_token` on the Mattermost credential, same as the disk-utilization demo's Notify Chatroom template). Use an execution environment with the `community.general` collection (e.g. the `Rhel` EE); the default supported EE doesn't ship it and the `mattermost` module will fail to resolve.
 3. Create an AO workflow with an **EDA webhook trigger**; copy the webhook URL into activation extra vars
-4. Fan the webhook trigger out to **Run xSOS Analysis** and **Gather Host Facts** in parallel, join both into a **Task Agent (AI)** node prompted to summarize host health from the published artifacts, then route its output as `ai_summary` into **Notify RCA Chatroom**
+4. Fan the webhook trigger out to **Run xSOS Analysis** and **Gather Host Facts** in parallel, join both into a **Task Agent (AI)** step prompted to summarize host health from the published artifacts, then route its output as `ai_summary` into **Notify RCA Chatroom**
 5. **Create an AO service account** for webhook auth (see [Service account setup](#service-account-setup) below)
 6. Create a rulebook activation with **AAP Controller credential**, **AWS SQS credential**, and extra vars:
 
@@ -175,7 +175,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/gather_host_facts.yml \
 
 Reports land on the target under `xsos_output_dir` (default `/var/tmp/xsos-rca/`). Both playbooks publish their findings via `set_stats` for downstream AO steps — run them back-to-back locally, or in parallel from AO, since neither depends on the other.
 
-Once you have an AI-generated summary (from an AO Task Agent node, or typed in for a smoke test), try the notify step on its own:
+Once you have an AI-generated summary (from an AO Task Agent step, or typed in for a smoke test), try the notify step on its own:
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/notify_chatroom.yml \
@@ -207,7 +207,7 @@ On the service account's **Assignments** tab, assign a role that grants access t
 
 ### 4. Authorize the service account on the webhook trigger
 
-In the AO workflow editor, open the **EDA trigger** node. Under **Authorized service accounts**, select the service account you created. Publish the workflow after saving.
+In the AO workflow editor, open the **EDA trigger** step. Under **Authorized service accounts**, select the service account you created. Publish the workflow after saving.
 
 ![Webhook trigger with authorized service account](docs/images/ao-webhook-trigger-config.png)
 

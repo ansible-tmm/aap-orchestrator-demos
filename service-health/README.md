@@ -31,7 +31,7 @@ flowchart LR
 
 ## Why not binary branching?
 
-The same four outcomes in a Controller-style workflow require nested success/failure nodes that still guess at failure meaning. The switch reads one artifact and routes by **meaning**.
+The same four outcomes in a Controller-style workflow require nested success/failure steps that still guess at failure meaning. The switch reads one artifact and routes by **meaning**.
 
 ## Planned artifacts
 

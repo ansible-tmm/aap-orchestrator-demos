@@ -1,6 +1,6 @@
 # Multi-OS Cloud Patching
 
-Automation orchestrator version of [Patch Cloud Stack in AWS](https://github.com/ansible/product-demos/blob/main/cloud/docs/patch-cloud-stack.md) in product-demos. Orchestrates parallel RHEL and Windows patching on AWS with EBS snapshot rollback and a consolidated compliance report — no AI nodes, playbook-driven only.
+Automation orchestrator version of [Patch Cloud Stack in AWS](https://github.com/ansible/product-demos/blob/main/cloud/docs/patch-cloud-stack.md) in product-demos. Orchestrates parallel RHEL and Windows patching on AWS with EBS snapshot rollback and a consolidated compliance report — no AI steps, playbook-driven only.
 
 ## What this demo shows
 

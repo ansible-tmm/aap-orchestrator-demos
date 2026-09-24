@@ -122,9 +122,9 @@ This is the key point: one workflow handles both certificate types. The workflow
 
 ### The AI Agent Plans the Remediation (~2 min)
 
-> **Action:** Click into the first workflow run — the nginx one. Expand the Plan Renewal node to show the output JSON.
+> **Action:** Click into the first workflow run — the nginx one. Expand the Plan Renewal step to show the output JSON.
 
-The Plan Renewal node is an AI agent running Claude Sonnet, connected to AAP via the Model Context Protocol. It received the Splunk payload and then used AAP's MCP tools to do its own analysis.
+The Plan Renewal step is an AI agent running Claude Sonnet, connected to AAP via the Model Context Protocol. It received the Splunk payload and then used AAP's MCP tools to do its own analysis.
 
 Here's what the agent did autonomously:
 - Listed all available job templates in AAP and identified the ones relevant to certificate renewal

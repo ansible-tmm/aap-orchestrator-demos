@@ -1,5 +1,5 @@
 ---
-# Canonical notify artifact bundle for AO downstream notify node.
+# Canonical notify artifact bundle for AO downstream notify step.
 # Every remediate branch includes this task and passes branch-specific overrides.
 - name: Apply notify artifact defaults
   ansible.builtin.set_fact:

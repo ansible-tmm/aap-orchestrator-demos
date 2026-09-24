@@ -6,7 +6,7 @@
 
 ServiceNow is the **ticket ingress**: an incident number arrives on a webhook (`/snow-incident`). An **AI triage agent** fetches the incident from ServiceNow via MCP, discovers available AAP job templates via AAP MCP, and classifies the incident into one of three routes: **auto-remediate**, **needs-approval**, or **inform-only**.
 
-A **switch node** routes the workflow based on the triage output. Auto-remediate and approved paths launch a **dynamic AAP job template** selected by the triage agent at runtime. The inform-only path uses a second **AI agent** to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an **Update SNOW Ticket** step.
+A **switch step** routes the workflow based on the triage output. Auto-remediate and approved paths launch a **dynamic AAP job template** selected by the triage agent at runtime. The inform-only path uses a second **AI agent** to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an **Update SNOW Ticket** step.
 
 The AI model is configurable on both Task agents — tested with `claude-sonnet-4-6`.
 
@@ -28,7 +28,7 @@ flowchart LR
 
 ### Step-by-step
 
-| Step | Node | Type | What it does |
+| Step | Name | Type | What it does |
 |------|------|------|--------------|
 | 1 | **ServiceNow Trigger** | Webhook (`/snow-incident`) | ServiceNow (or another ITSM) posts the incident number into automation orchestrator |
 | 2 | **AI Triage Agent** | Task agent | Fetches the incident via ServiceNow MCP, discovers AAP job templates via AAP MCP, classifies route and selects `job_template_name` |
@@ -37,14 +37,14 @@ flowchart LR
 
 #### Auto Remediate path (Priority 1–2, low-risk fix, matching AAP template)
 
-| Step | Node | Type | What it does |
+| Step | Name | Type | What it does |
 |------|------|------|--------------|
 | 5a | **Run Auto Remediation** | AAP job (dynamic) | Launches `${triage_agent.result.content.job_template_name}` on `affected_system` |
 | 6a | **Update SNOW Ticket** | AAP job | Resolves the ticket (state 6) with close notes |
 
 #### Needs Approval path (Priority 1–2 risky fix, or Priority 3 with risk flags)
 
-| Step | Node | Type | What it does |
+| Step | Name | Type | What it does |
 |------|------|------|--------------|
 | 5b | **Approve Remediation Change** | Approval | Human reviews the triage analysis before proceeding |
 | 6b | **Run Approved Remediation** | AAP job (dynamic) | Same dynamic template as auto-remediate, gated by approval |
@@ -52,7 +52,7 @@ flowchart LR
 
 #### Inform Only path (Priority 4–5, or no matching AAP template)
 
-| Step | Node | Type | What it does |
+| Step | Name | Type | What it does |
 |------|------|------|--------------|
 | 5c | **Enrich and Assign** | Task agent | Searches related incidents, adds work notes, notifies customer, sets ticket to In Progress via ServiceNow MCP |
 | 6c | **Update SNOW Ticket** | AAP job | Posts enrichment summary to the ticket |
@@ -91,8 +91,8 @@ The triage agent prompt instructs the model to discover available AAP job templa
 |----------------|-------|
 | Webhook trigger | ServiceNow Trigger |
 | Task agent (×2) | AI Triage Agent, Enrich and Assign |
-| Switch node | Route Decision |
-| Approval node | Approve Remediation Change |
+| Switch step | Route Decision |
+| Approval step | Approve Remediation Change |
 | AAP job template (×5) | Update SNOW Ticket (×3), Run Auto Remediation, Run Approved Remediation |
 | ServiceNow MCP | Both Task agents |
 | AAP MCP | AI Triage Agent |

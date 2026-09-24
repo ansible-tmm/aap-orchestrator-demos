@@ -1009,7 +1009,7 @@ button.ao-block:focus-visible {
   border-radius: 6px;
 }
 
-/* Category accent colors — matching AO product canvas node colors */
+/* Category accent colors — matching AO product canvas step colors */
 .glossary-card[data-category="triggers"] .glossary-card__icon-wrap {
   background: rgba(160, 160, 160, 0.15);
 }

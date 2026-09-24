@@ -9,7 +9,7 @@
 | Demo VM | nginx + api-server with certs | EC2 t3.small, provisioned by setup playbooks |
 | Splunk | Cert monitoring + alerts | Container on bastion (or OCP) |
 | Mattermost | Notifications | Container on bastion (or OCP) |
-| LiteLLM | AI proxy for AO agent nodes | Container on bastion |
+| LiteLLM | AI proxy for AO agent steps | Container on bastion |
 
 ## Step-by-Step Setup
 
