@@ -1,0 +1,44 @@
+---
+- name: Check service state
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        service_name: "{{ service_name | default('httpd') }}"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Resolve service unit name
+      ansible.builtin.set_fact:
+        _service_unit: "{{ service_name }}.service"
+
+    - name: Determine service state
+      ansible.builtin.set_fact:
+        service_state: >-
+          {%- set svc = ansible_facts.services.get(_service_unit, {}) -%}
+          {%- if svc | length == 0 -%}
+          not-found
+          {%- elif svc.state == 'running' -%}
+          active
+          {%- elif svc.state == 'failed' -%}
+          failed
+          {%- else -%}
+          inactive
+          {%- endif -%}
+
+    - name: Publish check artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          service_name: "{{ service_name }}"
+          service_state: "{{ service_state | trim }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Show detected service state
+      ansible.builtin.debug:
+        msg: "{{ service_name }} on {{ inventory_hostname }} is {{ service_state | trim }}"

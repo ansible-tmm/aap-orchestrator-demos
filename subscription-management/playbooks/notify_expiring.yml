@@ -1,0 +1,30 @@
+---
+- name: Notify — subscription expiring soon
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        subscription_status: "{{ subscription_status | default('expiring') }}"
+        subscription_expiry: "{{ subscription_expiry | default('unknown') }}"
+        subscription_days_remaining: "{{ subscription_days_remaining | default(-1) | int }}"
+
+    - name: Log expiring subscription
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} subscription expires {{ subscription_expiry }}
+          ({{ subscription_days_remaining }} days remaining).
+          Schedule renewal before entitlement lapses.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Notify Expiring"
+          subscription_status: "{{ subscription_status }}"
+          subscription_expiry: "{{ subscription_expiry }}"
+          subscription_days_remaining: "{{ subscription_days_remaining }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

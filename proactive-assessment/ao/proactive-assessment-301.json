@@ -1,0 +1,145 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Proactive Certificate Assessment",
+  "description": "Scheduled scan of the certificate estate — renew expiring certs proactively or log all-clear with a compliance report.",
+  "triggers": [
+    {
+      "id": "trigger_schedule",
+      "type": "schedule_trigger",
+      "name": "Nightly Cert Scan",
+      "parameters": {
+        "schedule": "0 2 * * *"
+      },
+      "position": {
+        "x": 0,
+        "y": 300
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "scan_certs",
+      "type": "aap_job_template",
+      "name": "Scan Certificates",
+      "parameters": {
+        "diff_mode": false,
+        "job_template_name": "Cert - Scan Certificates",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "result_switch",
+      "type": "switch",
+      "name": "Route by Scan Result",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "needs_renewal",
+            "condition": "${scan_certs.artifacts.cert_scan_result} == 'needs_renewal'"
+          },
+          {
+            "label": "all_ok",
+            "condition": "${scan_certs.artifacts.cert_scan_result} == 'all_ok'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 300
+      }
+    },
+    {
+      "id": "renew_proactive",
+      "type": "aap_job_template",
+      "name": "Renew Expiring Certs",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "expiry_window_days": "${scan_certs.artifacts.expiry_window_days}"
+        },
+        "job_template_name": "Cert - Renew Proactive",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 200
+      }
+    },
+    {
+      "id": "log_ok",
+      "type": "aap_job_template",
+      "name": "Log OK — No Action",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "certs_total": "${scan_certs.artifacts.certs_total}",
+          "certs_healthy": "${scan_certs.artifacts.certs_healthy}",
+          "expiry_window_days": "${scan_certs.artifacts.expiry_window_days}"
+        },
+        "job_template_name": "Cert - Log OK",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 950,
+        "y": 400
+      }
+    },
+    {
+      "id": "compliance_report",
+      "type": "aap_job_template",
+      "name": "Compliance Report",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "certs_total": "${scan_certs.artifacts.certs_total}",
+          "certs_expiring": "${scan_certs.artifacts.certs_expiring}",
+          "certs_healthy": "${scan_certs.artifacts.certs_healthy}",
+          "cert_scan_result": "${scan_certs.artifacts.cert_scan_result}",
+          "expiry_window_days": "${scan_certs.artifacts.expiry_window_days}",
+          "notify_host": "${scan_certs.artifacts.notify_host}"
+        },
+        "job_template_name": "Cert - Compliance Report",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1300,
+        "y": 300
+      }
+    },
+    {
+      "id": "notify_chatroom",
+      "type": "aap_job_template",
+      "name": "Notify Chatroom",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_scan_result": "${scan_certs.artifacts.cert_scan_result}",
+          "certs_total": "${scan_certs.artifacts.certs_total}",
+          "certs_expiring": "${scan_certs.artifacts.certs_expiring}",
+          "compliance_pct": "${compliance_report.artifacts.compliance_pct}",
+          "notify_host": "${scan_certs.artifacts.notify_host}",
+          "expiry_window_days": "${scan_certs.artifacts.expiry_window_days}"
+        },
+        "job_template_name": "Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1600,
+        "y": 300
+      }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_schedule", "to": "scan_certs" },
+    { "from": "scan_certs", "to": "result_switch" },
+    { "from": "result_switch", "to": "renew_proactive", "from_port": "case_0" },
+    { "from": "result_switch", "to": "log_ok", "from_port": "case_1" },
+    { "from": "renew_proactive", "to": "compliance_report" },
+    { "from": "log_ok", "to": "compliance_report" },
+    { "from": "compliance_report", "to": "notify_chatroom" }
+  ]
+}

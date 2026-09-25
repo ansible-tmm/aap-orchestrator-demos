@@ -1,0 +1,57 @@
+---
+- name: Notify operators — multi-service correlation workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        correlation_result: "{{ correlation_result | default('unknown') | string }}"
+        root_cause: "{{ root_cause | default('unknown') | string }}"
+        alert_count: "{{ alert_count | default(0) | string }}"
+        alert_hosts: "{{ alert_hosts | default('unknown') | string }}"
+        correlated_services: "{{ correlated_services | default('unknown') | string }}"
+        remediation_type: "{{ remediation_type | default('unknown') | string }}"
+        remediation_result: "{{ remediation_result | default('unknown') | string }}"
+        recovery_status: "{{ recovery_status | default('unknown') | string }}"
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - fallback: "Multi-service correlation: {{ correlation_result }} — {{ alert_count }} alerts"
+            color: >-
+              {%- if recovery_status == 'ok' -%}#22c55e
+              {%- elif correlation_result == 'root_cause_found' -%}#eab308
+              {%- else -%}#ef4444
+              {%- endif -%}
+            title: "Multi-Service Alert Correlation"
+            fields:
+              - short: true
+                title: "Alerts"
+                value: "{{ alert_count }}"
+              - short: true
+                title: "Hosts"
+                value: "{{ alert_hosts }}"
+              - short: true
+                title: "Services"
+                value: "{{ correlated_services }}"
+              - short: true
+                title: "Correlation"
+                value: "{{ correlation_result }}"
+              - short: false
+                title: "Root Cause"
+                value: "{{ root_cause }}"
+              - short: true
+                title: "Remediation"
+                value: "{{ remediation_type }}"
+              - short: true
+                title: "Recovery"
+                value: "{{ recovery_status }}"
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

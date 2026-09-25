@@ -1,0 +1,85 @@
+---
+- name: Provision new hire account
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        target_username: "{{ target_username | default('newuser') }}"
+        request_type: "{{ request_type | default('new_hire') }}"
+        user_groups: "{{ user_groups | default('users,developers') }}"
+        user_shell: "{{ user_shell | default('/bin/bash') }}"
+        ssh_public_key: "{{ ssh_public_key | default('') }}"
+        sudo_commands: "{{ sudo_commands | default('ALL') }}"
+
+    - name: Create user account
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        state: present
+        shell: "{{ user_shell }}"
+        groups: "{{ user_groups }}"
+        append: true
+        create_home: true
+      register: user_result
+
+    - name: Preview user creation (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would create user {{ target_username }}
+          with groups={{ user_groups }}, shell={{ user_shell }}.
+      when: ansible_check_mode
+
+    - name: Add SSH authorized key
+      ansible.posix.authorized_key:
+        user: "{{ target_username }}"
+        key: "{{ ssh_public_key }}"
+        state: present
+      when:
+        - ssh_public_key | length > 0
+        - not ansible_check_mode
+
+    - name: Generate SSH keypair when no public key provided
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        generate_ssh_key: true
+        ssh_key_bits: 4096
+        ssh_key_comment: "{{ target_username }}@{{ ansible_hostname }}"
+      when:
+        - ssh_public_key | length == 0
+        - not ansible_check_mode
+
+    - name: Configure sudo access
+      ansible.builtin.copy:
+        content: "{{ target_username }} ALL=(ALL) NOPASSWD: {{ sudo_commands }}\n"
+        dest: "/etc/sudoers.d/{{ target_username }}"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      when: not ansible_check_mode
+
+    - name: Verify account exists
+      ansible.builtin.command:
+        cmd: "id {{ target_username }}"
+      register: id_result
+      changed_when: false
+      check_mode: false
+
+    - name: Log provisioning result
+      ansible.builtin.debug:
+        msg: >-
+          New hire {{ target_username }} provisioned on {{ inventory_hostname }}.
+          Groups: {{ user_groups }}. Shell: {{ user_shell }}.
+          Identity: {{ id_result.stdout }}.
+
+    - name: Publish provisioning artifacts
+      ansible.builtin.set_stats:
+        data:
+          request_type: "{{ request_type }}"
+          target_username: "{{ target_username }}"
+          action_taken: "provision_new_hire"
+          user_groups: "{{ user_groups }}"
+          account_created: "{{ user_result.changed | default(false) }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

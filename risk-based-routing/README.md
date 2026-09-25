@@ -1,6 +1,8 @@
 # Certificate Rotation 201: Risk-Based Routing
 
-Coming soon. This demo extends 101 with:
+**Status: Active** — playbooks and AO workflow JSON included.
+
+This demo extends 101 with:
 
 - Risk scoring per certificate (low/medium/high)
 - Switch-step routing to different approval flows per risk level
@@ -24,4 +26,10 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`assess_risk.yml`](playbooks/assess_risk.yml) |
+| [`auto_renew.yml`](playbooks/auto_renew.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`notify_renew.yml`](playbooks/notify_renew.yml) |
+| [`validate_tls.yml`](playbooks/validate_tls.yml) |

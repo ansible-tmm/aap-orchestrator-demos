@@ -1,0 +1,51 @@
+---
+- name: Notify Mattermost chatroom — proactive assessment workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_scan_result: "{{ cert_scan_result | default('unknown') | string }}"
+        certs_total: "{{ certs_total | default(0) | string }}"
+        certs_expiring: "{{ certs_expiring | default(0) | string }}"
+        certs_renewed: "{{ certs_renewed | default(0) | string }}"
+        compliance_pct: "{{ compliance_pct | default('unknown') | string }}"
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        expiry_window_days: "{{ expiry_window_days | default(30) | string }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - fallback: "Proactive cert scan: {{ certs_total }} scanned, {{ certs_expiring }} expiring"
+            color: >-
+              {%- if cert_scan_result == 'all_ok' -%}#22c55e
+              {%- else -%}#eab308
+              {%- endif -%}
+            title: "Proactive Certificate Assessment"
+            fields:
+              - short: true
+                title: "Host(s)"
+                value: "{{ notify_host }}"
+              - short: true
+                title: "Scan Result"
+                value: "{{ cert_scan_result }}"
+              - short: true
+                title: "Total Certs"
+                value: "{{ certs_total }}"
+              - short: true
+                title: "Expiring"
+                value: "{{ certs_expiring }}"
+              - short: true
+                title: "Renewed"
+                value: "{{ certs_renewed }}"
+              - short: true
+                title: "Compliance"
+                value: "{{ compliance_pct }}%"
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

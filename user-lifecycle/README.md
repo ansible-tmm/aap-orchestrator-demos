@@ -1,6 +1,6 @@
 # User Lifecycle 101: Request Type Routing
 
-**Status: Coming soon** — scaffold only. Playbooks and AO workflow JSON not built yet.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -32,13 +32,27 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`process_request.yml`](playbooks/process_request.yml) |
+| [`provision_contractor.yml`](playbooks/provision_contractor.yml) |
+| [`provision_new_hire.yml`](playbooks/provision_new_hire.yml) |
+| [`terminate_user.yml`](playbooks/terminate_user.yml) |
+| [`update_role.yml`](playbooks/update_role.yml) |
 
-## Planned artifacts
+## Artifacts
 
 ```
-
   ao/
+    user-lifecycle-101.json
   playbooks/
+    notify_chatroom.yml
+    process_request.yml
+    provision_contractor.yml
+    provision_new_hire.yml
+    terminate_user.yml
+    update_role.yml
   README.md
+  SETUP_GUIDE.md
 ```

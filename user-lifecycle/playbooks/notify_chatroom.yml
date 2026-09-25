@@ -1,0 +1,58 @@
+---
+- name: Notify Mattermost chatroom — user lifecycle workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        request_type: "{{ request_type | default('unknown') | string }}"
+        target_username: "{{ target_username | default('unknown') | string }}"
+        action_taken: "{{ action_taken | default('unknown') | string }}"
+        requestor: "{{ requestor | default('unknown') | string }}"
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        account_expiry: "{{ account_expiry | default('n/a') | string }}"
+        groups_before: "{{ groups_before | default('n/a') | string }}"
+        groups_after: "{{ groups_after | default('n/a') | string }}"
+
+    - name: Build action label
+      ansible.builtin.set_fact:
+        action_label: >-
+          {%- if request_type == 'new_hire' -%}New Hire Provisioned
+          {%- elif request_type == 'contractor' -%}Contractor Provisioned
+          {%- elif request_type == 'role_change' -%}Role Updated
+          {%- elif request_type == 'termination' -%}Account Terminated
+          {%- else -%}User Lifecycle Action
+          {%- endif -%}
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - fallback: "User lifecycle: {{ action_label }} for {{ target_username }}"
+            color: >-
+              {%- if request_type == 'termination' -%}#ef4444
+              {%- elif request_type == 'new_hire' -%}#22c55e
+              {%- elif request_type == 'contractor' -%}#3b82f6
+              {%- else -%}#eab308
+              {%- endif -%}
+            title: "{{ action_label }}"
+            fields:
+              - short: true
+                title: "User"
+                value: "{{ target_username }}"
+              - short: true
+                title: "Host(s)"
+                value: "{{ notify_host }}"
+              - short: true
+                title: "Requested by"
+                value: "{{ requestor }}"
+              - short: true
+                title: "Action"
+                value: "{{ action_taken }}"
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

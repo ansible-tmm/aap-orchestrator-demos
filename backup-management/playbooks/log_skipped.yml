@@ -1,0 +1,46 @@
+---
+- name: Log skipped backup — check schedule
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        backup_result: "{{ backup_result | default('skipped') }}"
+        backup_timestamp: "{{ backup_timestamp | default('unknown') }}"
+
+    - name: Check for cron backup schedule
+      ansible.builtin.command:
+        cmd: crontab -l
+      register: _crontab
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Check for systemd backup timer
+      ansible.builtin.command:
+        cmd: systemctl list-timers --no-pager
+      register: _timers
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Log skipped reason
+      ansible.builtin.debug:
+        msg: >-
+          Backup skipped on {{ inventory_hostname }}.
+          Last timestamp: {{ backup_timestamp }}.
+          Possible causes: no backup schedule configured, maintenance window,
+          or backup disabled.
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Log Skipped"
+          backup_result: "{{ backup_result }}"
+          backup_timestamp: "{{ backup_timestamp }}"
+          has_cron_schedule: "{{ 'backup' in (_crontab.stdout | default('') | lower) }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

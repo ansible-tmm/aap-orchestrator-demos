@@ -1,0 +1,84 @@
+---
+- name: Register unregistered RHEL system
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        subscription_status: "{{ subscription_status | default('unregistered') }}"
+        rhsm_activation_key: "{{ rhsm_activation_key | default('demo-activation-key') }}"
+        rhsm_org_id: "{{ rhsm_org_id | default('demo-org') }}"
+
+    - name: Confirm system is unregistered
+      ansible.builtin.command:
+        cmd: subscription-manager identity
+      register: _sm_identity_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Skip if already registered
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} is already registered — skipping."
+      when: _sm_identity_check.rc == 0
+
+    - name: Preview registration (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would register {{ inventory_hostname }} with
+          activation key {{ rhsm_activation_key }} and org {{ rhsm_org_id }}.
+      when:
+        - ansible_check_mode
+        - _sm_identity_check.rc != 0
+
+    - name: Register system with activation key
+      ansible.builtin.command:
+        cmd: >-
+          subscription-manager register
+          --activationkey={{ rhsm_activation_key }}
+          --org={{ rhsm_org_id }}
+          --force
+      register: _sm_register
+      when:
+        - not ansible_check_mode
+        - _sm_identity_check.rc != 0
+
+    - name: Enable required repositories
+      ansible.builtin.command:
+        cmd: >-
+          subscription-manager repos
+          --enable=rhel-{{ ansible_distribution_major_version }}-for-x86_64-baseos-rpms
+          --enable=rhel-{{ ansible_distribution_major_version }}-for-x86_64-appstream-rpms
+      register: _sm_repos
+      when:
+        - not ansible_check_mode
+        - _sm_identity_check.rc != 0
+
+    - name: Verify registration
+      ansible.builtin.command:
+        cmd: subscription-manager identity
+      register: _sm_verify
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - _sm_identity_check.rc != 0
+
+    - name: Log registration result
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} registered successfully.
+          Identity: {{ _sm_verify.stdout_lines[0] | default('unknown') }}.
+          Repos enabled: {{ _sm_repos.stdout | default('skipped') }}.
+
+    - name: Publish registration artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Register System"
+          subscription_status: "registered"
+          registration_result: "{{ _sm_register.stdout | default('skipped') }}"
+          dry_run: "{{ ansible_check_mode }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

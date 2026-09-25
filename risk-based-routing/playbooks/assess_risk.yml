@@ -1,0 +1,41 @@
+---
+- name: Prepare risk assessment artifacts from AI agent output
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        risk_tier: "{{ risk_tier | default('high') | string | trim | lower }}"
+        cert_domain: "{{ cert_domain | default('unknown') | string }}"
+        reasoning: "{{ reasoning | default('') | string }}"
+        confidence: "{{ confidence | default(0.0) }}"
+        cert_type: "{{ cert_type | default('unknown') | string }}"
+        days_remaining: "{{ days_remaining | default(0) | int }}"
+        blast_radius: "{{ blast_radius | default('unknown') | string }}"
+
+    - name: Validate risk_tier value
+      ansible.builtin.fail:
+        msg: "Invalid risk_tier '{{ risk_tier }}'. Valid values: low, medium, high"
+      when: risk_tier not in ['low', 'medium', 'high']
+
+    - name: Publish risk assessment artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          risk_tier: "{{ risk_tier }}"
+          cert_domain: "{{ cert_domain }}"
+          cert_type: "{{ cert_type }}"
+          days_remaining: "{{ days_remaining | int }}"
+          confidence: "{{ confidence }}"
+          blast_radius: "{{ blast_radius }}"
+          reasoning: "{{ reasoning }}"
+        per_host: false
+        aggregate: false
+
+    - name: Show risk assessment result
+      ansible.builtin.debug:
+        msg: >-
+          Risk assessment for {{ cert_domain }}: tier={{ risk_tier }},
+          confidence={{ confidence }}, days_remaining={{ days_remaining }},
+          blast_radius={{ blast_radius }}.
+          Reasoning: {{ reasoning }}.

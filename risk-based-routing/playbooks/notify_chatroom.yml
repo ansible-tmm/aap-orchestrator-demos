@@ -1,0 +1,60 @@
+---
+- name: Notify Mattermost chatroom — risk-based routing workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        cert_domain: "{{ cert_domain | default('unknown') | string }}"
+        risk_tier: "{{ risk_tier | default('unknown') | string }}"
+        renewal_type: "{{ renewal_type | default('unknown') | string }}"
+        cert_renewal_status: "{{ cert_renewal_status | default('unknown') | string }}"
+        validation_passed: "{{ validation_passed | default('unknown') | string }}"
+        days_remaining: "{{ days_remaining | default('unknown') | string }}"
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        reasoning: "{{ reasoning | default('') | string }}"
+        confidence: "{{ confidence | default('unknown') | string }}"
+
+    - name: Build notification message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - fallback: "Risk-based cert renewal: {{ cert_domain }} ({{ risk_tier }})"
+            color: >-
+              {%- if risk_tier == 'low' -%}#22c55e
+              {%- elif risk_tier == 'medium' -%}#eab308
+              {%- else -%}#ef4444
+              {%- endif -%}
+            title: "Risk-Based Certificate Renewal — {{ risk_tier | upper }}"
+            fields:
+              - short: true
+                title: "Domain"
+                value: "{{ cert_domain }}"
+              - short: true
+                title: "Risk Tier"
+                value: "{{ risk_tier }}"
+              - short: true
+                title: "Renewal Type"
+                value: "{{ renewal_type }}"
+              - short: true
+                title: "Status"
+                value: "{{ cert_renewal_status }}"
+              - short: true
+                title: "Validation"
+                value: "{{ validation_passed }}"
+              - short: true
+                title: "Days Remaining"
+                value: "{{ days_remaining }}"
+              - short: true
+                title: "Host(s)"
+                value: "{{ notify_host }}"
+              - short: false
+                title: "AI Reasoning"
+                value: "{{ reasoning }}"
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

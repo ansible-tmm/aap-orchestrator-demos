@@ -1,0 +1,45 @@
+---
+- name: Notify Mattermost chatroom — cert expiry workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        cert_status: "{{ cert_status | default('unknown') | string | trim | lower }}"
+        cert_domain: "{{ cert_domain | default('unknown') | string }}"
+        days_remaining: "{{ days_remaining | default('unknown') | string }}"
+        cert_expiry_date: "{{ cert_expiry_date | default('unknown') | string }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        validation_passed: "{{ validation_passed | default('N/A') | string }}"
+        dry_run: "{{ dry_run | default(false) | bool }}"
+
+    - name: Build Mattermost message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if cert_status == 'healthy' -%}#4ade80
+              {%- elif cert_status == 'plan' -%}#60a5fa
+              {%- elif cert_status in ['renew', 'renewed'] -%}#fbbf24
+              {%- elif cert_status == 'emergency' -%}#ef4444
+              {%- else -%}#888888{%- endif -%}
+            title: "Cert Expiry — {{ remediation_action }}"
+            text: |
+              | Field | Value |
+              |:------|:------|
+              | Host | {{ notify_host }} |
+              | Domain | {{ cert_domain }} |
+              | Status | `{{ cert_status }}` |
+              | Days Remaining | {{ days_remaining }} |
+              | Expiry Date | {{ cert_expiry_date }} |
+              | Action | {{ remediation_action }} |
+              | Validation | {{ validation_passed }} |
+              | Dry Run | {{ dry_run }} |
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

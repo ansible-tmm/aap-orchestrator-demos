@@ -1,0 +1,30 @@
+---
+- name: Log healthy certificate estate — no renewals needed
+  hosts: "{{ _host | default('all') }}"
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        certs_total: "{{ certs_total | default(0) | int }}"
+        certs_healthy: "{{ certs_healthy | default(0) | int }}"
+        expiry_window_days: "{{ expiry_window_days | default(30) | int }}"
+
+    - name: Log healthy estate
+      ansible.builtin.debug:
+        msg: >-
+          All {{ certs_total }} certificates on {{ inventory_hostname }} are healthy.
+          No certificates expire within {{ expiry_window_days }} days.
+          No action required.
+
+    - name: Publish log-ok artifacts
+      ansible.builtin.set_stats:
+        data:
+          cert_scan_result: "all_ok"
+          certs_total: "{{ certs_total }}"
+          certs_healthy: "{{ certs_healthy }}"
+          action_taken: "log_ok"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

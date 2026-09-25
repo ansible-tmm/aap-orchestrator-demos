@@ -1,0 +1,74 @@
+---
+- name: Correlate alerts across services
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        alert_payloads: "{{ alert_payloads | default([]) }}"
+        correlation_window_seconds: "{{ correlation_window_seconds | default(300) | int }}"
+
+    - name: Fail when no alerts provided
+      ansible.builtin.fail:
+        msg: "alert_payloads is required — provide a list of alert objects."
+      when: alert_payloads | length == 0
+
+    - name: Extract unique hosts from alerts
+      ansible.builtin.set_fact:
+        alert_hosts: "{{ alert_payloads | map(attribute='host') | unique | list }}"
+        alert_services: "{{ alert_payloads | map(attribute='service') | unique | list }}"
+        alert_count: "{{ alert_payloads | length }}"
+
+    - name: Check for single-host correlation
+      ansible.builtin.set_fact:
+        same_host: "{{ alert_hosts | length == 1 }}"
+
+    - name: Check for service dependency patterns
+      ansible.builtin.set_fact:
+        has_db_and_app: >-
+          {{
+            (alert_services | select('match', '.*database.*|.*mysql.*|.*postgres.*|.*redis.*') | list | length > 0)
+            and
+            (alert_services | select('match', '.*app.*|.*web.*|.*api.*|.*nginx.*|.*httpd.*') | list | length > 0)
+          }}
+
+    - name: Determine correlation result
+      ansible.builtin.set_fact:
+        correlation_result: >-
+          {%- if same_host and (alert_count | int) > 1 -%}
+          root_cause_found
+          {%- elif has_db_and_app -%}
+          root_cause_found
+          {%- else -%}
+          unknown
+          {%- endif -%}
+        root_cause: >-
+          {%- if same_host and (alert_count | int) > 1 -%}
+          Multiple service failures on {{ alert_hosts[0] }} — likely host-level issue (disk, memory, or network)
+          {%- elif has_db_and_app -%}
+          Database service failure causing cascading app failures
+          {%- else -%}
+          No clear root cause identified from {{ alert_count }} alerts across {{ alert_hosts | length }} hosts
+          {%- endif -%}
+
+    - name: Log correlation analysis
+      ansible.builtin.debug:
+        msg: >-
+          Correlation analysis: {{ alert_count }} alerts,
+          {{ alert_hosts | length }} hosts ({{ alert_hosts | join(', ') }}),
+          {{ alert_services | length }} services ({{ alert_services | join(', ') }}).
+          Result: {{ correlation_result | trim }}.
+          Root cause: {{ root_cause | trim }}.
+
+    - name: Publish correlation artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          correlation_result: "{{ correlation_result | trim }}"
+          root_cause: "{{ root_cause | trim }}"
+          alert_count: "{{ alert_count }}"
+          alert_hosts: "{{ alert_hosts | join(',') }}"
+          correlated_services: "{{ alert_services | join(',') }}"
+          same_host: "{{ same_host }}"
+        per_host: false
+        aggregate: false

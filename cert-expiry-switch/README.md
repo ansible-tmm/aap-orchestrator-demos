@@ -1,6 +1,6 @@
 # Certificate Rotation 102: Expiry Threshold Routing
 
-**Status: Coming soon** — scaffold only. Playbooks and AO workflow JSON not built yet.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -32,7 +32,15 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`check_cert_expiry.yml`](playbooks/check_cert_expiry.yml) |
+| [`emergency_renew.yml`](playbooks/emergency_renew.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`open_change_request.yml`](playbooks/open_change_request.yml) |
+| [`renew_cert.yml`](playbooks/renew_cert.yml) |
+| [`skip_healthy.yml`](playbooks/skip_healthy.yml) |
+| [`validate_tls.yml`](playbooks/validate_tls.yml) |
 
 ## Relationship to other cert demos
 
@@ -43,11 +51,19 @@ flowchart LR
 | [201 Risk-Based Routing](../risk-based-routing/) | AI-assessed risk tier |
 | [301 Proactive Assessment](../proactive-assessment/) | Scheduled estate-wide scan |
 
-## Planned artifacts
+## Artifacts
 
 ```
-cert-expiry-switch/
   ao/
+    cert-expiry-switch-101.json
   playbooks/
+    check_cert_expiry.yml
+    emergency_renew.yml
+    notify_chatroom.yml
+    open_change_request.yml
+    renew_cert.yml
+    skip_healthy.yml
+    validate_tls.yml
   README.md
+  SETUP_GUIDE.md
 ```

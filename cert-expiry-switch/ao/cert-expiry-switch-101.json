@@ -1,0 +1,339 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Certificate Expiry Threshold Routing",
+  "description": "Check certificate expiry and route by days remaining — no AI required",
+  "triggers": [
+    {
+      "id": "trigger_manual",
+      "type": "manual_trigger",
+      "name": "Manual or Schedule",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "cert_path": {
+              "type": "string",
+              "default": "/etc/pki/tls/certs/server.crt",
+              "description": "Path to the certificate file to check"
+            },
+            "cert_domain": {
+              "type": "string",
+              "default": "",
+              "description": "Domain name for TLS validation"
+            }
+          }
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 350
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_cert_expiry",
+      "type": "aap_job_template",
+      "name": "Check Cert Expiry",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_path": "${trigger.cert_path}",
+          "cert_domain": "${trigger.cert_domain}"
+        },
+        "job_template_name": "Cert - Check Expiry",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 300,
+        "y": 350
+      }
+    },
+    {
+      "id": "route_switch",
+      "type": "switch",
+      "name": "Route by cert_status",
+      "parameters": {
+        "conditions": [
+          {
+            "label": "healthy",
+            "expression": "${check_cert_expiry.artifacts.cert_status} == 'healthy'"
+          },
+          {
+            "label": "plan",
+            "expression": "${check_cert_expiry.artifacts.cert_status} == 'plan'"
+          },
+          {
+            "label": "renew",
+            "expression": "${check_cert_expiry.artifacts.cert_status} == 'renew'"
+          },
+          {
+            "label": "emergency",
+            "expression": "${check_cert_expiry.artifacts.cert_status} == 'emergency'"
+          }
+        ]
+      },
+      "position": {
+        "x": 600,
+        "y": 350
+      }
+    },
+    {
+      "id": "skip_healthy",
+      "type": "aap_job_template",
+      "name": "Log OK",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_status": "${check_cert_expiry.artifacts.cert_status}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "cert_expiry_date": "${check_cert_expiry.artifacts.cert_expiry_date}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}"
+        },
+        "job_template_name": "Cert - Skip Healthy",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 50
+      }
+    },
+    {
+      "id": "open_change_request",
+      "type": "aap_job_template",
+      "name": "Open Change Request",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_status": "${check_cert_expiry.artifacts.cert_status}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "cert_expiry_date": "${check_cert_expiry.artifacts.cert_expiry_date}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "cert_path": "${check_cert_expiry.artifacts.cert_path}"
+        },
+        "job_template_name": "Cert - Open Change Request",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 250
+      }
+    },
+    {
+      "id": "renew_cert",
+      "type": "aap_job_template",
+      "name": "Renew Certificate",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_status": "${check_cert_expiry.artifacts.cert_status}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "cert_path": "${check_cert_expiry.artifacts.cert_path}"
+        },
+        "job_template_name": "Cert - Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 450
+      }
+    },
+    {
+      "id": "emergency_renew",
+      "type": "aap_job_template",
+      "name": "Emergency Renew",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_status": "${check_cert_expiry.artifacts.cert_status}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "cert_path": "${check_cert_expiry.artifacts.cert_path}"
+        },
+        "job_template_name": "Cert - Emergency Renew",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 900,
+        "y": 650
+      }
+    },
+    {
+      "id": "validate_renew",
+      "type": "aap_job_template",
+      "name": "Validate TLS — Renew",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "cert_path": "${check_cert_expiry.artifacts.cert_path}"
+        },
+        "job_template_name": "Cert - Validate TLS",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 450
+      }
+    },
+    {
+      "id": "validate_emergency",
+      "type": "aap_job_template",
+      "name": "Validate TLS — Emergency",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "cert_path": "${check_cert_expiry.artifacts.cert_path}"
+        },
+        "job_template_name": "Cert - Validate TLS",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 650
+      }
+    },
+    {
+      "id": "notify_healthy",
+      "type": "aap_job_template",
+      "name": "Notify — Healthy",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_cert_expiry.artifacts.notify_host}",
+          "cert_status": "${skip_healthy.artifacts.cert_status}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "remediation_action": "${skip_healthy.artifacts.remediation_action}"
+        },
+        "job_template_name": "Cert - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 50
+      }
+    },
+    {
+      "id": "notify_plan",
+      "type": "aap_job_template",
+      "name": "Notify — Change Request",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_cert_expiry.artifacts.notify_host}",
+          "cert_status": "${open_change_request.artifacts.cert_status}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "remediation_action": "${open_change_request.artifacts.remediation_action}"
+        },
+        "job_template_name": "Cert - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1200,
+        "y": 250
+      }
+    },
+    {
+      "id": "notify_renew",
+      "type": "aap_job_template",
+      "name": "Notify — Renewed",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_cert_expiry.artifacts.notify_host}",
+          "cert_status": "${renew_cert.artifacts.cert_status}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "remediation_action": "${renew_cert.artifacts.remediation_action}",
+          "validation_passed": "${validate_renew.artifacts.validation_passed}"
+        },
+        "job_template_name": "Cert - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1500,
+        "y": 450
+      }
+    },
+    {
+      "id": "notify_emergency",
+      "type": "aap_job_template",
+      "name": "Notify — Emergency",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "notify_host": "${check_cert_expiry.artifacts.notify_host}",
+          "cert_status": "${emergency_renew.artifacts.cert_status}",
+          "cert_domain": "${check_cert_expiry.artifacts.cert_domain}",
+          "days_remaining": "${check_cert_expiry.artifacts.days_remaining}",
+          "remediation_action": "${emergency_renew.artifacts.remediation_action}",
+          "validation_passed": "${validate_emergency.artifacts.validation_passed}"
+        },
+        "job_template_name": "Cert - Notify Chatroom",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1500,
+        "y": 650
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "trigger_manual",
+      "to": "check_cert_expiry"
+    },
+    {
+      "from": "check_cert_expiry",
+      "to": "route_switch"
+    },
+    {
+      "from": "route_switch",
+      "to": "skip_healthy",
+      "from_port": "case_0"
+    },
+    {
+      "from": "route_switch",
+      "to": "open_change_request",
+      "from_port": "case_1"
+    },
+    {
+      "from": "route_switch",
+      "to": "renew_cert",
+      "from_port": "case_2"
+    },
+    {
+      "from": "route_switch",
+      "to": "emergency_renew",
+      "from_port": "case_3"
+    },
+    {
+      "from": "skip_healthy",
+      "to": "notify_healthy"
+    },
+    {
+      "from": "open_change_request",
+      "to": "notify_plan"
+    },
+    {
+      "from": "renew_cert",
+      "to": "validate_renew"
+    },
+    {
+      "from": "emergency_renew",
+      "to": "validate_emergency"
+    },
+    {
+      "from": "validate_renew",
+      "to": "notify_renew"
+    },
+    {
+      "from": "validate_emergency",
+      "to": "notify_emergency"
+    }
+  ]
+}

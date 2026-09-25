@@ -1,0 +1,79 @@
+---
+- name: Assess patch severity
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        _test_highest_severity: "{{ test_highest_severity | default('') | string | trim }}"
+
+    - name: Use test severity (skip live scan)
+      ansible.builtin.set_fact:
+        highest_severity: "{{ _test_highest_severity }}"
+        advisory_count_critical: 0
+        advisory_count_important: 0
+        advisory_count_moderate: 0
+      when: _test_highest_severity | length > 0
+
+    - name: Run dnf updateinfo to assess advisories
+      ansible.builtin.command:
+        cmd: dnf updateinfo --summary
+      register: _updateinfo
+      changed_when: false
+      check_mode: false
+      when: _test_highest_severity | length == 0
+
+    - name: Count advisory severities
+      ansible.builtin.set_fact:
+        advisory_count_critical: >-
+          {{ _updateinfo.stdout | default('')
+             | regex_search('([0-9]+)\s+Critical', '\1')
+             | default(['0'], true) | first | int }}
+        advisory_count_important: >-
+          {{ _updateinfo.stdout | default('')
+             | regex_search('([0-9]+)\s+Important', '\1')
+             | default(['0'], true) | first | int }}
+        advisory_count_moderate: >-
+          {{ _updateinfo.stdout | default('')
+             | regex_search('([0-9]+)\s+Moderate', '\1')
+             | default(['0'], true) | first | int }}
+      when: _test_highest_severity | length == 0
+
+    - name: Determine highest severity
+      ansible.builtin.set_fact:
+        highest_severity: >-
+          {%- if (advisory_count_critical | int) > 0 -%}
+          critical
+          {%- elif (advisory_count_important | int) > 0 -%}
+          important
+          {%- elif (advisory_count_moderate | int) > 0 -%}
+          moderate
+          {%- else -%}
+          none
+          {%- endif -%}
+      when: _test_highest_severity | length == 0
+
+    - name: Publish check artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          highest_severity: "{{ highest_severity | trim }}"
+          advisory_count_critical: "{{ advisory_count_critical | int }}"
+          advisory_count_important: "{{ advisory_count_important | int }}"
+          advisory_count_moderate: "{{ advisory_count_moderate | int }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+          os_version: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Show patch assessment result
+      ansible.builtin.debug:
+        msg: >-
+          {%- if _test_highest_severity | length > 0 -%}
+          [TEST] Simulated highest_severity={{ highest_severity | trim }}
+          {%- else -%}
+          {{ inventory_hostname }}: highest_severity={{ highest_severity | trim }}
+          (critical={{ advisory_count_critical }}, important={{ advisory_count_important }},
+          moderate={{ advisory_count_moderate }})
+          {%- endif -%}

@@ -1,0 +1,41 @@
+---
+- name: Notify Mattermost chatroom — subscription management workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        notify_host: "{{ notify_host | default('unknown') | string }}"
+        subscription_status: "{{ subscription_status | default('unknown') | string | trim | lower }}"
+        subscription_expiry: "{{ subscription_expiry | default('unknown') | string }}"
+        subscription_days_remaining: "{{ subscription_days_remaining | default('unknown') | string }}"
+        remediation_action: "{{ remediation_action | default('unknown') | string }}"
+        dry_run: "{{ dry_run | default(false) | bool }}"
+
+    - name: Build Mattermost message
+      ansible.builtin.set_fact:
+        mattermost_attachments:
+          - color: >-
+              {%- if subscription_status == 'registered' -%}#4ade80
+              {%- elif subscription_status == 'expiring' -%}#fbbf24
+              {%- elif subscription_status == 'expired' -%}#f87171
+              {%- elif subscription_status == 'unregistered' -%}#ef4444
+              {%- else -%}#888888{%- endif -%}
+            title: "Subscription Management — {{ remediation_action }}"
+            text: |
+              | Field | Value |
+              |:------|:------|
+              | Host | {{ notify_host }} |
+              | Status | `{{ subscription_status }}` |
+              | Expiry | {{ subscription_expiry }} |
+              | Days Remaining | {{ subscription_days_remaining }} |
+              | Action | {{ remediation_action }} |
+              | Dry Run | {{ dry_run }} |
+
+    - name: Send notification message via Mattermost
+      community.general.mattermost:
+        url: http://{{ mattermost_server | default('44.209.231.244:8065') }}
+        api_key: "{{ api_chat_token }}"
+        attachments: "{{ mattermost_attachments }}"
+      delegate_to: localhost

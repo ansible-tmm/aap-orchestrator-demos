@@ -1,0 +1,60 @@
+---
+- name: Retry partial backup — target only failed items
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        backup_result: "{{ backup_result | default('partial') }}"
+        backup_failed_targets: "{{ backup_failed_targets | default('') }}"
+        backup_script: "{{ backup_script | default('/usr/local/bin/run-backup.sh') }}"
+        backup_target_count: "{{ backup_target_count | default(0) | int }}"
+
+    - name: Log retry attempt
+      ansible.builtin.debug:
+        msg: >-
+          Retrying partial backup on {{ inventory_hostname }}.
+          Failed targets: {{ backup_failed_targets | default('unknown') }}.
+
+    - name: Preview retry (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would retry backup for failed targets:
+          {{ backup_failed_targets }}.
+      when: ansible_check_mode
+
+    - name: Check backup script exists
+      ansible.builtin.stat:
+        path: "{{ backup_script }}"
+      register: _script_check
+
+    - name: Run backup retry for failed targets
+      ansible.builtin.command:
+        cmd: "{{ backup_script }} --retry --targets {{ backup_failed_targets }}"
+      register: _retry_result
+      changed_when: true
+      failed_when: _retry_result.rc not in [0, 1]
+      when:
+        - not ansible_check_mode
+        - _script_check.stat.exists | default(false)
+
+    - name: Log retry result
+      ansible.builtin.debug:
+        msg: >-
+          Backup retry on {{ inventory_hostname }}:
+          exit code {{ _retry_result.rc | default('N/A') }}.
+          {{ _retry_result.stdout | default('Backup script not found — manual retry needed.') }}
+
+    - name: Publish artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          remediation_action: "Retry Partial Backup"
+          backup_result: "{{ backup_result }}"
+          retry_exit_code: "{{ _retry_result.rc | default(-1) }}"
+          retry_succeeded: "{{ (_retry_result.rc | default(1)) == 0 }}"
+          backup_failed_targets: "{{ backup_failed_targets }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -1,0 +1,89 @@
+---
+- name: Check kernel compliance
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        _test_kernel_compliance: "{{ test_kernel_compliance | default('') | string | trim }}"
+        eol_kernels: "{{ eol_kernels | default(['3.10', '4.18.0-80', '4.18.0-147']) }}"
+
+    - name: Use test kernel compliance (skip live check)
+      ansible.builtin.set_fact:
+        kernel_compliance: "{{ _test_kernel_compliance }}"
+        kernel_running: "test-mode"
+        kernel_latest: "test-mode"
+      when: _test_kernel_compliance | length > 0
+
+    - name: Get running kernel version
+      ansible.builtin.command:
+        cmd: uname -r
+      register: _running_kernel
+      changed_when: false
+      when: _test_kernel_compliance | length == 0
+
+    - name: Get latest installed kernel
+      ansible.builtin.shell:
+        cmd: rpm -qa kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -1
+      register: _latest_kernel
+      changed_when: false
+      when: _test_kernel_compliance | length == 0
+
+    - name: Check if reboot is required
+      ansible.builtin.command:
+        cmd: needs-restarting -r
+      register: _needs_reboot
+      changed_when: false
+      failed_when: false
+      when: _test_kernel_compliance | length == 0
+
+    - name: Check for EOL kernel
+      ansible.builtin.set_fact:
+        _is_eol: >-
+          {%- set running = _running_kernel.stdout | default('') -%}
+          {%- set found = [] -%}
+          {%- for eol in eol_kernels -%}
+            {%- if running is search(eol) -%}
+              {%- if found.append(true) -%}{%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ found | length > 0 }}
+      when: _test_kernel_compliance | length == 0
+
+    - name: Classify kernel compliance
+      ansible.builtin.set_fact:
+        kernel_compliance: >-
+          {%- if _is_eol | bool -%}
+          eol
+          {%- elif _needs_reboot.rc | default(0) != 0 -%}
+          reboot_required
+          {%- elif _running_kernel.stdout != _latest_kernel.stdout -%}
+          drift
+          {%- else -%}
+          compliant
+          {%- endif -%}
+        kernel_running: "{{ _running_kernel.stdout }}"
+        kernel_latest: "{{ _latest_kernel.stdout }}"
+      when: _test_kernel_compliance | length == 0
+
+    - name: Publish check artifacts for AO switch
+      ansible.builtin.set_stats:
+        data:
+          kernel_compliance: "{{ kernel_compliance | trim }}"
+          kernel_running: "{{ kernel_running | default('unknown') }}"
+          kernel_latest: "{{ kernel_latest | default('unknown') }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
+
+    - name: Show detected kernel compliance
+      ansible.builtin.debug:
+        msg: >-
+          {%- if _test_kernel_compliance | length > 0 -%}
+          [TEST] Simulated kernel_compliance={{ kernel_compliance }}
+          {%- else -%}
+          {{ inventory_hostname }} kernel_compliance={{ kernel_compliance }}
+          (running={{ kernel_running }}, latest={{ kernel_latest }})
+          {%- endif -%}

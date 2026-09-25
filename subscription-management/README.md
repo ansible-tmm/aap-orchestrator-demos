@@ -1,6 +1,6 @@
 # Subscription Management 101: RHEL Subscription Routing
 
-**Status: Coming soon** — scaffold only.
+**Status: Active** — playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -27,13 +27,27 @@ flowchart LR
 
 ## Playbooks
 
-🚧 **Under development** — playbook list and source links will be added when this demo is built.
+| Playbook |
+|---|
+| [`check_subscription.yml`](playbooks/check_subscription.yml) |
+| [`log_compliant.yml`](playbooks/log_compliant.yml) |
+| [`notify_chatroom.yml`](playbooks/notify_chatroom.yml) |
+| [`notify_expiring.yml`](playbooks/notify_expiring.yml) |
+| [`register_system.yml`](playbooks/register_system.yml) |
+| [`renew_subscription.yml`](playbooks/renew_subscription.yml) |
 
-## Planned artifacts
+## Artifacts
 
 ```
-
   ao/
+    subscription-management-101.json
   playbooks/
+    check_subscription.yml
+    log_compliant.yml
+    notify_chatroom.yml
+    notify_expiring.yml
+    register_system.yml
+    renew_subscription.yml
   README.md
+  SETUP_GUIDE.md
 ```

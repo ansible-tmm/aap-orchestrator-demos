@@ -1,0 +1,83 @@
+---
+- name: Provision contractor account with expiry
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        target_username: "{{ target_username | default('contractor') }}"
+        request_type: "{{ request_type | default('contractor') }}"
+        user_groups: "{{ user_groups | default('users,contractors') }}"
+        user_shell: "{{ user_shell | default('/bin/bash') }}"
+        contract_days: "{{ contract_days | default(90) | int }}"
+        ssh_public_key: "{{ ssh_public_key | default('') }}"
+
+    - name: Calculate account expiry date
+      ansible.builtin.set_fact:
+        account_expiry: "{{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) + (contract_days * 86400)) }}"
+
+    - name: Create contractor account with expiry
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        state: present
+        shell: "{{ user_shell }}"
+        groups: "{{ user_groups }}"
+        append: true
+        create_home: true
+        expires: "{{ ((ansible_date_time.epoch | int) + (contract_days * 86400)) }}"
+      register: user_result
+
+    - name: Preview contractor creation (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would create contractor {{ target_username }}
+          expiring {{ account_expiry }} ({{ contract_days }} days).
+      when: ansible_check_mode
+
+    - name: Add SSH authorized key
+      ansible.posix.authorized_key:
+        user: "{{ target_username }}"
+        key: "{{ ssh_public_key }}"
+        state: present
+      when:
+        - ssh_public_key | length > 0
+        - not ansible_check_mode
+
+    - name: Configure limited sudo (service restarts only)
+      ansible.builtin.copy:
+        content: "{{ target_username }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *, /usr/bin/systemctl status *\n"
+        dest: "/etc/sudoers.d/{{ target_username }}"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      when: not ansible_check_mode
+
+    - name: Verify account exists
+      ansible.builtin.command:
+        cmd: "id {{ target_username }}"
+      register: id_result
+      changed_when: false
+      check_mode: false
+
+    - name: Log provisioning result
+      ansible.builtin.debug:
+        msg: >-
+          Contractor {{ target_username }} provisioned on {{ inventory_hostname }}.
+          Expiry: {{ account_expiry }} ({{ contract_days }} days).
+          Groups: {{ user_groups }}.
+          Identity: {{ id_result.stdout }}.
+
+    - name: Publish provisioning artifacts
+      ansible.builtin.set_stats:
+        data:
+          request_type: "{{ request_type }}"
+          target_username: "{{ target_username }}"
+          action_taken: "provision_contractor"
+          account_expiry: "{{ account_expiry }}"
+          contract_days: "{{ contract_days }}"
+          user_groups: "{{ user_groups }}"
+          account_created: "{{ user_result.changed | default(false) }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true

@@ -21,7 +21,7 @@
 {% endif %}
 
 <article
-  class="demo-card{% if featured %} demo-card--featured{% endif %}{% if demo.status != 'active' %} demo-card--soon{% endif %}"
+  class="demo-card{% if featured %} demo-card--featured{% endif %}{% if demo.status == 'coming-soon' %} demo-card--soon{% endif %}{% if demo.ai_generated %} demo-card--ai-generated{% endif %}{% if demo.tmm_created %} demo-card--tmm-created{% endif %}"
   data-status="{{ demo.status }}"
   data-category="{{ demo.category }}"
   data-building-blocks="{{ card_blocks }}"
@@ -46,6 +46,11 @@
       {% endif %}
       {% if demo.status != "active" %}
         <span class="demo-card__badge demo-card__badge--soon">Coming soon</span>
+      {% endif %}
+      {% if demo.ai_generated %}
+        <span class="demo-card__badge demo-card__badge--ai-generated">AI Generated</span>
+      {% elsif demo.tmm_created %}
+        <span class="demo-card__badge demo-card__badge--tmm-created">TMM Created</span>
       {% endif %}
     </div>
     <div class="demo-card__body">

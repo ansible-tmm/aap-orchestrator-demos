@@ -1,0 +1,85 @@
+---
+- name: Update user role — groups and sudo
+  hosts: "{{ _host | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Apply defaults
+      ansible.builtin.set_fact:
+        target_username: "{{ target_username | default('') }}"
+        request_type: "{{ request_type | default('role_change') }}"
+        new_groups: "{{ new_groups | default('users') }}"
+        sudo_commands: "{{ sudo_commands | default('') }}"
+
+    - name: Fail when target_username is missing
+      ansible.builtin.fail:
+        msg: "target_username is required for role_change."
+      when: target_username | length == 0
+
+    - name: Capture current group membership
+      ansible.builtin.command:
+        cmd: "id -Gn {{ target_username }}"
+      register: groups_before
+      changed_when: false
+      check_mode: false
+
+    - name: Update group membership
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        groups: "{{ new_groups }}"
+        append: false
+      register: user_result
+      when: not ansible_check_mode
+
+    - name: Preview group change (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          [check mode] Would set {{ target_username }} groups
+          from {{ groups_before.stdout }} to {{ new_groups }}.
+      when: ansible_check_mode
+
+    - name: Update sudo rules
+      ansible.builtin.copy:
+        content: "{{ target_username }} ALL=(ALL) NOPASSWD: {{ sudo_commands }}\n"
+        dest: "/etc/sudoers.d/{{ target_username }}"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      when:
+        - sudo_commands | length > 0
+        - not ansible_check_mode
+
+    - name: Remove sudo access when no commands specified
+      ansible.builtin.file:
+        path: "/etc/sudoers.d/{{ target_username }}"
+        state: absent
+      when:
+        - sudo_commands | length == 0
+        - not ansible_check_mode
+
+    - name: Capture updated group membership
+      ansible.builtin.command:
+        cmd: "id -Gn {{ target_username }}"
+      register: groups_after
+      changed_when: false
+      check_mode: false
+
+    - name: Log role change result
+      ansible.builtin.debug:
+        msg: >-
+          Role updated for {{ target_username }} on {{ inventory_hostname }}.
+          Groups before: {{ groups_before.stdout }}.
+          Groups after: {{ groups_after.stdout }}.
+
+    - name: Publish role change artifacts
+      ansible.builtin.set_stats:
+        data:
+          request_type: "{{ request_type }}"
+          target_username: "{{ target_username }}"
+          action_taken: "update_role"
+          groups_before: "{{ groups_before.stdout }}"
+          groups_after: "{{ groups_after.stdout }}"
+          sudo_commands: "{{ sudo_commands }}"
+          notify_host: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
+      run_once: true
