@@ -191,7 +191,7 @@
         "y": 133.09492176876606
       },
       "parameters": {
-        "prompt": "  You are an IT operations AI triage coordinator. Assess a ServiceNow incident and determine the correct response path.\n\n  Incident number: ${trigger.incident_number}\n\n  IMPORTANT: Make exactly one tool call per step. Do not retry any step. If a step returns no results, proceed immediately to the next step with what you have.\n\n  Step 1 \u2014 Fetch the incident from ServiceNow (one call only):\n  Use the ServiceNow MCP tool 'perform_query' with:\n    table: 'incident'\n    query: 'number=${trigger.incident_number}'\n    fields: ['number', 'short_description', 'description', 'priority', 'category', 'subcategory', 'state', 'cmdb_ci', 'assignment_group', 'sys_id']\n    limit: 1\n\n  Step 2 \u2014 Find a matching AAP job template (one call only):\n  Use the AAP MCP tool 'job_templates_list'. This is an Ansible Automation Platform tool \u2014 NOT a ServiceNow tool. Do NOT use perform_query for this step.\n  Look for templates with names matching the incident type (e.g. disk, cleanup, log, service, restart, process, cpu).\n  Skip this step only if priority is 4 or 5.\n  If no match found, set job_template_name to empty string.\n\n  Step 3 \u2014 Output JSON classification immediately. No further tool calls after this step.\n\n  Route logic:\n  - 'auto_remediate': Priority 1-2, low-risk automated fix (service restart, disk cleanup, log rotation, config reset), matching AAP template confirmed in Step 2. No risk flags in description.\n  - 'needs_approval': ANY of these conditions:\n    * Priority 1-2, risky fix (package upgrade, firewall change, network reconfig, process termination), matching AAP template confirmed in Step 2\n    * Priority 3, description contains risk language such as \"human review recommended\", \"may interrupt\", \"potential data loss\", \"requires verification\", or similar caution flags, AND matching AAP template\n  confirmed in Step 2\n  - 'inform_only': Priority 4-5, or no matching AAP template found, or no safe/risky automated action available\n\n  Output ONLY valid JSON:\n  {\n    \"route\": \"\",\n    \"priority_label\": \"\",\n    \"affected_system\": \"\",\n    \"category\": \"\",\n    \"short_description\": \"\",\n    \"recommended_action\": \"\",\n    \"reasoning\": \"\",\n    \"incident_sys_id\": \"\",\n    \"job_template_name\": \"\",\n    \"notification_title\": \"\",\n    \"notification_body\": \"\"\n  }\n\n  For notification_body, write a concise summary of the triage result: what was found, what route was chosen, and why. If the route is 'needs_approval', also explain why human approval is required, what the potential impact is, and that the workflow is awaiting approval before proceeding. This will be posted as a work note to the ServiceNow ticket by the next workflow step.",
+        "prompt": "You are an IT operations AI triage coordinator. Assess a ServiceNow incident and determine the correct response path.\n\nIncident number: ${trigger.incident_number}\n\nIMPORTANT: Make exactly one tool call per step. Do not retry any step. If a step returns no results, proceed immediately to the next step with what you have.\n\nStep 1 — Fetch the incident from ServiceNow (one call only): Use the ServiceNow MCP tool 'perform_query' with: table: 'incident' query: 'number=${trigger.incident_number}' fields: ['number', 'short_description', 'description', 'priority', 'category', 'subcategory', 'state', 'cmdb_ci', 'assignment_group', 'sys_id'] limit: 1\n\nStep 2 — Find a matching AAP job template (one call only): Use the AAP MCP tool 'job_templates_list' with no search filter — retrieve the complete list. This is an Ansible Automation Platform tool — NOT a ServiceNow tool. Do NOT use perform_query for this step. Skip this step only if priority is 4 or 5.\n\nFrom the returned list, consider only templates that perform remediation on an affected system. Ignore install, setup, simulation, demo, and ticket-update templates.\n\nSelect the one whose purpose matches this incident's problem. If no template genuinely remediates this incident, set job_template_name to an empty string. When you do find a match, set job_template_name to the template's EXACT name, copied character-for-character from the tool output, including all spaces, pipes, and punctuation. Do not shorten, reformat, or paraphrase it.\n\nStep 3 — Output JSON classification immediately. No further tool calls after this step.\n\nRoute logic:\n\nGATE — apply this first: If job_template_name is empty, the route is 'inform_only'. This is absolute. It applies regardless of priority, category, or severity, including security incidents. Do not override it based on your own assessment of how serious the incident is. Stop and output.\n\nIf a matching template WAS confirmed in Step 2, apply these rules:\n\n'auto_remediate': Priority 1-2, low-risk automated fix (service restart, disk cleanup, log rotation, config reset), matching AAP template confirmed in Step 2. No risk flags in description.\n\n'needs_approval': ANY of these conditions:\n  - Priority 1-2, risky fix (package upgrade, firewall change, network reconfig, process termination), matching AAP template confirmed in Step 2\n  - Priority 3, description contains risk language such as \"human review recommended\", \"may interrupt\", \"potential data loss\", \"requires verification\", or similar caution flags, AND matching AAP template confirmed in Step 2\n\n'inform_only': Priority 4-5, or no matching AAP template found, or no safe/risky automated action available\n\nNote: 'inform_only' does not mean the incident is ignored. It means no automation exists for it, so the ticket is annotated and left for a human to handle. Choosing 'inform_only' for a severe incident is the correct outcome when no template matches.\n\nOutput ONLY valid JSON: { \"route\": \"\", \"priority_label\": \"\", \"affected_system\": \"\", \"category\": \"\", \"short_description\": \"\", \"recommended_action\": \"\", \"reasoning\": \"\", \"incident_sys_id\": \"\", \"job_template_name\": \"\", \"notification_title\": \"\", \"notification_body\": \"\" }\n\nFor notification_body, write a concise summary of the triage result: what was found, what route was chosen, and why. If the route is 'needs_approval', also explain why human approval is required, what the potential impact is, and that the workflow is awaiting approval before proceeding. This will be posted as a work note to the ServiceNow ticket by the next workflow step.",
         "response_schema": {
           "type": "object",
           "properties": {
@@ -292,7 +292,7 @@
     {
       "id": "servicenow_trigger",
       "name": "ServiceNow Trigger",
-      "type": "manual_trigger",
+      "type": "webhook_trigger",
       "position": {
         "x": -87.54334965094043,
         "y": 196.2447217357657
@@ -300,21 +300,21 @@
       "parameters": {
         "input_schema": {
           "type": "object",
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "required": [
             "incident_number"
           ],
           "properties": {
             "incident_number": {
-              "type": "string",
-              "default": "",
-              "description": "ServiceNow incident number (e.g. INC0010001)"
+              "type": "string"
             }
-          }
-        }
+          },
+          "additionalProperties": true
+        },
+        "webhook_path": "servicenow-incident"
       }
     }
   ],
   "description": "Ticket Enrichment Demo",
   "schema_version": "2.0.0"
 }
-
