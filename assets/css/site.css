@@ -142,11 +142,25 @@ a {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.sidebar-run__link span,
-.sidebar-run__pill span {
+.sidebar-run__link > span,
+.sidebar-run__pill > span {
   flex: 1;
   min-width: 0;
   text-align: left;
+}
+
+.sidebar-run__audience {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #8a8a8a;
+}
+
+.sidebar-run__link:hover .sidebar-run__audience,
+.sidebar-run__pill:hover .sidebar-run__audience {
+  color: #b0b0b0;
 }
 
 .sidebar-run__link:hover,
