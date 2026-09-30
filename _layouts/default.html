@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-492SMTLS5W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-492SMTLS5W');
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% if page.demo_slug %}{% assign page_demo = site.data.demos | where: "slug", page.demo_slug | first %}{{ page_demo.title }} · {% elsif page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
