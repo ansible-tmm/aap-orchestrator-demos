@@ -652,7 +652,7 @@
     - Approval
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0d1520 50%, #1a1a2a 100%)"
-    icon: ""
+    icon: "🔧"
   blurb: Known incident types route directly to existing AAP job templates. Unknown incidents trigger an AI agent that investigates, enriches the SNOW ticket, generates a remediation plan, and executes after approval.
   stats:
     workflows: 1
