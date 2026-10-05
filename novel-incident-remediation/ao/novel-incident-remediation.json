@@ -62,8 +62,8 @@
         "extra_vars": {
           "target_host": "${trigger.host}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Capacity - Disk Cleanup",
         "organization_name": "Default"
       },
@@ -80,8 +80,8 @@
         "extra_vars": {
           "target_host": "${trigger.host}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Gather System Facts",
         "organization_name": "Default"
       },
@@ -101,8 +101,8 @@
           "notification_body": "Host: ${trigger.host} | Type: ${trigger.incident_type} | Ticket: ${trigger.ticket_id}. Incident type not in automation catalog. Manual triage required.",
           "notification_title": "Unrecognized Incident - Manual Review Required"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Log and Report",
         "organization_name": "Default"
       },
@@ -121,8 +121,8 @@
           "target_host": "${trigger.host}",
           "incident_type": "${trigger.incident_type}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Impact Report",
         "organization_name": "Default"
       },
@@ -141,8 +141,8 @@
           "target_host": "${trigger.host}",
           "incident_type": "${trigger.incident_type}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Impact Report",
         "organization_name": "Default"
       },
@@ -157,8 +157,8 @@
       "name": "AI - Troubleshoot & Collect",
       "parameters": {
         "prompt": "Analyze this incident. Cite specific numbers. Output JSON only.\n\nIncident: ${trigger.description}\nHost: ${trigger.host} | Ticket: ${trigger.ticket_id} | Severity: ${trigger.severity}\n\nSYSTEM STATE:\n- Memory: ${gather_facts.artifacts.memory_used_pct}% used (${gather_facts.artifacts.memory_free_mb}MB free of ${gather_facts.artifacts.memory_total_mb}MB)\n- Root filesystem: ${gather_facts.artifacts.disk_root_pct}% used (${gather_facts.artifacts.disk_root_avail} free)\n- App session storage (/var/log/app-sessions): ${gather_facts.artifacts.disk_varlog_pct}% FULL \u2014 this is where applications write session data\n- Failed services: ${gather_facts.artifacts.failed_unit_count} (${gather_facts.artifacts.failed_units})\n- Web service check: ${gather_facts.artifacts.web_check}\n- Active connections: ${gather_facts.artifacts.active_connections}\n- Top process: ${gather_facts.artifacts.top_process}\n- Recent errors (from syslog): ${gather_facts.artifacts.recent_errors}\n\nIMPORTANT: The app session storage percentage is the critical metric \u2014 if it is 100%, application writes are failing which directly causes HTTP 500 errors.\n\nOutput ONLY this JSON:\n{\"summary\":\"\",\"host_environment\":\"\",\"host_criticality\":\"\",\"recent_failures\":\"\",\"root_cause_hypothesis\":\"cite the session storage % specifically\",\"affected_services\":\"\",\"recommended_ansible_module\":\"\",\"troubleshooting_findings\":\"2 sentences citing the session storage % and its effect on services\"}",
-        "llm_model_id": "YOUR_AO_LLM_MODEL_ID",
-        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "llm_model_id": null,
+        "credential_id": null,
         "response_schema": {
           "type": "object",
           "required": [
@@ -213,8 +213,8 @@
           "snow_ticket_state": "2",
           "notification_title": "AI Troubleshooting - Findings"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },
@@ -235,8 +235,8 @@
           "snow_ticket_state": "2",
           "notification_title": "Capacity Issue - Remediated"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },
@@ -257,8 +257,8 @@
           "snow_ticket_state": "3",
           "notification_title": "Config Drift - Escalated"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },
@@ -273,8 +273,8 @@
       "name": "AI - Remediation Planning",
       "parameters": {
         "prompt": "You are a remediation planning agent. Create a structured plan and recommend a REAL job template from the AAP catalog.\n\nIncident:\n- Ticket: ${trigger.ticket_id}\n- Host: ${trigger.host}\n- Severity: ${trigger.severity}\n- Description: ${trigger.description}\n\nInvestigation findings:\n- Summary: ${investigate_agent.result.content.summary}\n- Root cause: ${investigate_agent.result.content.root_cause_hypothesis}\n- Findings: ${investigate_agent.result.content.troubleshooting_findings}\n- Affected services: ${investigate_agent.result.content.affected_services}\n\nStep 1 - Query the AAP automation catalog:\nCall job_templates_list to see what job templates are available. Search for templates matching the incident type (look for names containing words like: cleanup, remediate, recovery, fix, resolve, disk, memory, service).\n\nStep 2 - Select the best matching template:\nPick the job template whose name and description best matches the root cause. ONLY recommend a template that actually exists in the catalog. Use the exact name as returned by job_templates_list.\nAny downstream steps such as service restarts or verification should appear in the written plan as manual follow-up, not as automation actions.\n\nStep 3 - Build the remediation plan:\nCreate ordered steps, risk assessment, and rollback plan specific to this incident.\n\nOutput ONLY valid JSON:\n{\n  \"remediation_steps\": \"concise numbered steps (max 5)\",\n  \"recommended_job_template\": \"EXACT name from AAP catalog\",\n  \"risk_level\": \"low|medium|high|critical\",\n  \"estimated_duration_minutes\": 0,\n  \"requires_approval\": true,\n  \"rollback_plan\": \"concise rollback steps\",\n  \"preventive_recommendation\": \"one recommendation to prevent recurrence\"\n}",
-        "llm_model_id": "YOUR_AO_LLM_MODEL_ID",
-        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "llm_model_id": null,
+        "credential_id": null,
         "response_schema": {
           "type": "object",
           "required": [
@@ -313,15 +313,8 @@
             }
           }
         },
-        "tool_selections": [
-          "YOUR_AAP_MCP_TOOL_UUID"
-        ],
-        "integration_connections": [
-          {
-            "credential_id": "YOUR_AO_AAP_MCP_CREDENTIAL_ID",
-            "integration_id": "YOUR_AAP_MCP_INTEGRATION_ID"
-          }
-        ],
+        "tool_selections": [],
+        "integration_connections": [],
         "tool_selection_strategy": "SELECTED"
       },
       "position": {
@@ -341,8 +334,8 @@
           "snow_ticket_state": "2",
           "notification_title": "Impact Analysis - Service Down"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },
@@ -369,8 +362,8 @@
         "extra_vars": {
           "target_host": "${trigger.host}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Service Recovery",
         "organization_name": "Default"
       },
@@ -421,8 +414,8 @@
         "extra_vars": {
           "target_host": "${trigger.host}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "${planning_agent.result.content.recommended_job_template}",
         "organization_name": "Default"
       },
@@ -443,8 +436,8 @@
           "snow_ticket_state": "2",
           "notification_title": "AI Remediation Plan - Pending Approval"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },
@@ -475,8 +468,8 @@
           "snow_ticket_state": "6",
           "notification_title": "Incident RESOLVED - ${trigger.ticket_id}"
         },
-        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
-        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "credential_id": null,
+        "integration_id": null,
         "job_template_name": "Incidents | Update Ticket",
         "organization_name": "Default"
       },

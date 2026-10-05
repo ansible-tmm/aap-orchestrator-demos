@@ -68,7 +68,7 @@ Replace these in `ao/novel-incident-remediation.json` before importing:
 
 ## Webhook Trigger
 
-The workflow uses a webhook trigger with path `snow-incident-scn5`. Update in the JSON if needed.
+The workflow uses a webhook trigger with path `novel-incident-remediation`. After importing, add your AO service account to the trigger's authorized service accounts list in the AO UI.
 
 Expected payload:
 
