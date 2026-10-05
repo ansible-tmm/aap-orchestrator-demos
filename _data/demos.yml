@@ -638,6 +638,45 @@
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,E1,F noBorder
 
+- slug: novel-incident-remediation
+  title: Novel Incident Remediation
+  subtitle: Deterministic routing with AI fallback for unknown incidents
+  category: incident-remediation
+  status: active
+  featured: false
+  uses_ai: true
+  tmm_created: true
+  tags:
+    - Task agent
+    - Switch
+    - Approval
+  thumbnail:
+    gradient: "linear-gradient(135deg, #1a2a3a 0%, #0d1520 50%, #1a1a2a 100%)"
+    icon: ""
+  blurb: Known incident types route directly to existing AAP job templates. Unknown incidents trigger an AI agent that investigates, enriches the SNOW ticket, generates a remediation plan, and executes after approval.
+  stats:
+    workflows: 1
+    playbooks: 6
+    setup_minutes: 30
+  url: /demos/novel-incident-remediation/
+  github_path: novel-incident-remediation/
+  github_doc: novel-incident-remediation/README.md
+  setup_guide: novel-incident-remediation/REQUIREMENTS.md
+  workflow_json: novel-incident-remediation/ao/novel-incident-remediation.json
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "SNOW Webhook", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/switch-node.png", label: "Route by Incident Type", pos: "b", h: 96, constraint: "on" }
+      B -->|known| C@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Remediation JT", pos: "b", h: 96, constraint: "on" }
+      C --> D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Update SNOW Ticket", pos: "b", h: 96, constraint: "on" }
+      B -->|unknown| E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Gather System Facts", pos: "b", h: 96, constraint: "on" }
+      E --> F@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Investigate", pos: "b", h: 96, constraint: "on" }
+      F --> G@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Remediation Plan", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve", pos: "b", h: 96, constraint: "on" }
+      H -->|Approved| I@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Execute Automation", pos: "b", h: 96, constraint: "on" }
+      I --> D
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I noBorder
+
 - slug: multi-service-correlation
   title: Multi-Service Correlation
   subtitle: Correlate alerts before remediation
