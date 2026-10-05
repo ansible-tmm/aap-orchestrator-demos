@@ -44,10 +44,8 @@
             }
           }
         },
-        "webhook_path": "snow-incident-scn5",
-        "authorized_service_account_ids": [
-          "YOUR_SERVICE_ACCOUNT_ID"
-        ]
+        "webhook_path": "novel-incident-remediation",
+        "authorized_service_account_ids": []
       },
       "position": {
         "x": -120,
