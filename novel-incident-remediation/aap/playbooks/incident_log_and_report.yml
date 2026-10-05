@@ -1,0 +1,38 @@
+---
+- name: Incident - Log and Report
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Log unrecognized incident and notify ops
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          UNRECOGNIZED INCIDENT — LOGGED FOR MANUAL REVIEW
+          Ticket: {{ ticket_id | default('INC0000000') }}
+          ============================================================
+          Host:          {{ target_host | default('unknown') }}
+          Incident type: {{ incident_type | default('unclassified') }}
+          Description:   {{ description | default('No description provided') }}
+
+          AUTOMATED ASSESSMENT
+          --------------------
+          This incident type does not match any known remediation
+          pattern in the automation catalog. No automated action taken.
+
+          CATALOG CHECK
+          -------------
+          Known types: service_down, config_drift, capacity_issue, unclassified
+          Received:    {{ incident_type | default('unclassified') }}
+          Match:       NONE
+
+          NEXT STEPS FOR OPS TEAM
+          -----------------------
+          1. Review incident details in {{ ticket_id }}
+          2. Determine if a new automation pattern is needed
+          3. If recurring: submit request to add to automation catalog
+          4. Manual remediation required for this instance
+
+          [SNOW] {{ ticket_id }} logged. Assigned to ops team queue
+          for manual triage. No automated action taken.
+          ============================================================

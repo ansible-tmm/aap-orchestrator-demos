@@ -1,0 +1,82 @@
+
+---
+- name: Incidents | Gather System Facts
+  hosts: "{{ target_host | default('all') }}"
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Get root disk usage percent
+      ansible.builtin.shell: df / | tail -1 | awk '{print $5}' | tr -d '%'
+      register: disk_root_pct
+      changed_when: false
+
+    - name: Get root disk available
+      ansible.builtin.shell: df -h / | tail -1 | awk '{print $4}'
+      register: disk_root_avail
+      changed_when: false
+
+    - name: Get app session storage usage
+      ansible.builtin.shell: df /var/log/app-sessions 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%'
+      register: disk_varlog_pct
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get top CPU consuming process
+      ansible.builtin.shell: ps aux --sort=-%cpu | awk 'NR==2{print $11" (CPU:"$3"% MEM:"$4"%)"}'
+      register: top_process
+      changed_when: false
+
+    - name: Get failed systemd units count
+      ansible.builtin.shell: systemctl list-units --state=failed --no-legend 2>/dev/null | wc -l | tr -d ' '
+      register: failed_count
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get failed unit names
+      ansible.builtin.shell: systemctl list-units --state=failed --no-legend 2>/dev/null | awk '{print $1}' | tr '\n' ',' | sed 's/,$//'
+      register: failed_names
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check web service
+      ansible.builtin.shell: |
+        CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null) && \
+        TIME=$(curl -s -o /dev/null -w "%{time_total}" http://localhost:8080/health 2>/dev/null) && \
+        echo "HTTP $CODE in ${TIME}s" || echo "unreachable"
+      register: web_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get unique recent error count and sample
+      ansible.builtin.shell: |
+        journalctl -p err -n 50 --no-pager --output=short 2>/dev/null | \
+        grep -v "^--" | tail -5 | awk '{$1=$2=$3=$4=""; print substr($0,5)}' | \
+        sort -u | head -3 | tr '\n' ' | ' || echo "none"
+      register: error_sample
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get active connections count
+      ansible.builtin.shell: ss -tn state established 2>/dev/null | wc -l
+      register: conn_count
+      changed_when: false
+
+    - name: Publish summarized facts
+      ansible.builtin.set_stats:
+        data:
+          host: "{{ inventory_hostname }}"
+          os: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          uptime_days: "{{ ansible_uptime_seconds | int // 86400 }}"
+          memory_used_pct: "{{ ((ansible_memtotal_mb - ansible_memfree_mb) / ansible_memtotal_mb * 100) | int }}"
+          memory_free_mb: "{{ ansible_memfree_mb }}"
+          memory_total_mb: "{{ ansible_memtotal_mb }}"
+          disk_root_pct: "{{ disk_root_pct.stdout | trim }}"
+          disk_root_avail: "{{ disk_root_avail.stdout | trim }}"
+          disk_varlog_pct: "{{ disk_varlog_pct.stdout | default('N/A') | trim }}"
+          top_process: "{{ top_process.stdout | trim }}"
+          failed_unit_count: "{{ failed_count.stdout | default('0') | trim }}"
+          failed_units: "{{ failed_names.stdout | default('none') | trim }}"
+          web_check: "{{ web_check.stdout | default('unknown') | trim }}"
+          active_connections: "{{ conn_count.stdout | trim }}"
+          recent_errors: "{{ error_sample.stdout | default('none') | trim }}"

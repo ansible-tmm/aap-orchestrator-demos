@@ -1,0 +1,64 @@
+---
+- name: Incidents | Update ServiceNow Ticket
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Look up SNOW ticket sys_id by number
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/incident?sysparm_query=number={{ ticket_id }}&sysparm_fields=sys_id,number,state&sysparm_limit=1"
+        method: GET
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: "application/json"
+        status_code: 200
+      register: snow_lookup
+
+    - name: Fail if ticket not found
+      ansible.builtin.fail:
+        msg: "ServiceNow ticket {{ ticket_id }} not found"
+      when: snow_lookup.json.result | length == 0
+
+    - name: Set ticket sys_id
+      ansible.builtin.set_fact:
+        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
+
+    - name: Format notification body with newlines before numbered steps
+      ansible.builtin.set_fact:
+        notification_body_formatted: "{{ notification_body | default('') | regex_replace('([^\\n]) ([0-9]+\\. )', '\\1\\n\\2') | regex_replace('([^\\n]) (Rollback:)', '\\1\\n\\n\\2') }}"
+
+    - name: Build update payload
+      ansible.builtin.set_fact:
+        snow_payload:
+          work_notes: "[{{ notification_title | default('AO Automation Update') }}]\n\n{{ notification_body_formatted }}"
+          state: "{{ snow_ticket_state | default(omit) }}"
+
+    - name: Add resolved fields when closing
+      ansible.builtin.set_fact:
+        snow_payload: "{{ snow_payload | combine({'close_code': 'Solved (Permanently)', 'close_notes': notification_body | default('Resolved by automated remediation.')}) }}"
+      when: snow_ticket_state | default('') == '6'
+
+    - name: Update SNOW ticket
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/incident/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/json"
+        body_format: json
+        body: "{{ snow_payload }}"
+        status_code: 200
+      register: snow_update
+
+    - name: Log result
+      ansible.builtin.debug:
+        msg: |
+          ServiceNow ticket {{ ticket_id }} updated.
+          State: {{ snow_update.json.result.state }}
+          URL: {{ snow_instance_url }}/nav_to.do?uri=incident.do?sys_id={{ snow_sys_id }}

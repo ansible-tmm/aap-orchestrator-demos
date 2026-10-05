@@ -1,0 +1,572 @@
+{
+  "schema_version": "2.0.0",
+  "name": "Novel Incident Remediation",
+  "description": "Known incident types (disk, service, config) route directly to existing AAP job templates. Unknown or unclassified incidents trigger an AI agent that investigates using system facts, enriches the ServiceNow ticket with findings, then generates a remediation plan with automation recommendations for operator approval and execution.",
+  "triggers": [
+    {
+      "id": "snow_trigger",
+      "type": "webhook_trigger",
+      "name": "ServiceNow Incident",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "required": [
+            "ticket_id",
+            "incident_type",
+            "host"
+          ],
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "node1",
+              "description": "Affected hostname"
+            },
+            "severity": {
+              "type": "string",
+              "default": "2-High",
+              "description": "1-Critical 2-High 3-Medium 4-Low"
+            },
+            "ticket_id": {
+              "type": "string",
+              "default": "INC0012345",
+              "description": "ServiceNow incident number"
+            },
+            "description": {
+              "type": "string",
+              "default": "Intermittent application errors. Users cannot complete transactions. Root cause unknown.",
+              "description": "Incident description from SNOW"
+            },
+            "incident_type": {
+              "type": "string",
+              "default": "service_down",
+              "description": "service_down | config_drift | capacity_issue | unknown"
+            }
+          }
+        },
+        "webhook_path": "snow-incident-scn5",
+        "authorized_service_account_ids": [
+          "YOUR_SERVICE_ACCOUNT_ID"
+        ]
+      },
+      "position": {
+        "x": -120,
+        "y": 450
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "disk_cleanup_job",
+      "type": "aap_job_template",
+      "name": "Disk Capacity Cleanup",
+      "parameters": {
+        "extra_vars": {
+          "target_host": "${trigger.host}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Capacity - Disk Cleanup",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 605.1336891303691,
+        "y": 587.5567937973208
+      }
+    },
+    {
+      "id": "gather_facts",
+      "type": "aap_job_template",
+      "name": "Gather System Facts",
+      "parameters": {
+        "extra_vars": {
+          "target_host": "${trigger.host}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Gather System Facts",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 380.8012306921737,
+        "y": 941.4400175813167
+      }
+    },
+    {
+      "id": "generic_logging",
+      "type": "aap_job_template",
+      "name": "Log & Report - Unrecognized Incident",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Host: ${trigger.host} | Type: ${trigger.incident_type} | Ticket: ${trigger.ticket_id}. Incident type not in automation catalog. Manual triage required.",
+          "notification_title": "Unrecognized Incident - Manual Review Required"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Log and Report",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 293.2935050689603,
+        "y": 1405.806879647278
+      }
+    },
+    {
+      "id": "impact_report_app",
+      "type": "aap_job_template",
+      "name": "Generate Impact Report - Service Down",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "incident_type": "${trigger.incident_type}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Impact Report",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 577.783968986604,
+        "y": 51.55042569681383
+      }
+    },
+    {
+      "id": "impact_report_config",
+      "type": "aap_job_template",
+      "name": "Generate Impact Report - Config Drift",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "incident_type": "${trigger.incident_type}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Impact Report",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 602.6703813919625,
+        "y": 321.77760088609705
+      }
+    },
+    {
+      "id": "investigate_agent",
+      "type": "agentic",
+      "name": "AI - Troubleshoot & Collect",
+      "parameters": {
+        "prompt": "Analyze this incident. Cite specific numbers. Output JSON only.\n\nIncident: ${trigger.description}\nHost: ${trigger.host} | Ticket: ${trigger.ticket_id} | Severity: ${trigger.severity}\n\nSYSTEM STATE:\n- Memory: ${gather_facts.artifacts.memory_used_pct}% used (${gather_facts.artifacts.memory_free_mb}MB free of ${gather_facts.artifacts.memory_total_mb}MB)\n- Root filesystem: ${gather_facts.artifacts.disk_root_pct}% used (${gather_facts.artifacts.disk_root_avail} free)\n- App session storage (/var/log/app-sessions): ${gather_facts.artifacts.disk_varlog_pct}% FULL \u2014 this is where applications write session data\n- Failed services: ${gather_facts.artifacts.failed_unit_count} (${gather_facts.artifacts.failed_units})\n- Web service check: ${gather_facts.artifacts.web_check}\n- Active connections: ${gather_facts.artifacts.active_connections}\n- Top process: ${gather_facts.artifacts.top_process}\n- Recent errors (from syslog): ${gather_facts.artifacts.recent_errors}\n\nIMPORTANT: The app session storage percentage is the critical metric \u2014 if it is 100%, application writes are failing which directly causes HTTP 500 errors.\n\nOutput ONLY this JSON:\n{\"summary\":\"\",\"host_environment\":\"\",\"host_criticality\":\"\",\"recent_failures\":\"\",\"root_cause_hypothesis\":\"cite the session storage % specifically\",\"affected_services\":\"\",\"recommended_ansible_module\":\"\",\"troubleshooting_findings\":\"2 sentences citing the session storage % and its effect on services\"}",
+        "llm_model_id": "YOUR_AO_LLM_MODEL_ID",
+        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "summary",
+            "root_cause_hypothesis",
+            "troubleshooting_findings"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "recent_failures": {
+              "type": "string"
+            },
+            "host_criticality": {
+              "type": "string"
+            },
+            "host_environment": {
+              "type": "string"
+            },
+            "affected_services": {
+              "type": "string"
+            },
+            "root_cause_hypothesis": {
+              "type": "string"
+            },
+            "troubleshooting_findings": {
+              "type": "string"
+            },
+            "recommended_ansible_module": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_selection_strategy": "NONE"
+      },
+      "position": {
+        "x": 649.8328863656968,
+        "y": 949.6085091138324
+      }
+    },
+    {
+      "id": "enrich_snow_ticket",
+      "type": "aap_job_template",
+      "name": "Enrich SNOW ticket - AI Findings",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Root Cause: ${investigate_agent.result.content.root_cause_hypothesis}\n\nFindings: ${investigate_agent.result.content.troubleshooting_findings}\n\nAffected Services: ${investigate_agent.result.content.affected_services}",
+          "snow_ticket_state": "2",
+          "notification_title": "AI Troubleshooting - Findings"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1053.5307742793652,
+        "y": 929.6567015547247
+      }
+    },
+    {
+      "id": "notify_capacity_resolved",
+      "type": "aap_job_template",
+      "name": "Notify - Capacity Restored",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Host: ${trigger.host} | Ticket: ${trigger.ticket_id}. Disk capacity issue auto-remediated.",
+          "snow_ticket_state": "2",
+          "notification_title": "Capacity Issue - Remediated"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 935.6750900589636,
+        "y": 587.6204526439781
+      }
+    },
+    {
+      "id": "notify_config_resolved",
+      "type": "aap_job_template",
+      "name": "Post to SNOW - Escalate to Change Mgmt",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Host: ${trigger.host} | Ticket: ${trigger.ticket_id}. Configuration drift on production system escalated to change management. No automated action taken.",
+          "snow_ticket_state": "3",
+          "notification_title": "Config Drift - Escalated"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 934.3974248690541,
+        "y": 321.16354352410036
+      }
+    },
+    {
+      "id": "planning_agent",
+      "type": "agentic",
+      "name": "AI - Remediation Planning",
+      "parameters": {
+        "prompt": "You are a remediation planning agent. Create a structured plan and recommend a REAL job template from the AAP catalog.\n\nIncident:\n- Ticket: ${trigger.ticket_id}\n- Host: ${trigger.host}\n- Severity: ${trigger.severity}\n- Description: ${trigger.description}\n\nInvestigation findings:\n- Summary: ${investigate_agent.result.content.summary}\n- Root cause: ${investigate_agent.result.content.root_cause_hypothesis}\n- Findings: ${investigate_agent.result.content.troubleshooting_findings}\n- Affected services: ${investigate_agent.result.content.affected_services}\n\nStep 1 - Query the AAP automation catalog:\nCall job_templates_list to see what job templates are available. Search for templates matching the incident type (look for names containing words like: cleanup, remediate, recovery, fix, resolve, disk, memory, service).\n\nStep 2 - Select the best matching template:\nPick the job template whose name and description best matches the root cause. ONLY recommend a template that actually exists in the catalog. Use the exact name as returned by job_templates_list.\nAny downstream steps such as service restarts or verification should appear in the written plan as manual follow-up, not as automation actions.\n\nStep 3 - Build the remediation plan:\nCreate ordered steps, risk assessment, and rollback plan specific to this incident.\n\nOutput ONLY valid JSON:\n{\n  \"remediation_steps\": \"concise numbered steps (max 5)\",\n  \"recommended_job_template\": \"EXACT name from AAP catalog\",\n  \"risk_level\": \"low|medium|high|critical\",\n  \"estimated_duration_minutes\": 0,\n  \"requires_approval\": true,\n  \"rollback_plan\": \"concise rollback steps\",\n  \"preventive_recommendation\": \"one recommendation to prevent recurrence\"\n}",
+        "llm_model_id": "YOUR_AO_LLM_MODEL_ID",
+        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "remediation_steps",
+            "recommended_job_template",
+            "risk_level",
+            "rollback_plan"
+          ],
+          "properties": {
+            "risk_level": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ],
+              "type": "string"
+            },
+            "rollback_plan": {
+              "type": "string"
+            },
+            "remediation_steps": {
+              "type": "string"
+            },
+            "requires_approval": {
+              "type": "boolean"
+            },
+            "recommended_job_template": {
+              "type": "string"
+            },
+            "preventive_recommendation": {
+              "type": "string"
+            },
+            "estimated_duration_minutes": {
+              "type": "integer"
+            }
+          }
+        },
+        "tool_selections": [
+          "YOUR_AAP_MCP_TOOL_UUID"
+        ],
+        "integration_connections": [
+          {
+            "credential_id": "YOUR_AO_AAP_MCP_CREDENTIAL_ID",
+            "integration_id": "YOUR_AAP_MCP_INTEGRATION_ID"
+          }
+        ],
+        "tool_selection_strategy": "SELECTED"
+      },
+      "position": {
+        "x": 1352.467840836339,
+        "y": 902.21990638554
+      }
+    },
+    {
+      "id": "post_impact_service",
+      "type": "aap_job_template",
+      "name": "Post Impact to SNOW",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Environment: ${trigger.host} | Incident: ${trigger.incident_type} | Ticket: ${trigger.ticket_id}. Impact analysis complete. Pending operator approval before remediation proceeds.",
+          "snow_ticket_state": "2",
+          "notification_title": "Impact Analysis - Service Down"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 924.5735664563941,
+        "y": 61.677354226962514
+      }
+    },
+    {
+      "id": "approve_service",
+      "type": "approval",
+      "name": "Approve Remediation",
+      "parameters": {},
+      "position": {
+        "x": 1241.5984761034174,
+        "y": 72.8179774833209
+      }
+    },
+    {
+      "id": "restart_service_job",
+      "type": "aap_job_template",
+      "name": "Service Recovery",
+      "parameters": {
+        "extra_vars": {
+          "target_host": "${trigger.host}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Service Recovery",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1528.5266415597994,
+        "y": 26.282060211511762
+      }
+    },
+    {
+      "id": "route_by_type",
+      "type": "switch",
+      "name": "Route by Incident Type",
+      "parameters": {
+        "cases": [
+          {
+            "port": "case_0",
+            "label": "Service Down",
+            "condition": "${trigger.incident_type} == 'service_down'"
+          },
+          {
+            "port": "case_1",
+            "label": "Config Drift",
+            "condition": "${trigger.incident_type} == 'config_drift'"
+          },
+          {
+            "port": "case_2",
+            "label": "Capacity Issue",
+            "condition": "${trigger.incident_type} == 'capacity_issue'"
+          },
+          {
+            "port": "case_3",
+            "label": "Unknown - AI Assisted",
+            "condition": "${trigger.incident_type} == 'unclassified'"
+          }
+        ],
+        "default_port": "default"
+      },
+      "position": {
+        "x": 260,
+        "y": 450
+      }
+    },
+    {
+      "id": "run_recommended_job",
+      "type": "aap_job_template",
+      "name": "Execute Recommended Automation",
+      "parameters": {
+        "extra_vars": {
+          "target_host": "${trigger.host}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "${planning_agent.result.content.recommended_job_template}",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 2446.836683271364,
+        "y": 939.3448030804692
+      }
+    },
+    {
+      "id": "update_snow_with_plan",
+      "type": "aap_job_template",
+      "name": "Post Remediation Plan",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Risk: ${planning_agent.result.content.risk_level} | Recommended Automation: ${planning_agent.result.content.recommended_job_template}\n\nSteps: ${planning_agent.result.content.remediation_steps}\n\nRollback: ${planning_agent.result.content.rollback_plan}",
+          "snow_ticket_state": "2",
+          "notification_title": "AI Remediation Plan - Pending Approval"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1770.9752212481649,
+        "y": 941.5864025746765
+      }
+    },
+    {
+      "id": "approve_ai_recommendation",
+      "type": "approval",
+      "name": "Approve AI Recommendation",
+      "parameters": {},
+      "position": {
+        "x": 2094.065024666181,
+        "y": 943.1132260495573
+      }
+    },
+    {
+      "id": "close_ticket",
+      "type": "aap_job_template",
+      "name": "Close Ticket - Remediation Complete",
+      "parameters": {
+        "extra_vars": {
+          "ticket_id": "${trigger.ticket_id}",
+          "target_host": "${trigger.host}",
+          "notification_body": "Automation: ${planning_agent.result.content.recommended_job_template}\n\nService Restoration:\n- API Gateway API: RESTORED (${run_recommended_job.artifacts.web_check_after})\n- Session Management: RESTORED (storage freed, writes resuming)\n- New disk errors since fix: ${run_recommended_job.artifacts.disk_errors_remaining}\n\nRemediation Results:\n- Disk: ${run_recommended_job.artifacts.disk_before} \u2192 ${run_recommended_job.artifacts.disk_after} (freed ${run_recommended_job.artifacts.mb_freed}MB)\n- ${run_recommended_job.artifacts.large_files_removed} large log files removed\n\nTicket ${trigger.ticket_id} closed. All services operational.",
+          "snow_ticket_state": "6",
+          "notification_title": "Incident RESOLVED - ${trigger.ticket_id}"
+        },
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "integration_id": "YOUR_AAP_INTEGRATION_ID",
+        "job_template_name": "Incidents | Update Ticket",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 2791.959947936363,
+        "y": 926.192631229115
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "snow_trigger",
+      "to": "route_by_type"
+    },
+    {
+      "from": "route_by_type",
+      "to": "impact_report_app",
+      "from_port": "case_0"
+    },
+    {
+      "from": "route_by_type",
+      "to": "impact_report_config",
+      "from_port": "case_1"
+    },
+    {
+      "from": "route_by_type",
+      "to": "disk_cleanup_job",
+      "from_port": "case_2"
+    },
+    {
+      "from": "impact_report_app",
+      "to": "post_impact_service"
+    },
+    {
+      "from": "post_impact_service",
+      "to": "approve_service"
+    },
+    {
+      "from": "approve_service",
+      "to": "restart_service_job",
+      "from_port": "approved"
+    },
+    {
+      "from": "impact_report_config",
+      "to": "notify_config_resolved"
+    },
+    {
+      "from": "disk_cleanup_job",
+      "to": "notify_capacity_resolved"
+    },
+    {
+      "from": "investigate_agent",
+      "to": "enrich_snow_ticket"
+    },
+    {
+      "from": "enrich_snow_ticket",
+      "to": "planning_agent"
+    },
+    {
+      "from": "planning_agent",
+      "to": "update_snow_with_plan"
+    },
+    {
+      "from": "update_snow_with_plan",
+      "to": "approve_ai_recommendation"
+    },
+    {
+      "from": "approve_ai_recommendation",
+      "to": "run_recommended_job",
+      "from_port": "approved"
+    },
+    {
+      "from": "gather_facts",
+      "to": "investigate_agent"
+    },
+    {
+      "from": "route_by_type",
+      "to": "gather_facts",
+      "from_port": "case_3"
+    },
+    {
+      "from": "route_by_type",
+      "to": "generic_logging",
+      "from_port": "default"
+    },
+    {
+      "from": "run_recommended_job",
+      "to": "close_ticket"
+    }
+  ]
+}
