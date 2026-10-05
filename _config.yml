@@ -31,6 +31,7 @@ exclude:
   - backup-management/
   - subscription-management/
   - kernel-compliance/
+  - novel-incident-remediation/
   - collections/
   - shared/
   - README.md
