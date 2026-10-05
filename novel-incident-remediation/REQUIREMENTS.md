@@ -51,20 +51,16 @@ Add in AO under Integrations:
 
 Enable job template list and retrieve tools. Note the tool UUID - you will need it for `YOUR_AAP_MCP_TOOL_UUID`.
 
-## AO Credential Placeholders
+## AO Credentials - Wire After Import
 
-Replace these in `ao/novel-incident-remediation.json` before importing:
+The workflow JSON imports cleanly with no credential or integration IDs set. After importing, open each node in the AO workflow editor and configure:
 
-| Placeholder | Description |
-|-------------|-------------|
-| `YOUR_SERVICE_ACCOUNT_ID` | AO service account allowed to trigger the webhook |
-| `YOUR_AO_AAP_CREDENTIAL_ID` | AO credential for AAP job template execution (all AAP nodes) |
-| `YOUR_AAP_INTEGRATION_ID` | AO integration ID for the AAP connection |
-| `YOUR_AO_MODEL_CREDENTIAL_ID` | AO credential for the Claude/LLM model (AI agent nodes) |
-| `YOUR_AO_LLM_MODEL_ID` | LLM model ID configured in AO |
-| `YOUR_AAP_MCP_TOOL_UUID` | UUID of the AAP MCP job_templates_list tool |
-| `YOUR_AO_AAP_MCP_CREDENTIAL_ID` | AO credential for the AAP MCP integration |
-| `YOUR_AAP_MCP_INTEGRATION_ID` | AO integration ID for the AAP MCP server |
+| Node(s) | Field | What to set |
+|---------|-------|-------------|
+| All AAP job template nodes | Credential | AAP credential for job template execution |
+| All AAP job template nodes | Integration | AAP integration connection |
+| AI agent nodes | Model credential | Claude/LLM model credential |
+| AI agent nodes | Model | LLM model configured in AO |
 
 ## Webhook Trigger
 
