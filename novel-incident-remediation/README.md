@@ -45,10 +45,10 @@ flowchart LR
 | AAP job template execution | All deterministic paths |
 | AI investigation agent | AI: Troubleshoot and Collect |
 | AI remediation planning agent | AI: Remediation Planning |
-| Structured agent output | Both AI nodes |
+| Structured agent output | Both AI steps |
 | Human approval gate | Approve AI Recommendation |
 | Dynamic job template launch | Execute Recommended Automation |
-| ServiceNow ticket enrichment | Enrich SNOW, Notify, Close Ticket nodes |
+| ServiceNow ticket enrichment | Enrich SNOW, Notify, Close Ticket steps |
 
 ## Files
 
@@ -67,7 +67,7 @@ flowchart LR
 See [REQUIREMENTS.md](REQUIREMENTS.md) for full setup details.
 
 1. Configure AAP MCP integration in AO
-2. Replace credential placeholders in `ao/novel-incident-remediation.json`
-3. Import the workflow JSON into AO
-4. Create AAP job templates from playbooks in `aap/playbooks/`
+2. Create AAP job templates from playbooks in `aap/playbooks/`
+3. Import `ao/novel-incident-remediation.json` into AO
+4. Wire AAP/LLM credentials and integrations on each step in the AO UI
 5. Trigger via ServiceNow webhook with `incident_type` set to one of: `capacity_issue`, `service_down`, `config_drift`, `unknown`

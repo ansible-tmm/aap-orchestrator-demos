@@ -4,7 +4,7 @@
 
 | Component | Required | Notes |
 |-----------|----------|-------|
-| Ansible Automation Platform | Yes | 2.7+ with Automation Orchestrator |
+| Ansible Automation Platform | Yes | 2.7+ with automation orchestrator |
 | ServiceNow instance | Yes | Incident source and update target |
 | AAP MCP server | Yes | Gives AI agent read access to job templates for the unknown path |
 
@@ -53,14 +53,14 @@ Enable job template list and retrieve tools. Note the tool UUID - you will need 
 
 ## AO Credentials - Wire After Import
 
-The workflow JSON imports cleanly with no credential or integration IDs set. After importing, open each node in the AO workflow editor and configure:
+The workflow JSON imports cleanly with no credential or integration IDs set. After importing, open each step in the AO workflow editor and configure:
 
-| Node(s) | Field | What to set |
+| Step(s) | Field | What to set |
 |---------|-------|-------------|
-| All AAP job template nodes | Credential | AAP credential for job template execution |
-| All AAP job template nodes | Integration | AAP integration connection |
-| AI agent nodes | Model credential | Claude/LLM model credential |
-| AI agent nodes | Model | LLM model configured in AO |
+| All AAP job template steps | Credential | AAP credential for job template execution |
+| All AAP job template steps | Integration | AAP integration connection |
+| AI agent steps | Model credential | Claude/LLM model credential |
+| AI agent steps | Model | LLM model configured in AO |
 
 ## Webhook Trigger
 
