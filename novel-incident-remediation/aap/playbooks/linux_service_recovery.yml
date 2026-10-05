@@ -1,0 +1,52 @@
+---
+- name: Incidents | Service Recovery
+  hosts: "{{ target_host | default('cert-demo-vm') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Check service state before recovery
+      ansible.builtin.shell: systemctl is-active ops-monitor 2>/dev/null || echo "inactive"
+      register: status_before
+      changed_when: false
+
+    - name: Start ops-monitor service
+      ansible.builtin.systemd:
+        name: ops-monitor
+        state: started
+        enabled: true
+
+    - name: Wait for service to stabilize
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Verify service running post-recovery
+      ansible.builtin.shell: systemctl is-active ops-monitor 2>/dev/null || echo "inactive"
+      register: status_after
+      changed_when: false
+
+    - name: Check recent log output confirms activity
+      ansible.builtin.shell: tail -1 /var/log/ops-monitor.log 2>/dev/null || echo "no log entries yet"
+      register: log_check
+      changed_when: false
+
+    - name: Report recovery result
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          SERVICE RECOVERY COMPLETE
+          ============================================================
+          Service:  ops-monitor
+          Before:   {{ status_before.stdout | trim }}
+          After:    {{ status_after.stdout | trim }}
+          Status:   {{ 'SUCCESS' if status_after.stdout | trim == 'active' else 'FAILED' }}
+          Last log: {{ log_check.stdout | trim }}
+          ============================================================
+
+    - name: Publish recovery artifacts
+      ansible.builtin.set_stats:
+        data:
+          service_name: "ops-monitor"
+          status_before: "{{ status_before.stdout | trim }}"
+          status_after: "{{ status_after.stdout | trim }}"
+          recovery_status: "{{ 'SUCCESS' if status_after.stdout | trim == 'active' else 'FAILED' }}"

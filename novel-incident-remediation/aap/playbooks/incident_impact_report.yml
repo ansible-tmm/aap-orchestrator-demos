@@ -1,0 +1,283 @@
+---
+- name: Incidents | Impact Report
+  hosts: "{{ target_host | default('cert-demo-vm') }}"
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Set variable defaults
+      ansible.builtin.set_fact:
+        incident_type: "{{ incident_type | default('unclassified') }}"
+        ticket_id: "{{ ticket_id | default('INC0000000') }}"
+
+
+    - name: Get host classification from inventory
+      ansible.builtin.set_fact:
+        host_env: "{{ hostvars[inventory_hostname]['env'] | default('unknown') }}"
+        host_role: "{{ hostvars[inventory_hostname]['role'] | default('unknown') }}"
+        host_criticality: "{{ hostvars[inventory_hostname]['criticality'] | default('unknown') }}"
+
+    - name: Determine SLA and governance
+      ansible.builtin.set_fact:
+        sla_tier: >-
+          {%- if host_env == 'production' and host_criticality in ['high','critical'] -%}P1 — 15min MTTR target
+          {%- elif host_env == 'production' -%}P2 — 4hr MTTR target
+          {%- else -%}P3 — Best effort{%- endif -%}
+        change_control: "{{ 'CAB approval required (production system)' if host_env == 'production' else 'Not required' }}"
+        approval_required: "{{ 'Yes — production host requires operator sign-off before any automated action' if host_env == 'production' else 'No' }}"
+        auto_escalate: "{{ '30 minutes from ticket creation' if host_criticality in ['high','critical'] else 'Standard SLA' }}"
+
+    # -------------------------------------------------------
+    # SERVICE DOWN impact assessment
+    # -------------------------------------------------------
+    - name: Gather service_down impact facts
+      when: incident_type == 'service_down'
+      block:
+        - name: Check ops-monitor service state
+          ansible.builtin.shell: systemctl is-active ops-monitor 2>/dev/null || echo "inactive"
+          register: svc_status
+          changed_when: false
+
+        - name: Check how long service has been down
+          ansible.builtin.shell: |
+            SINCE=$(systemctl show ops-monitor --property=InactiveExitTimestamp --value 2>/dev/null)
+            if [ -z "$SINCE" ] || [ "$SINCE" = "n/a" ]; then echo "unknown"; else echo "$SINCE"; fi
+          register: svc_since
+          changed_when: false
+          ignore_errors: true
+
+        - name: Check system load and memory
+          ansible.builtin.shell: |
+            LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
+            MEM=$(free -m | awk '/Mem:/{printf "%d%% used (%dMB free of %dMB)", ($3/$2)*100, $7, $2}')
+            echo "$LOAD | $MEM"
+          register: sys_health
+          changed_when: false
+
+        - name: Check dependent services that rely on ops-monitor
+          ansible.builtin.shell: |
+            systemctl list-dependencies ops-monitor --reverse 2>/dev/null | grep -v "^●" | head -5 || echo "none found"
+          register: dependents
+          changed_when: false
+
+        - name: Check recent ops-monitor log for last known activity
+          ansible.builtin.shell: |
+            tail -3 /var/log/ops-monitor.log 2>/dev/null || echo "No log entries available"
+          register: last_log
+          changed_when: false
+
+        - name: Set service_down impact facts
+          ansible.builtin.set_fact:
+            impact_detail: |
+              SERVICE STATUS
+              Current state: {{ svc_status.stdout | trim | upper }}
+              Down since: {{ svc_since.stdout | trim }}
+              Last log entry: {{ last_log.stdout_lines[-1] | default('N/A') }}
+
+              SYSTEM HEALTH AT TIME OF INCIDENT
+              Load average: {{ sys_health.stdout.split('|')[0] | trim }}
+              Memory: {{ sys_health.stdout.split('|')[1] | trim if '|' in sys_health.stdout else 'unknown' }}
+              Active network connections: {{ conn_count.stdout | default('unknown') | trim }}
+
+              BLAST RADIUS
+              Host role: {{ host_role }} in {{ host_env }} environment
+              Criticality: {{ host_criticality | upper }}
+              Dependent services: {{ dependents.stdout | trim }}
+              Monitoring gap: Infrastructure health checks and alerting are OFFLINE until restored.
+              Any host-level failures during this window will go UNDETECTED.
+            recommendation: |
+              IMMEDIATE ACTION REQUIRED
+              1. Approve automated service recovery (below)
+              2. ops-monitor will be restarted and validated
+              3. Confirm log output resumes within 60 seconds post-restart
+              4. If restart fails, escalate to infrastructure team
+              5. Post-recovery: investigate root cause in systemd journal (journalctl -u ops-monitor)
+            affected_systems: "Infrastructure monitoring, automated alerting pipeline, health check endpoints, SRE on-call visibility"
+
+    # -------------------------------------------------------
+    # CONFIG DRIFT impact assessment
+    # -------------------------------------------------------
+    - name: Gather config_drift impact facts
+      when: incident_type == 'config_drift'
+      block:
+        - name: Check current SSH MaxAuthTries value
+          ansible.builtin.shell: grep -E "^#?MaxAuthTries" /etc/ssh/sshd_config 2>/dev/null | tail -1 || echo "not set"
+          register: current_max
+          changed_when: false
+
+        - name: Get config file modification timestamp
+          ansible.builtin.shell: |
+            stat -c '%y' /etc/ssh/sshd_config 2>/dev/null | cut -d'.' -f1 || echo "unknown"
+          register: config_mtime
+          changed_when: false
+
+        - name: Check if backup exists (from simulate)
+          ansible.builtin.shell: test -f /etc/ssh/sshd_config.bak && echo "backup exists" || echo "no backup"
+          register: backup_check
+          changed_when: false
+
+        - name: Check current SSHD connections
+          ansible.builtin.shell: ss -tn dport = :22 state established 2>/dev/null | wc -l
+          register: ssh_conns
+          changed_when: false
+
+        - name: Set config_drift impact facts
+          ansible.builtin.set_fact:
+            impact_detail: |
+              POLICY VIOLATION DETECTED
+              Affected file: /etc/ssh/sshd_config
+              Drifted setting: {{ current_max.stdout | trim }}
+              Policy requirement: MaxAuthTries ≤ 4 (CIS RHEL 9 Benchmark v1.0 — Section 5.2)
+              File last modified: {{ config_mtime.stdout | trim }}
+              Config backup: {{ backup_check.stdout | trim }}
+
+              COMPLIANCE IMPACT
+              Frameworks affected: CIS RHEL 9 Benchmark, SOC2 CC6.1 (Logical Access Controls)
+              Risk classification: MEDIUM-HIGH
+              Exploitability: An attacker with SSH network access can attempt 10 authentication
+              retries per session instead of the policy-allowed 4, increasing brute-force attack
+              surface. Not directly exploitable without network access to port 22.
+
+              CURRENT SSH EXPOSURE
+              Active SSH sessions on {{ inventory_hostname }}: {{ ssh_conns.stdout | trim }}
+
+              CHANGE CONTROL STATUS
+              This host is classified as {{ host_env | upper }}/{{ host_criticality | upper }}.
+              Per change management policy, SSH configuration changes on production systems
+              require CAB approval and a scheduled maintenance window.
+              Automated enforcement has been BLOCKED pending review.
+            recommendation: |
+              NO AUTOMATED REMEDIATION APPLIED — ESCALATED TO CHANGE MANAGEMENT
+
+              Recommended next steps:
+              1. Create change request referencing this ticket
+              2. Schedule remediation in next CAB window (Thursday 08:00 UTC)
+              3. Approved fix: sed -i 's/MaxAuthTries.*/MaxAuthTries 4/' /etc/ssh/sshd_config && systemctl reload sshd
+              4. Verify: sshd -T | grep maxauthtries (expected: maxauthtries 4)
+              5. Close this ticket upon successful CAB execution and compliance scan pass
+            affected_systems: "SSH access policy, CIS compliance posture, SOC2 audit trail, security hardening baseline"
+
+    # -------------------------------------------------------
+    # CAPACITY ISSUE impact assessment
+    # -------------------------------------------------------
+    - name: Gather capacity_issue impact facts
+      when: incident_type == 'capacity_issue'
+      block:
+        - name: Get root disk usage details
+          ansible.builtin.shell: |
+            df -h / | tail -1 | awk '{printf "Used: %s of %s (%s)\n", $3, $2, $5}'
+          register: disk_usage
+          changed_when: false
+
+        - name: Find top disk consumers in /var/log
+          ansible.builtin.shell: |
+            find /var/log -type f -size +50M -exec ls -lh {} \; 2>/dev/null | \
+            awk '{print $5, $9}' | sort -rh | head -5 || echo "No large files found"
+          register: large_files
+          changed_when: false
+
+        - name: Estimate time until disk full (based on recent writes)
+          ansible.builtin.shell: |
+            AVAIL=$(df / | tail -1 | awk '{print $4}')
+            RATE=$(find /var/log -name "*.log" -newer /tmp -type f -exec stat -c %s {} \; 2>/dev/null | \
+              awk '{s+=$1} END {print int(s/1024)}' || echo "0")
+            if [ "$RATE" -gt "0" ] 2>/dev/null; then
+              HRS=$(echo "$AVAIL / $RATE / 3600" | bc 2>/dev/null || echo "unknown")
+              echo "~${HRS} hours at current write rate"
+            else
+              echo "Unable to calculate — write rate unknown"
+            fi
+          register: time_to_full
+          changed_when: false
+          ignore_errors: true
+
+        - name: Check services at risk from disk exhaustion
+          ansible.builtin.shell: |
+            echo "nginx: $(systemctl is-active nginx 2>/dev/null || echo 'not installed')"
+            echo "demo-app: $(systemctl is-active demo-app 2>/dev/null || echo 'not installed')"
+            echo "ops-monitor: $(systemctl is-active ops-monitor 2>/dev/null || echo 'inactive')"
+          register: svc_risk
+          changed_when: false
+
+        - name: Set capacity impact facts
+          ansible.builtin.set_fact:
+            impact_detail: |
+              DISK UTILIZATION
+              {{ disk_usage.stdout | trim }}
+              Partition: / (root filesystem)
+              Estimated time to full: {{ time_to_full.stdout | trim }}
+
+              TOP DISK CONSUMERS (/var/log)
+              {{ large_files.stdout | trim }}
+
+              SERVICES AT RISK IF DISK FILLS COMPLETELY
+              {{ svc_risk.stdout | trim }}
+              Note: When root disk reaches 100%, all write operations fail.
+              This causes application crashes, session data loss, and logging blackout.
+              Monitoring and alerting also become unreliable when disk is full.
+
+              BUSINESS IMPACT PROJECTION
+              Current state: Elevated — write operations degraded
+              If unaddressed: Critical — all services on {{ inventory_hostname }} fail
+              Recovery window: Disk cleanup takes ~2 minutes; no restart required
+            recommendation: |
+              AUTOMATED REMEDIATION APPROVED (low risk)
+              Disk cleanup is non-destructive — only removing large log files
+              and rotating accumulated logs. No configuration changes.
+
+              Automation will:
+              1. Identify and remove log files > 100MB in /var/log
+              2. Force log rotation via logrotate
+              3. Clear dnf package cache
+              4. Report before/after disk usage
+              5. No service restarts required
+
+              Post-remediation: Recommend scheduling automated log rotation
+              via cron to prevent recurrence (logrotate -f weekly).
+            affected_systems: "All services on {{ inventory_hostname }} — disk exhaustion causes write failures across nginx, applications, and monitoring"
+
+    - name: Set defaults
+      ansible.builtin.set_fact:
+        impact_detail: "{{ impact_detail | default('Impact data collection complete. See job log for details.') }}"
+        recommendation: "{{ recommendation | default('Manual investigation required.') }}"
+        affected_systems: "{{ affected_systems | default('Unknown') }}"
+
+    - name: Print full impact report
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          IMPACT ANALYSIS REPORT — {{ ticket_id }}
+          ============================================================
+          HOST PROFILE
+          Host:           {{ inventory_hostname }}
+          Environment:    {{ host_env | upper }}
+          Role:           {{ host_role }}
+          Criticality:    {{ host_criticality | upper }}
+          Incident Type:  {{ incident_type }}
+
+          SLA / GOVERNANCE
+          Priority:       {{ sla_tier }}
+          Change Control: {{ change_control }}
+          Approval:       {{ approval_required }}
+          Auto-escalate:  {{ auto_escalate }}
+
+          {{ impact_detail }}
+
+          RECOMMENDED ACTION
+          {{ recommendation }}
+
+          AFFECTED SYSTEMS
+          {{ affected_systems }}
+          ============================================================
+
+    - name: Publish impact artifacts
+      ansible.builtin.set_stats:
+        data:
+          host_env: "{{ host_env }}"
+          host_role: "{{ host_role }}"
+          host_criticality: "{{ host_criticality }}"
+          sla_tier: "{{ sla_tier }}"
+          change_control: "{{ change_control }}"
+          approval_required: "{{ approval_required }}"
+          impact_detail: "{{ impact_detail }}"
+          affected_systems: "{{ affected_systems }}"
+          recommendation: "{{ recommendation }}"

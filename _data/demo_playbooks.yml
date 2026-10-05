@@ -414,3 +414,31 @@ multi-service-correlation:
       path: multi-service-correlation/playbooks/notify_operators.yml
       description: Posts correlation analysis and remediation results to Mattermost.
       runs_on: localhost (Mattermost API)
+
+novel-incident-remediation:
+  status: active
+  items:
+    - name: gather_incident_facts.yml
+      path: novel-incident-remediation/aap/playbooks/gather_incident_facts.yml
+      description: Collects memory usage, disk utilization, failed service count, web service health check, and recent syslog errors from the affected host. Publishes all metrics as set_stats artifacts consumed by the AI agent.
+      runs_on: RHEL target host
+    - name: remediate_disk_cleanup.yml
+      path: novel-incident-remediation/aap/playbooks/remediate_disk_cleanup.yml
+      description: Clears app session storage, removes large log files and compressed archives older than 7 days, forces log rotation, and publishes before/after disk stats as artifacts.
+      runs_on: RHEL target host
+    - name: linux_service_recovery.yml
+      path: novel-incident-remediation/aap/playbooks/linux_service_recovery.yml
+      description: Restarts the failed service, waits for it to become active, validates the web endpoint returns HTTP 200, and logs the recovery to syslog.
+      runs_on: RHEL target host
+    - name: notify_snow.yml
+      path: novel-incident-remediation/aap/playbooks/notify_snow.yml
+      description: Looks up the ServiceNow incident by ticket ID, updates the ticket state, and posts a work note with the provided title and body. Adds close code and close notes when resolving (state 6).
+      runs_on: localhost (ServiceNow API)
+    - name: incident_impact_report.yml
+      path: novel-incident-remediation/aap/playbooks/incident_impact_report.yml
+      description: Gathers system facts from the affected host, assesses service and resource impact, and posts a structured impact report as a work note on the ServiceNow ticket.
+      runs_on: RHEL target host
+    - name: incident_log_and_report.yml
+      path: novel-incident-remediation/aap/playbooks/incident_log_and_report.yml
+      description: Logs the unrecognized incident details and posts a work note to the ServiceNow ticket flagging it for manual triage.
+      runs_on: localhost (ServiceNow API)

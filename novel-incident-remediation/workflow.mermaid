@@ -1,0 +1,21 @@
+flowchart LR
+  A[SNOW Webhook] --> B{Route by Incident Type}
+
+  B -->|capacity_issue| C[Disk Capacity Cleanup]
+  C --> D[Notify: Capacity Restored]
+
+  B -->|service_down| E[Impact Report]
+  E --> F[Service Recovery]
+  F --> G[Close Ticket]
+
+  B -->|config_drift| H[Impact Report]
+  H --> I[Escalate to Change Mgmt]
+
+  B -->|unknown| J[Gather System Facts]
+  J --> K[AI: Troubleshoot and Collect]
+  K --> L[Enrich SNOW with AI Findings]
+  L --> M[AI: Remediation Planning]
+  M --> N[Post Remediation Plan to SNOW]
+  N --> O[Approve AI Recommendation]
+  O -->|Approved| P[Execute Recommended Automation]
+  P --> G

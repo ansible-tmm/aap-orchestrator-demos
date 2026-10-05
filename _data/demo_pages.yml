@@ -335,3 +335,29 @@ multi-service-correlation:
     - Root-cause-first remediation when identified
     - Fallback to AI triage agent
     - Validation and operator notification
+
+novel-incident-remediation:
+  description: Known incident types route directly to existing AAP job templates with no AI overhead. When an unknown or unclassified incident arrives, the workflow pivots to an AI agent that investigates using gathered system facts, enriches the ServiceNow ticket with findings, and generates a concrete remediation plan. An operator approves the plan, and the workflow executes the recommended automation. The same workflow handles both the deterministic and novel paths — no separate pipelines.
+  ao_building_blocks:
+    - webhook_trigger
+    - switch
+    - aap_job_template
+    - agentic
+    - approval
+  why_it_matters:
+    - Deterministic routing for known incident types means zero AI latency on the paths that matter most — disk, service, and config drift remediations run immediately.
+    - The AI fallback handles genuinely novel incidents without a human having to manually classify and route them — it investigates, explains, and recommends.
+    - A single unified workflow covers both known and unknown incidents. Operations teams maintain one automation pipeline instead of separate flows for routine and edge-case events.
+    - The approval gate keeps humans in control on the AI path — operators see the AI's reasoning and recommended automation before anything runs.
+  routes:
+    headers: [Incident Type, Path, What Happens]
+    rows:
+      - [capacity_issue, Deterministic, "Disk Capacity Cleanup JT runs, SNOW ticket updated and closed"]
+      - [service_down, Deterministic, "Impact report generated, Service Recovery JT runs, ticket closed"]
+      - [config_drift, Deterministic, "Impact report generated, escalated to Change Management"]
+      - [unknown, "AI agent", "Gather facts, AI investigates, enriches SNOW, AI generates remediation plan, operator approves, recommended automation executes"]
+  demo_ideas:
+    - Fire a capacity_issue incident and show the disk cleanup job template running with no AI in the loop
+    - Fire a service_down incident to walk the impact report and service recovery path
+    - Fire an unknown incident to show the AI agent activating, enriching the SNOW ticket, and generating the remediation plan
+    - Compare the unknown path approval step — show the AI reasoning in the SNOW ticket before approving
