@@ -1281,6 +1281,45 @@ button.ao-block:focus-visible {
   margin-bottom: 0;
 }
 
+.detail-steps {
+  color: #aaa;
+  max-width: 720px;
+  margin: 0 0 16px;
+  padding-left: 1.35rem;
+  line-height: 1.6;
+}
+
+.detail-steps li {
+  margin-bottom: 10px;
+}
+
+.detail-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.detail-steps code,
+.detail-walkthrough__tip code {
+  font-size: 0.92em;
+  color: #d4d4d4;
+}
+
+.detail-walkthrough__tip {
+  max-width: 720px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #141414;
+  color: #aaa;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.detail-walkthrough__tip strong {
+  color: #e8e8e8;
+  font-weight: 600;
+}
+
 .detail-diagram {
   background: #111;
   border: 1px solid #222;

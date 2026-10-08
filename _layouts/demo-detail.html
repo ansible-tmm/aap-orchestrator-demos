@@ -129,6 +129,47 @@ mermaid: true
 </section>
 {% endif %}
 
+{% if detail.walkthrough %}
+<section class="detail-section" id="demo-walkthrough">
+  <h2>{{ detail.walkthrough.title | default: "Demo walkthrough" }}</h2>
+  {% if detail.walkthrough.lede %}
+  <p class="detail-section__lede">{{ detail.walkthrough.lede }}</p>
+  {% endif %}
+  {% if detail.walkthrough.steps %}
+  <ol class="detail-steps">
+    {% for step in detail.walkthrough.steps %}
+      <li>{{ step }}</li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  {% if detail.walkthrough.tip %}
+  <p class="detail-walkthrough__tip"><strong>Tip:</strong> {{ detail.walkthrough.tip }}</p>
+  {% endif %}
+  {% if detail.walkthrough.table %}
+  <div class="detail-table-wrap">
+    <table class="detail-table">
+      <thead>
+        <tr>
+          {% for header in detail.walkthrough.table.headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in detail.walkthrough.table.rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% if forloop.first %}<code>{{ cell }}</code>{% elsif forloop.index == 2 %}<code>{{ cell }}</code>{% else %}{{ cell }}{% endif %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% include demo-playbooks.html slug=page.demo_slug %}
 {% include demo-youtube.html demo=demo %}
 

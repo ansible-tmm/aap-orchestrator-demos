@@ -29,6 +29,22 @@ disk-utilization:
     - One check playbook and one switch replace a nest of conditional jobs. Disk tier drives the right response automatically.
     - Remediation scales with severity: log and exit at low usage, cleanup at warning, expand capacity at critical instead of one-size-fits-all scripting.
     - Tier-specific Mattermost notifications tell operators exactly what ran, so on-call does not have to dig through job logs.
+  walkthrough:
+    title: Demo walkthrough — test every switch path
+    lede: You do not need to fill the disk to show the switch. The Check job accepts a <code>test_disk_use_percent</code> extra var that skips live <code>df</code> and publishes a simulated <code>disk_use_percent</code> artifact for routing.
+    steps:
+      - "In automation orchestrator, open the <strong>Disk Utilization Check</strong> step."
+      - "Under extra vars, set <code>test_disk_use_percent</code> to one of the values in the table below (number, not a string)."
+      - "Run the workflow. The switch reads <code>disk_use_percent</code> from Check and takes the matching branch — Continue, Cleanup, Expand, or Fallback."
+      - "Change the value and re-run to walk the next path. Clear or remove <code>test_disk_use_percent</code> when you want a real <code>df</code> check."
+    tip: The exported workflow ships with <code>test_disk_use_percent</code> set to <code>50</code> so a first run safely takes Continue. Change it before you demo Cleanup or Expand.
+    table:
+      headers: [Path, test_disk_use_percent, Switch condition, What runs]
+      rows:
+        - [Continue, "75", "< 80%", "Log OK → Mattermost (healthy)"]
+        - [Cleanup, "85", "80–95%", "Reclaim dnf cache + old logs → Mattermost (warning)"]
+        - [Expand, "96", "> 95%", "Grow EBS + filesystem → Mattermost (critical)"]
+        - [Fallback, "omit or non-numeric", "default", "Manual-review path → Mattermost (unsupported)"]
 
 cert-lifecycle:
   description: Two certificates expire on production services at the same time. Splunk fires alerts to automation orchestrator. An AI agent analyzes each certificate, discovers available AAP job templates, and selects the correct renewal strategy (PEM for nginx, Java keystore for the API server) without hardcoded routing. An operator reviews the agent's analysis and confidence score, approves, and AAP renews and validates TLS automatically.
