@@ -1261,6 +1261,17 @@ button.ao-block:focus-visible {
   color: #fff;
 }
 
+.contribute-subhead {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: #e8e8e8;
+}
+
+.detail-section .contribute-subhead:first-of-type {
+  margin-top: 8px;
+}
+
 .detail-section p {
   color: #aaa;
   max-width: 680px;

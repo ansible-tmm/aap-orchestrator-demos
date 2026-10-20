@@ -36,6 +36,7 @@ exclude:
   - shared/
   - README.md
   - DEVELOPER.md
+  - CONTRIBUTING.md
   - .gitignore
   - .cursor/
 

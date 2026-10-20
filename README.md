@@ -4,7 +4,7 @@ Hands-on demos for **Ansible Automation Platform automation orchestrator (AO)** 
 
 **[Browse demos on GitHub Pages →](https://ansible-tmm.github.io/aap-orchestrator-demos/)**
 
-**[Developer setup & technical docs →](DEVELOPER.md)**
+**[Contribute a demo →](https://ansible-tmm.github.io/aap-orchestrator-demos/contribute/)** · **[Developer setup](DEVELOPER.md)**
 
 ## What is automation orchestrator?
 
@@ -66,4 +66,5 @@ Categories (cert-rotation, incident-remediation, etc.) are tags on the [demo mar
 ## Quick links
 
 - **Browse all demos (cards + filters):** https://ansible-tmm.github.io/aap-orchestrator-demos/
+- **Contribute a demo:** https://ansible-tmm.github.io/aap-orchestrator-demos/contribute/
 - **Setup guides:** [DEVELOPER.md](DEVELOPER.md)
