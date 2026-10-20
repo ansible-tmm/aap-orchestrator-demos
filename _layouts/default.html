@@ -77,6 +77,8 @@
         {% include demo-sidebar-toc.html %}
       {% elsif page.ao_glossary_page %}
         {% include glossary-sidebar-toc.html %}
+      {% elsif page.contribute_page %}
+        {% include contribute-sidebar-toc.html %}
       {% endif %}
 
       {% include sidebar-run-options.html %}
@@ -114,7 +116,7 @@
   <script src="{{ '/assets/js/card-previews.js' | relative_url }}"></script>
   {% endif %}
 
-  {% if page.demo_slug or page.ao_glossary_page %}
+  {% if page.demo_slug or page.ao_glossary_page or page.contribute_page %}
   <script src="{{ '/assets/js/demo-toc.js' | relative_url }}"></script>
   {% endif %}
 </body>

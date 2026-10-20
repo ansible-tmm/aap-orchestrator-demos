@@ -1,0 +1,193 @@
+---
+layout: default
+title: Contribute a demo
+description: Fork the repo, preview on GitHub Pages, meet the minimum demo requirements, and open a pull request
+contribute_page: true
+---
+
+<div class="glossary-hero">
+  <h1>Contribute a demo</h1>
+  <p class="glossary-hero__lede">
+    Add a new automation orchestrator scenario to this marketplace. Fork the repo, turn on GitHub Pages so you can preview your card and detail page, then open a pull request when it looks right.
+  </p>
+</div>
+
+<section class="detail-section" id="overview">
+  <h2>What you are contributing</h2>
+  <p>
+    Each demo is a top-level folder (playbooks, workflow JSON, docs) plus a few catalog files that make it show up on the GitHub Pages site. You do not need to be a maintainer to propose one — a clear PR with the minimum files below is enough to start a review.
+  </p>
+  <p>
+    Upstream repo:
+    <a href="https://github.com/{{ site.repository }}">github.com/{{ site.repository }}</a>
+  </p>
+</section>
+
+<section class="detail-section" id="fork">
+  <h2>1. Fork and clone</h2>
+  <ol class="detail-steps">
+    <li>Open <a href="https://github.com/{{ site.repository }}">{{ site.repository }}</a> and click <strong>Fork</strong>. Keep the repository name <code>aap-orchestrator-demos</code> so the site URL path matches this project’s <code>baseurl</code>.</li>
+    <li>Clone your fork locally:
+      <br><code>git clone https://github.com/&lt;your-username&gt;/aap-orchestrator-demos.git</code>
+    </li>
+    <li>Create a branch for your work:
+      <br><code>git checkout -b add-&lt;demo-slug&gt;-demo</code>
+    </li>
+  </ol>
+</section>
+
+<section class="detail-section" id="github-pages">
+  <h2>2. Preview on GitHub Pages</h2>
+  <p>
+    The marketplace is a Jekyll site. The easiest way to see your new card and detail page is to enable Pages on your fork — same setup the upstream site uses.
+  </p>
+  <ol class="detail-steps">
+    <li>In your fork on GitHub, go to <strong>Settings → Pages</strong>.</li>
+    <li>Under <strong>Build and deployment</strong>, set <strong>Source</strong> to <strong>Deploy from a branch</strong>.</li>
+    <li>Set <strong>Branch</strong> to <code>main</code> (or your working branch) and folder to <strong>/ (root)</strong>, then save.</li>
+    <li>Wait a minute for the deploy to finish (Actions → pages build, or a green check on the latest commit).</li>
+    <li>Open your site at
+      <br><code>https://&lt;your-username&gt;.github.io/aap-orchestrator-demos/</code>
+    </li>
+  </ol>
+  <p class="detail-walkthrough__tip">
+    <strong>Tip:</strong> Push commits to the branch Pages is building from, refresh the site, and confirm the new demo card and detail page before you open the PR. If styles or links 404, double-check the repo is still named <code>aap-orchestrator-demos</code> (this site’s <code>baseurl</code> is <code>/aap-orchestrator-demos</code>).
+  </p>
+</section>
+
+<section class="detail-section" id="minimum">
+  <h2>3. Minimum requirements</h2>
+  <p>Every new demo needs at least the following.</p>
+
+  <h3 class="contribute-subhead">Demo folder</h3>
+  <ul class="detail-list">
+    <li>Top-level directory named with a short kebab-case slug, e.g. <code>my-demo/</code>.</li>
+    <li><code>README.md</code> — what the demo does, how to run it, and links to setup if needed.</li>
+    <li><code>ao/*.json</code> — importable automation orchestrator workflow export (required for <code>status: active</code>).</li>
+    <li>Playbooks under <code>playbooks/</code> (or <code>aap/playbooks/</code>) that the workflow launches.</li>
+    <li>A setup doc when the environment is non-trivial (<code>SETUP_GUIDE.md</code> or <code>REQUIREMENTS.md</code>).</li>
+  </ul>
+
+  <h3 class="contribute-subhead">Marketplace wiring (required for the site)</h3>
+  <ul class="detail-list">
+    <li><code>_data/demos.yml</code> — one catalog entry (<code>slug</code>, <code>title</code>, <code>subtitle</code>, <code>category</code>, <code>status</code>, <code>blurb</code>, <code>url</code>, <code>github_path</code>, <code>github_doc</code>). Set <code>featured: false</code> unless a maintainer is swapping a featured slot.</li>
+    <li><code>_data/demo_pages.yml</code> — detail copy: <code>description</code>, <code>why_it_matters</code>, and <code>ao_building_blocks</code> keys that match the glossary.</li>
+    <li><code>_data/demo_playbooks.yml</code> — playbook table for the detail page (name, path, short description, runs on).</li>
+    <li><code>demos/&lt;slug&gt;/index.html</code> — stub page:
+      <br><code>---</code><br>
+      <code>layout: demo-detail</code><br>
+      <code>demo_slug: &lt;slug&gt;</code><br>
+      <code>---</code>
+    </li>
+  </ul>
+
+  <h3 class="contribute-subhead">Status</h3>
+  <ul class="detail-list">
+    <li><code>active</code> — runnable end-to-end: workflow JSON, playbooks, and a setup path someone else can follow.</li>
+    <li><code>coming-soon</code> — idea or partial work is fine on the catalog, but say clearly what is missing in the README and detail copy.</li>
+  </ul>
+</section>
+
+<section class="detail-section" id="checklist">
+  <h2>4. File checklist</h2>
+  <div class="detail-table-wrap">
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Required?</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>&lt;slug&gt;/</code> folder</td>
+          <td>Yes</td>
+          <td>Playbooks, AO JSON, docs</td>
+        </tr>
+        <tr>
+          <td><code>&lt;slug&gt;/README.md</code></td>
+          <td>Yes</td>
+          <td>Point <code>github_doc</code> at this file</td>
+        </tr>
+        <tr>
+          <td><code>&lt;slug&gt;/ao/*.json</code></td>
+          <td>For active</td>
+          <td>Clean import (no leftover credential IDs)</td>
+        </tr>
+        <tr>
+          <td><code>_data/demos.yml</code> entry</td>
+          <td>Yes</td>
+          <td><code>featured: false</code> by default</td>
+        </tr>
+        <tr>
+          <td><code>_data/demo_pages.yml</code> entry</td>
+          <td>Yes</td>
+          <td>Description + why it matters + building blocks</td>
+        </tr>
+        <tr>
+          <td><code>_data/demo_playbooks.yml</code> entry</td>
+          <td>For active</td>
+          <td>Keep in sync with the README playbook table</td>
+        </tr>
+        <tr>
+          <td><code>demos/&lt;slug&gt;/index.html</code></td>
+          <td>Yes</td>
+          <td>Detail page stub</td>
+        </tr>
+        <tr>
+          <td>Setup / requirements doc</td>
+          <td>Recommended</td>
+          <td>Use <code>setup_guide</code> in <code>demos.yml</code> when it differs from the README</td>
+        </tr>
+        <tr>
+          <td>Thumbnail / Arcade / YouTube</td>
+          <td>Optional</td>
+          <td>Nice to have; not required for the first PR</td>
+        </tr>
+        <tr>
+          <td><code>_config.yml</code> exclude list</td>
+          <td>Usually yes</td>
+          <td>Add <code>&lt;slug&gt;/</code> next to the other demo folders so Jekyll does not publish playbook trees as site pages</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Use an existing active demo as a template — <a href="{{ '/demos/disk-utilization/' | relative_url }}">Disk Utilization</a> is a good switch-routing example; <a href="{{ '/demos/cve-remediation/' | relative_url }}">RHEL CVE Remediation</a> shows a fuller AI-oriented layout.
+  </p>
+</section>
+
+<section class="detail-section" id="pull-request">
+  <h2>5. Open a pull request</h2>
+  <ol class="detail-steps">
+    <li>Commit your branch and push to your fork:
+      <br><code>git push -u origin add-&lt;demo-slug&gt;-demo</code>
+    </li>
+    <li>On GitHub, open a pull request from your branch into <code>ansible-tmm/aap-orchestrator-demos</code> <code>main</code>.</li>
+    <li>In the PR description, include:
+      <ul class="detail-list" style="margin-top: 8px;">
+        <li>What the demo shows (one or two sentences)</li>
+        <li>Whether it is <code>active</code> or <code>coming-soon</code></li>
+        <li>Link to your GitHub Pages preview if you enabled it</li>
+        <li>Any credentials, cloud accounts, or products a reviewer needs</li>
+      </ul>
+    </li>
+    <li>Expect review on catalog copy, workflow import cleanliness, and whether someone else can follow the setup docs.</li>
+  </ol>
+</section>
+
+<section class="detail-section" id="rules">
+  <h2>House rules</h2>
+  <ul class="detail-list">
+    <li><strong>Featured cards:</strong> only three demos may have <code>featured: true</code>. Do not add a fourth; ask a maintainer to swap.</li>
+    <li><strong>Naming:</strong> in running text use <strong>automation orchestrator</strong> (not “Automation Orchestrator” title case). <strong>AO</strong> and <strong>AAP</strong> stay uppercase as acronyms.</li>
+    <li><strong>CTAs:</strong> primary GitHub button label is <code>View on GitHub</code> (wired from <code>github_doc</code>).</li>
+    <li><strong>Secrets:</strong> never commit tokens, passwords, or real customer data. Workflow JSON should be safe to import.</li>
+  </ul>
+  <p>
+    Deeper technical notes live in
+    <a href="https://github.com/{{ site.repository }}/blob/main/DEVELOPER.md">DEVELOPER.md</a>
+    on GitHub.
+  </p>
+</section>
