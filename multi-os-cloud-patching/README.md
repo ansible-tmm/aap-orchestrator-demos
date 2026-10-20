@@ -44,6 +44,17 @@ Follow the [Patch Cloud Stack in AWS](https://github.com/ansible/product-demos/b
 
 Import [`ao/multi-os-cloud-patching.json`](ao/multi-os-cloud-patching.json) into automation orchestrator. Update `credential_id` and `organization_name` for your AAP integration. Job template names must match the **Cloud | AWS |** templates created by product-demos setup.
 
+### Manual trigger defaults
+
+The manual trigger pre-fills cloud-stack inventory limits. Set **`aws_region`** for your lab (no default):
+
+| Input | Default |
+|---|---|
+| `_hosts` | `aws_rhel8:aws_rhel9` |
+| `_hosts_windows` | `aws-dc:aws_win1` |
+| `_report_server` | `reports` |
+| `aws_region` | *(required — set per lab)* |
+
 Map each AO step to the corresponding AAP job template:
 
 | AO step | AAP job template |

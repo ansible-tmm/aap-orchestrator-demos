@@ -19,16 +19,23 @@
           ],
           "properties": {
             "_hosts": {
-              "type": "string"
+              "type": "string",
+              "default": "aws_rhel8:aws_rhel9",
+              "description": "RHEL inventory limit for patch/snapshot steps"
             },
             "aws_region": {
-              "type": "string"
+              "type": "string",
+              "description": "AWS region where the cloud stack was deployed (no default — set per lab)"
             },
             "_hosts_windows": {
-              "type": "string"
+              "type": "string",
+              "default": "aws-dc:aws_win1",
+              "description": "Windows inventory limit for patch/snapshot steps"
             },
             "_report_server": {
-              "type": "string"
+              "type": "string",
+              "default": "reports",
+              "description": "Inventory host that publishes the compliance HTML report"
             }
           },
           "additionalProperties": true
