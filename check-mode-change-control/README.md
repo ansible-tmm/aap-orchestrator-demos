@@ -28,7 +28,7 @@ flowchart LR
 
 ### Step-by-step
 
-| Step | Node | Type | What it does |
+| # | Step | Type | What it does |
 |------|------|------|--------------|
 | 1 | **Change Process Initiation** | Webhook (`/change-request`) | A change process creates the change request in ServiceNow and POSTs the number, summary, and risk into automation orchestrator (simulated by an AAP job) |
 | 2 | **Run Change in Check Mode** | AAP job | Launches `Multi-Domain Change - Check` (job_type: check) — full multi-domain dry run, nothing applied, impact published via `set_stats` |
@@ -38,7 +38,7 @@ flowchart LR
 
 #### Approved path
 
-| Step | Node | Type | What it does |
+| # | Step | Type | What it does |
 |------|------|------|--------------|
 | 6a | **Run Change for Real** | AAP job | Launches `Multi-Domain Change - Apply` (job_type: run) — the same playbook, now applying changes |
 | 7a | **AI Close-Out Analyst** | Task agent | Scans the real-run artifacts against the check-mode prediction, writes the closure work note |
@@ -46,7 +46,7 @@ flowchart LR
 
 #### Rejected path
 
-| Step | Node | Type | What it does |
+| # | Step | Type | What it does |
 |------|------|------|--------------|
 | 6b | **Push Rejection Work Note** | AAP job | Launches `Update SNOW Change` with a work note recording the operator's rejection — no system was modified |
 

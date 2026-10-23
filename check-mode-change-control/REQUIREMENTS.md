@@ -50,7 +50,7 @@ Replace these before importing, or after import via the automation orchestrator 
 | Placeholder | What it is |
 |-------------|------------|
 | `YOUR_AO_MODEL_CREDENTIAL_ID` | automation orchestrator model credential for the AI agents (tested with `claude-sonnet-4-6`) |
-| `YOUR_AO_AAP_CREDENTIAL_ID` | automation orchestrator AAP integration credential used by all `aap_job_template` nodes |
+| `YOUR_AO_AAP_CREDENTIAL_ID` | automation orchestrator AAP integration credential used by all `aap_job_template` steps |
 
 ## Simulation Environment Variables
 
