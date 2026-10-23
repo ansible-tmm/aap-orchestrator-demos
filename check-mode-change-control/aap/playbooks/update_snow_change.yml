@@ -1,0 +1,75 @@
+---
+# Update ServiceNow Change Request — the single SNOW write path for the
+# check mode change control workflow. Every SNOW interaction (impact report
+# work note, closure updates, rejection note) goes through this job template,
+# launched by the automation orchestrator with the work note text as an
+# extra var.
+#
+# Secrets come from the environment (inject them from an AAP custom credential
+# type, not extra_vars):
+#   SNOW_INSTANCE_URL, SNOW_USERNAME, SNOW_PASSWORD
+#
+# Extra vars from the workflow:
+#   change_number — ServiceNow change request number (e.g. CHG0030001)
+#   work_notes    — the work note body (AI-generated report, closure summary,
+#                   or the static rejection note)
+#   snow_state    — optional target state for the change request
+#                   (3 = Closed; omit to leave the state unchanged)
+- name: Change Control | Update ServiceNow Change Request
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    snow_instance_url: "{{ lookup('env', 'SNOW_INSTANCE_URL') | default('YOUR_SNOW_INSTANCE_URL') }}"
+    snow_username: "{{ lookup('env', 'SNOW_USERNAME') }}"
+    snow_password: "{{ lookup('env', 'SNOW_PASSWORD') }}"
+
+  tasks:
+    - name: Look up change request sys_id by number
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_number | default('') }}&sysparm_fields=sys_id,number,state&sysparm_limit=1"
+        method: GET
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: "application/json"
+        status_code: 200
+      register: snow_lookup
+
+    - name: Fail if change request not found
+      ansible.builtin.fail:
+        msg: "ServiceNow change request {{ change_number | default('') }} not found"
+      when: snow_lookup.json.result | length == 0
+
+    - name: Set change request sys_id
+      ansible.builtin.set_fact:
+        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
+
+    - name: Build update payload
+      ansible.builtin.set_fact:
+        snow_payload:
+          work_notes: "{{ work_notes | default('') }}"
+          state: "{{ snow_state | default(omit) }}"
+
+    - name: Update change request in ServiceNow
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/json"
+        body_format: json
+        body: "{{ snow_payload }}"
+        status_code: 200
+      register: snow_update
+
+    - name: Log result
+      ansible.builtin.debug:
+        msg: |
+          Change request {{ change_number | default('') }} updated.
+          State: {{ snow_update.json.result.state }}
+          URL: {{ snow_instance_url }}/nav_to.do?uri=change_request.do?sys_id={{ snow_sys_id }}

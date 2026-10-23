@@ -92,6 +92,44 @@
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G,H noBorder
 
+- slug: check-mode-change-control
+  title: Check Mode Change Control
+  subtitle: See the impact before you commit
+  category: change-management
+  status: active
+  featured: false
+  uses_ai: true
+  tags:
+    - Check Mode
+    - Approval
+    - Task agent
+    - ServiceNow
+  thumbnail:
+    gradient: "linear-gradient(135deg, #2a1a3a 0%, #140a1f 50%, #1a2a3a 100%)"
+    icon: "🛡️"
+  blurb: A change process kicks off a multi-domain change in check mode. AI turns the dry run into an impact report on the change request; a reviewer approves or rejects before anything runs for real.
+  stats:
+    workflows: 1
+    playbooks: 3
+    setup_minutes: 30
+  url: /demos/check-mode-change-control/
+  github_path: check-mode-change-control/
+  github_doc: check-mode-change-control/README.md
+  setup_guide: check-mode-change-control/SETUP_GUIDE.md
+  workflow_json: check-mode-change-control/ao/check-mode-change-control.json
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Change Process Initiation", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Change in Check Mode", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Impact Analyst", pos: "b", h: 96, constraint: "on" }
+      C --> D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Push Impact Work Note", pos: "b", h: 96, constraint: "on" }
+      D --> E@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve Change Execution", pos: "b", h: 96, constraint: "on" }
+      E -->|Approved| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Change for Real", pos: "b", h: 96, constraint: "on" }
+      F --> G@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Close-Out Analyst", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Push Close-Out and Close Change", pos: "b", h: 96, constraint: "on" }
+      E -->|Rejected| I@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Push Rejection Work Note", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I noBorder
+
 - slug: cert-lifecycle
   title: Intelligent Cert Lifecycle
   subtitle: AI-driven certificate renewal routing

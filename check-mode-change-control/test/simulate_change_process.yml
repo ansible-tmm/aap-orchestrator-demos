@@ -1,0 +1,142 @@
+---
+# Change process initiation — simulates what a change process does in production:
+# 1. Creates a change request in ServiceNow (via the REST API)
+# 2. Fires the automation orchestrator webhook to kick off the check-mode
+#    change control workflow with the new change request number
+#
+# Register as an AAP job template ("Simulate - Change Process Initiation") and run it
+# to demo the full flow. Secrets come from the environment (inject them from an AAP
+# custom credential type, not extra_vars):
+#   SNOW_INSTANCE_URL, SNOW_USERNAME, SNOW_PASSWORD, AO_BASE_URL, AO_CLIENT_ID, AO_CLIENT_SECRET
+- name: Simulate - Change Process Initiation
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    snow_instance_url: "{{ lookup('env', 'SNOW_INSTANCE_URL') | default('YOUR_SNOW_INSTANCE_URL') }}"
+    snow_username: "{{ lookup('env', 'SNOW_USERNAME') }}"
+    snow_password: "{{ lookup('env', 'SNOW_PASSWORD') }}"
+
+    ao_base_url: "{{ lookup('env', 'AO_BASE_URL') }}"
+    ao_sa_client_id: "{{ lookup('env', 'AO_CLIENT_ID') }}"
+    ao_sa_client_secret: "{{ lookup('env', 'AO_CLIENT_SECRET') }}"
+    ao_webhook_path: "change-request"
+
+    # Scenario selects the change request content. Run one or more:
+    #   standard   - routine multi-domain hardening, expected recommendation: proceed
+    #   high_risk  - broad urgent rollout, expected recommendation: needs_review
+    scenarios:
+      standard:
+        short_description: "Multi-domain time-sync hardening rollout"
+        description: >-
+          Routine hardening change: ensure baseline time-sync package is present,
+          set kernel panic timeout in sysctl config, and enable the time-sync service
+          across web, database, and load-balancer domains. Low-risk standard change
+          with a check-mode impact assessment required before execution.
+        risk: "low"
+        change_type: "standard"
+        expected_recommendation: "proceed"
+      high_risk:
+        short_description: "Urgent broad configuration rollout across all domains"
+        description: >-
+          Urgent change requested by leadership: apply configuration updates across
+          all domains simultaneously ahead of a deadline, with a short rollback
+          window. Broad blast radius touching web, database, and load-balancer
+          domains at once. Check-mode impact assessment required before execution.
+        risk: "high"
+        change_type: "normal"
+        expected_recommendation: "needs_review"
+
+  tasks:
+    - name: Build scenario list
+      ansible.builtin.set_fact:
+        active_scenarios: "{{ scenario_list if scenario_list is sequence and scenario_list is not string else [scenario_list] }}"
+
+    - name: Show scenarios to run
+      ansible.builtin.debug:
+        msg: "Running scenarios: {{ active_scenarios | join(', ') }}"
+
+    - name: Create change requests in ServiceNow
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request"
+        method: POST
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/json"
+        body_format: json
+        body:
+          short_description: "{{ scenarios[item].short_description }}"
+          description: "{{ scenarios[item].description }}"
+          risk: "{{ scenarios[item].risk }}"
+          type: "{{ scenarios[item].change_type }}"
+          state: "10"
+          requested_by: "automation orchestrator demo"
+        status_code: [200, 201]
+      loop: "{{ active_scenarios }}"
+      register: change_requests
+
+    - name: Build change request map
+      ansible.builtin.set_fact:
+        change_map: "{{ change_map | default({}) | combine({result.item: result.json.result.number}) }}"
+      loop: "{{ change_requests.results }}"
+      loop_control:
+        loop_var: result
+
+    - name: Show created change requests
+      ansible.builtin.debug:
+        msg: "Created change requests: {{ change_map }}"
+
+    - name: Get automation orchestrator service account token
+      ansible.builtin.uri:
+        url: "{{ ao_base_url }}/api/v1/auth/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "{{ ao_sa_client_id }}"
+          client_secret: "{{ ao_sa_client_secret }}"
+        status_code: [200, 201]
+        validate_certs: false
+      register: ao_token_resp
+
+    - name: Fire the change-process webhook
+      ansible.builtin.uri:
+        url: "{{ ao_base_url }}/api/v1/webhooks/{{ ao_webhook_path }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ ao_token_resp.json.access_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          number: "{{ change_map[item] }}"
+          summary: "{{ scenarios[item].short_description }}"
+          risk: "{{ scenarios[item].risk }}"
+        status_code: [200, 201, 202]
+        validate_certs: false
+      loop: "{{ active_scenarios }}"
+      register: webhook_results
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          CHECK MODE CHANGE CONTROL WORKFLOWS TRIGGERED
+          ============================================================
+          {% for result in webhook_results.results %}
+          [{{ result.item | upper }}]
+            Change request:        {{ change_map[result.item] }}
+            Description:           {{ scenarios[result.item].short_description }}
+            Risk (as filed):       {{ scenarios[result.item].risk }}
+            Expected AI verdict:   {{ scenarios[result.item].expected_recommendation }}
+            Execution:             {{ result.json.execution_id | default('N/A') }}
+            Status:                {{ 'FIRED' if result.status in [200, 201, 202] else 'FAILED' }}
+          {% endfor %}
+          ============================================================
+          The workflow fetches each change request, runs the multi-domain
+          change in check mode, and attaches the impact report to the
+          change request. Approve or reject in the automation
+          orchestrator UI to continue.
+          ============================================================

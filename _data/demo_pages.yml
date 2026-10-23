@@ -335,6 +335,31 @@ ticket-enrichment:
     - Compare to the linear Ticket Enrichment Arcade — same ITSM, now with switch routing and approval
     - Walk through the Interact Arcade end to end
 
+check-mode-change-control:
+  description: A change process creates a change request in ServiceNow and fires the automation orchestrator webhook. AAP runs the multi-domain change in check mode — nothing is applied, and the playbook publishes per-domain impact via set_stats. An AI impact analyst scans the check-mode output and writes a detailed work note, pushed to the change request through the Update SNOW Change job template. After the human approval step, the approved path runs the same playbook for real, an AI close-out analyst scans what actually happened against the check-mode prediction, and the results are pushed to ServiceNow, which also closes the change request. The rejected path pushes a work note recording the operator's rejection — no system touched.
+  ao_building_blocks:
+    - webhook_trigger
+    - aap_job_template
+    - agentic
+    - approval
+  why_it_matters:
+    - Check mode makes the whole multi-domain change run as a dry run first — every task reports what it would change, and nothing is modified.
+    - The AI impact analyst reads the real dry-run artifacts published by the playbook, so the report shows actual per-domain impact, not a guess.
+    - The approval decision happens where the context is — the impact report is attached to the change request before the approval step fires.
+    - One playbook, two job templates — check and run — keeps the dry run and the real run byte-for-byte identical.
+    - All ServiceNow writes go through job templates, the same pattern the Ticket Enrichment demo uses — AI agents never touch the ITSM directly.
+  routes:
+    headers: [Decision, Condition, Action]
+    rows:
+      - [approved, "Reviewer approves after reading the impact report", "Run the multi-domain change for real → AI scans the result → push close-out work note → close change request (Closed)"]
+      - [rejected, "Reviewer rejects after reading the impact report", "Push a work note recording the operator's rejection — no system touched"]
+  demo_ideas:
+    - Run the Simulate - Change Process Initiation job with scenario_list: standard and watch the check-mode impact report land on the change request
+    - Approve at the gate and compare the check-mode and real-run job outputs in AAP
+    - Read the close-out work note — prediction versus reality, scanned by the AI close-out analyst
+    - Run scenario_list: high_risk to show the AI risk assessment and rejection path
+    - Inspect a host after a check-mode run to prove nothing changed, then again after the approved apply
+
 multi-service-correlation:
   description: Multiple correlated alerts arrive across services. The workflow correlates them, identifies root cause when possible, and routes to targeted remediation or AI-assisted triage when not.
   ao_building_blocks:

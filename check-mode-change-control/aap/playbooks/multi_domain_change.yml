@@ -1,0 +1,122 @@
+---
+# Multi-domain platform change — runs in check mode first (via the "Multi-Domain Change - Check"
+# job template, job_type: check), then for real (via the "Multi-Domain Change - Apply" job
+# template, job_type: run). In check mode nothing is modified; every task still reports
+# what WOULD change, and the impact is published via set_stats for the automation
+# orchestrator's AI impact analyst to read.
+#
+# Domains are inventory groups: every group a host belongs to gets its own task
+# block, and the impact is reported per host per domain. One VM can be a member
+# of all three demo groups (web, db, loadbalancer) to produce a full multi-domain
+# impact report from a single machine — add more VMs to new groups later without
+# changing this playbook.
+- name: Multi-domain platform change
+  hosts: web:db:loadbalancer
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Resolve the domains this host belongs to
+      ansible.builtin.set_fact:
+        _domains: "{{ group_names | difference(['all']) }}"
+      changed_when: false
+
+    # ---- Web domain tasks ----------------------------------------------------
+    - name: Web domain — ensure baseline package is present
+      ansible.builtin.package:
+        name: "{{ baseline_package | default('chrony') }}"
+        state: present
+      register: _web_pkg
+      when: "'web' in _domains"
+
+    # ---- Database domain tasks ------------------------------------------------
+    - name: DB domain — set kernel panic timeout in sysctl config
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.d/99-change-control.conf
+        line: kernel.panic = 10
+        state: present
+        create: true
+        mode: '0644'
+      register: _db_config
+      notify: Reload sysctl
+      when: "'db' in _domains"
+
+    # ---- Load balancer domain tasks --------------------------------------------
+    - name: Load balancer domain — ensure time sync service is running
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true
+      register: _lb_service
+      when: "'loadbalancer' in _domains"
+
+    # ---- Impact collection ---------------------------------------------------
+    - name: Build per-domain impact for this host
+      ansible.builtin.set_fact:
+        _host_impact: "{{ _host_impact | default([]) + [_entry] }}"
+      loop: "{{ _domains }}"
+      loop_control:
+        loop_var: _domain
+      vars:
+        _pkg: "{{ baseline_package | default('chrony') }}"
+        _changed_tasks: >-
+          {{ (['install ' ~ _pkg ~ ' (package missing on this host)']
+              if _web_pkg is changed else [])
+             if _domain == 'web' else
+             (['create /etc/sysctl.d/99-change-control.conf and set kernel.panic = 10 (config line absent)']
+              if _db_config is changed else [])
+             if _domain == 'db' else
+             (['enable and start chronyd (service not currently running/enabled)']
+              if _lb_service is changed else []) }}
+        _unchanged_tasks: >-
+          {{ ([_pkg ~ ' already installed — verified compliant']
+              if _web_pkg is not changed else [])
+             if _domain == 'web' else
+             (['kernel.panic = 10 already set in /etc/sysctl.d/99-change-control.conf — verified compliant']
+              if _db_config is not changed else [])
+             if _domain == 'db' else
+             (['chronyd already enabled and running — verified compliant']
+              if _lb_service is not changed else []) }}
+        _entry:
+          domain: "{{ _domain }}"
+          changed_tasks: "{{ _changed_tasks }}"
+          unchanged_tasks: "{{ _unchanged_tasks }}"
+          changed_count: "{{ _changed_tasks | length }}"
+      changed_when: false
+
+    - name: Build the full impact document
+      ansible.builtin.set_fact:
+        _impact_hosts: >-
+          {%- set entries = [] -%}
+          {%- for h in play_hosts -%}
+          {%- for d in hostvars[h]._host_impact | default([]) -%}
+          {%- set _ = entries.append({'host': h, 'domain': d.domain, 'changed_tasks': d.changed_tasks, 'unchanged_tasks': d.unchanged_tasks, 'changed_count': d.changed_count | int}) -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ entries }}
+      run_once: true
+      changed_when: false
+
+    - name: Publish multi-domain impact for the automation orchestrator
+      ansible.builtin.set_stats:
+        data:
+          ao_change_impact: >-
+            {{
+              {
+                'change_number': change_number | default('CHG0000000'),
+                'change_summary': change_summary | default('Multi-domain platform change'),
+                'dry_run': ansible_check_mode | bool,
+                'hosts': _impact_hosts,
+                'total_changes': _impact_hosts | map(attribute='changed_count') | sum
+              } | to_json
+            }}
+          ao_change_dry_run: "{{ ansible_check_mode | bool }}"
+          ao_change_host_count: "{{ play_hosts | length }}"
+      run_once: true
+      changed_when: false
+
+  handlers:
+    - name: Reload sysctl
+      ansible.builtin.command:
+        cmd: sysctl --system
+      changed_when: true
