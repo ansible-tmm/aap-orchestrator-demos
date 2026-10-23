@@ -1,0 +1,152 @@
+{
+  "name": "Check Mode Change Control",
+  "description": "A change process event triggers an impact-first change workflow. AAP runs the multi-domain change in check mode (nothing is applied), an AI step scans the check-mode output and writes a detailed impact report, which is attached to the ServiceNow change request through a SNOW update job template. A reviewer approves or rejects in automation orchestrator: approved, the change runs for real, an AI step scans what happened, the results are pushed to ServiceNow, and the change request is closed; rejected, a work note records the operator's rejection. No system is touched before approval.",
+  "schema_version": "2.0.0",
+  "triggers": [
+    {
+      "id": "trigger_webhook",
+      "name": "Change Process Initiation",
+      "type": "webhook_trigger",
+      "position": { "x": 0, "y": 300 },
+      "parameters": {
+        "webhook_path": "change-request"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "check_run",
+      "name": "Run Change in Check Mode",
+      "type": "aap_job_template",
+      "position": { "x": 360, "y": 300 },
+      "parameters": {
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "job_template_name": "Multi-Domain Change - Check",
+        "organization_name": "Default",
+        "extra_vars": {
+          "change_number": "${trigger.number}"
+        }
+      }
+    },
+    {
+      "id": "impact_analyst",
+      "name": "AI Impact Analyst",
+      "type": "agentic",
+      "position": { "x": 760, "y": 300 },
+      "parameters": {
+        "model": "claude-sonnet-4-6",
+        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "prompt": "You are a change impact analyst for Ansible Automation Platform. The check-mode (dry run) job for change request ${trigger.number} has completed and NO changes were applied. An operator will read your report and decide whether to APPROVE or REJECT the change — give them everything they need to make an informed decision.\n\nChange intent as reported by the change process: ${trigger.summary}\nChange risk as filed: ${trigger.risk}\nDry-run flag: ${check_run.artifacts.ao_change_dry_run}\n\nPer-host impact data published by the check-mode job via set_stats:\n${check_run.artifacts.ao_change_impact}\n\nEach host entry carries 'changed_tasks' (what WOULD change if approved, including the current state) and 'unchanged_tasks' (what was verified as already compliant and will NOT change).\n\nAnalyze the impact and write a decision-grade work note for the change request:\n\n- Parse the per-host impact data. Group hosts by domain. Count the tasks that would change per host and in total.\n- work_notes: a detailed markdown work note starting with the header '[Check Mode Impact Report — no changes applied]'. Structure it for the approving operator:\n  1. A one-line verdict.\n  2. A 'Will change' table: domain | host | what changes (current state -> desired state). List every task that would change; if none, state clearly that the environment is already compliant and the run is a safe no-op.\n  3. A 'No change needed' table: domain | host | verified compliant item — so the operator sees what was checked and passed.\n  4. Blast radius: how many hosts and domains are touched, and what stays untouched.\n  5. Total change count.\n  6. Risk reasoning and a clear recommendation (proceed / needs_review / abort).\n  7. 'How to execute' — end the note with a clear call to action: review and approve the change in the automation orchestrator to do the actual change. Tell the operator exactly where: the paused 'Approve Change Execution' approval gate on the Check Mode Change Control workflow in the automation orchestrator UI. Approving there runs the change for real (the apply job executes what the report predicts); rejecting applies nothing and sends the change request back to review. Make this the last line(s) of the work note so the reviewer sees it right after the recommendation.\n  Keep it under 25 lines. This text is posted to ServiceNow verbatim by a separate step.\n- risk_assessment: 'low', 'medium', or 'high' — base it on the number of hosts and domains affected, the change intent, and the risk filed on the change request\n- recommendation: exactly one of 'proceed', 'needs_review', or 'abort' with a one-sentence justification\n- summary: one plain sentence a reviewer can scan in two seconds\n\nDo not write to ServiceNow — the next step posts the work note through a SNOW update job template.",
+        "response_schema": {
+          "type": "object",
+          "required": ["work_notes", "risk_assessment", "recommendation", "summary"],
+          "properties": {
+            "work_notes": { "type": "string", "description": "Detailed markdown work note for the change request" },
+            "risk_assessment": { "type": "string", "description": "low, medium, or high" },
+            "recommendation": { "type": "string", "description": "proceed, needs_review, or abort" },
+            "domains_affected": { "type": "string", "description": "Comma-separated list of domains affected" },
+            "hosts_affected": { "type": "integer", "description": "Number of hosts with tasks that would change" },
+            "tasks_to_change": { "type": "integer", "description": "Total task executions that would change" },
+            "summary": { "type": "string", "description": "One plain sentence verdict for the reviewer" }
+          }
+        }
+      }
+    },
+    {
+      "id": "attach_worknote",
+      "name": "Push Impact Work Note to Change",
+      "type": "aap_job_template",
+      "position": { "x": 1160, "y": 300 },
+      "parameters": {
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "job_template_name": "Update SNOW Change",
+        "organization_name": "Default",
+        "extra_vars": {
+          "change_number": "${trigger.number}",
+          "work_notes": "${impact_analyst.result.content.work_notes}"
+        }
+      }
+    },
+    {
+      "id": "approval_gate",
+      "name": "Approve Change Execution",
+      "type": "approval",
+      "position": { "x": 1560, "y": 300 },
+      "parameters": {}
+    },
+    {
+      "id": "apply_run",
+      "name": "Run Change for Real",
+      "type": "aap_job_template",
+      "position": { "x": 1920, "y": 180 },
+      "parameters": {
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "job_template_name": "Multi-Domain Change - Apply",
+        "organization_name": "Default",
+        "extra_vars": {
+          "change_number": "${trigger.number}"
+        }
+      }
+    },
+    {
+      "id": "closeout_analyst",
+      "name": "AI Close-Out Analyst",
+      "type": "agentic",
+      "position": { "x": 2280, "y": 180 },
+      "parameters": {
+        "model": "claude-sonnet-4-6",
+        "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+        "prompt": "You are a change close-out analyst for Ansible Automation Platform. The change for change request ${trigger.number} was approved by a human reviewer and has now been executed for real.\n\nCompare the predicted impact against what actually happened.\n\nPredicted impact from the check-mode dry run:\n${check_run.artifacts.ao_change_impact}\n\nActual result from the real run:\n${apply_run.artifacts.ao_change_impact}\n\nWrite the closure work note for the change request:\n\n- work_notes: a markdown work note starting with the header '[Change Executed]'. Include: a one-line outcome, a short table of what actually changed (domain | host | task, current -> new state), whether the actual changes matched the check-mode prediction (and any differences), which items were predicted unchanged and remained unchanged, and the total change count. Keep it under 18 lines. This text is posted to ServiceNow verbatim by a separate step.\n\nDo not write to ServiceNow — the next step posts the work note and closes the change request through a SNOW update job template.",
+        "response_schema": {
+          "type": "object",
+          "required": ["work_notes"],
+          "properties": {
+            "work_notes": { "type": "string", "description": "Closure markdown work note for the change request" },
+            "matched_prediction": { "type": "string", "description": "yes or no — did the real run match the check-mode prediction" }
+          }
+        }
+      }
+    },
+    {
+      "id": "close_change",
+      "name": "Push Close-Out and Close Change",
+      "type": "aap_job_template",
+      "position": { "x": 2640, "y": 180 },
+      "parameters": {
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "job_template_name": "Update SNOW Change",
+        "organization_name": "Default",
+        "extra_vars": {
+          "change_number": "${trigger.number}",
+          "work_notes": "${closeout_analyst.result.content.work_notes}",
+          "snow_state": "3"
+        }
+      }
+    },
+    {
+      "id": "reject_worknote",
+      "name": "Push Rejection Work Note",
+      "type": "aap_job_template",
+      "position": { "x": 1920, "y": 460 },
+      "parameters": {
+        "credential_id": "YOUR_AO_AAP_CREDENTIAL_ID",
+        "job_template_name": "Update SNOW Change",
+        "organization_name": "Default",
+        "extra_vars": {
+          "change_number": "${trigger.number}",
+          "work_notes": "[Change REJECTED by operator]\n\nThe operator rejected this change in automation orchestrator after reviewing the check-mode impact report. No changes were applied to any system. The change request returns to review: revise the change request and resubmit for a new check-mode assessment."
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "from": "trigger_webhook", "to": "check_run" },
+    { "from": "check_run", "to": "impact_analyst" },
+    { "from": "impact_analyst", "to": "attach_worknote" },
+    { "from": "attach_worknote", "to": "approval_gate" },
+    { "from": "approval_gate", "to": "apply_run", "from_port": "approved" },
+    { "from": "apply_run", "to": "closeout_analyst" },
+    { "from": "closeout_analyst", "to": "close_change" },
+    { "from": "approval_gate", "to": "reject_worknote", "from_port": "rejected" }
+  ]
+}

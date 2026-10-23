@@ -1,0 +1,11 @@
+flowchart LR
+  A[Change Process Initiation] --> B[Run Change in Check Mode]
+  B --> C[AI Impact Analyst]
+  C --> D[Push Impact Work Note]
+  D --> E{Approve Change Execution}
+
+  E -->|Approved| F[Run Change for Real]
+  F --> G[AI Close-Out Analyst]
+  G --> H[Push Close-Out and Close Change]
+
+  E -->|Rejected| I[Push Rejection Work Note]

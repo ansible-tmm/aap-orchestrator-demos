@@ -442,3 +442,19 @@ novel-incident-remediation:
       path: novel-incident-remediation/aap/playbooks/incident_log_and_report.yml
       description: Logs the unrecognized incident details and posts a work note to the ServiceNow ticket flagging it for manual triage.
       runs_on: localhost (ServiceNow API)
+
+check-mode-change-control:
+  status: active
+  items:
+    - name: multi_domain_change.yml
+      path: check-mode-change-control/aap/playbooks/multi_domain_change.yml
+      description: Runs the multi-domain change (package, sysctl config, service) and publishes per-domain impact via set_stats. Registered as both the Check and Apply job templates.
+      runs_on: All in-scope hosts (web, db, loadbalancer)
+    - name: update_snow_change.yml
+      path: check-mode-change-control/aap/playbooks/update_snow_change.yml
+      description: Looks up the change request sys_id and PATCHes it with the work note passed by the workflow; sets state 3 (Closed) on the approved path.
+      runs_on: localhost (ServiceNow REST)
+    - name: simulate_change_process.yml
+      path: check-mode-change-control/test/simulate_change_process.yml
+      description: Creates the change request in ServiceNow and fires the automation orchestrator webhook to initiate the check-mode change control workflow.
+      runs_on: localhost (ServiceNow + automation orchestrator APIs)
