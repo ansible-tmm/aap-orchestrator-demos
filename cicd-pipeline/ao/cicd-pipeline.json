@@ -1,0 +1,311 @@
+{
+  "schema_version": "2.0.0",
+  "name": "CI/CD Pipeline - Dev Test, Approval, Prod Deploy with Rollback",
+  "description": "EDA or webhook fires this workflow after CI pipeline success. AO owns the full CD pipeline: deploy and test in dev, human approval gate for prod, production deployment with smoke test, and automatic rollback to snapshot on failure. AI is used specifically to write contextual ServiceNow work notes at key events. ServiceNow updates are embedded in AAP job steps to keep the canvas lean. One Linux host on AWS runs both dev (port 8080) and prod (port 80) for demo.",
+  "triggers": [
+    {
+      "id": "activity_15bc65d4_71a2_4425_9dd4_203030580124",
+      "type": "webhook_trigger",
+      "name": "CI Pipeline Succeeded",
+      "parameters": {
+        "input_schema": {
+          "type": "object",
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "properties": {
+            "git_sha": {
+              "type": "string"
+            },
+            "app_name": {
+              "type": "string"
+            },
+            "affected_cve": {
+              "type": "string"
+            },
+            "ci_build_url": {
+              "type": "string"
+            },
+            "change_request": {
+              "type": "string"
+            },
+            "ci_build_number": {
+              "type": "string"
+            },
+            "artifact_version": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "webhook_path": "lightwell-ci-cd"
+      },
+      "position": {
+        "x": 55.678251121076244,
+        "y": 403.3744394618834
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "activity_de1da7e5_98cc_4cb6_9f4a_293a45b05fab",
+      "type": "aap_job_template",
+      "name": "[AAP] Drain Load Balancer",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "app_name": "${trigger.app_name}",
+          "change_request": "${trigger.change_request}",
+          "artifact_version": "${trigger.artifact_version}"
+        },
+        "job_template_name": "CI/CD Demo - Drain Load Balancer",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1391.956278026906,
+        "y": 387.539798206278
+      }
+    },
+    {
+      "id": "approve_prod_deployment",
+      "type": "approval",
+      "name": "Dev Lead Approval - Promote to Production",
+      "parameters": {
+        "prompt": "Dev tests passed for ${trigger.app_name} ${trigger.artifact_version}.\n\nLightwell patch: ${trigger.affected_cve} remediated via aiohttp upgrade.\nCI build: ${trigger.ci_build_url}\nSNOW change request: ${trigger.change_request}\n\nApprove to deploy to production. Reject to halt deployment.",
+        "fallback_decision": "reject"
+      },
+      "settings": {},
+      "position": {
+        "x": 1054.8991031390133,
+        "y": 384.81502242152465
+      }
+    },
+    {
+      "id": "deploy_dev_and_test",
+      "type": "aap_job_template",
+      "name": "[AAP] Deploy to Dev, Test + SNOW Update",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "git_sha": "${trigger.git_sha}",
+          "app_name": "${trigger.app_name}",
+          "ci_build_url": "${trigger.ci_build_url}",
+          "change_request": "${trigger.change_request}",
+          "artifact_version": "${trigger.artifact_version}"
+        },
+        "job_template_name": "CI/CD Demo - Deploy and Test Dev",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 400,
+        "y": 400
+      }
+    },
+    {
+      "id": "deploy_to_prod",
+      "type": "aap_job_template",
+      "name": "[AAP]  Deploy Prod + SNOW Updates",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "git_sha": "${trigger.git_sha}",
+          "app_name": "${trigger.app_name}",
+          "affected_cve": "${trigger.affected_cve}",
+          "ci_build_url": "${trigger.ci_build_url}",
+          "change_request": "${trigger.change_request}",
+          "artifact_version": "${trigger.artifact_version}"
+        },
+        "job_template_name": "CI/CD Demo - Deploy to Prod",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 1697.1300448430493,
+        "y": 391.4798206278027
+      }
+    },
+    {
+      "id": "dev_failure_note_agent",
+      "type": "agentic",
+      "name": "[AI] Write Dev Failure ServiceNow Work Note",
+      "parameters": {
+        "prompt": "Write a concise, professional ServiceNow work note for a failed dev environment deployment. The note will be added to the change request by an automated system.\n\nFacts:\n- Application: ${trigger.app_name}\n- Version attempted: ${trigger.artifact_version}\n- Git SHA: ${trigger.git_sha}\n- CI build: ${trigger.ci_build_url}\n- Change request: ${trigger.change_request}\n- Dev test failure summary: ${deploy_dev_and_test.artifacts.ao_dev_test_summary}\n\nRequirements for the note:\n- 3 to 5 sentences maximum\n- Plain English, no jargon beyond standard ITSM terms\n- Include: what was attempted, what failed, immediate action taken (production deployment blocked), recommended next step for the dev team\n- Do not use bullet points or headers in the note itself\n\nOutput ONLY valid JSON:\n{\n  \"snow_work_note\": \"string\",\n  \"recommended_next_step\": \"string\"\n}",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "snow_work_note": {
+              "type": "string"
+            },
+            "recommended_next_step": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_selection_strategy": "NONE"
+      },
+      "position": {
+        "x": 1102.1412556053813,
+        "y": 703.3744394618834
+      }
+    },
+    {
+      "id": "dev_test_switch",
+      "type": "condition",
+      "name": "Dev Tests Passed?",
+      "parameters": {
+        "condition": "${deploy_dev_and_test.artifacts.ao_dev_test_passed} == \"true\""
+      },
+      "position": {
+        "x": 703.8284753363229,
+        "y": 391.56390134529147
+      }
+    },
+    {
+      "id": "prod_health_switch",
+      "type": "condition",
+      "name": "Prod Smoke Test Passed?",
+      "parameters": {
+        "condition": "${deploy_to_prod.artifacts.ao_prod_health_passed} == \"true\""
+      },
+      "position": {
+        "x": 2000,
+        "y": 400
+      }
+    },
+    {
+      "id": "rollback_note_agent",
+      "type": "agentic",
+      "name": "[AI] Write Rollback Incident ServiceNow Work Note",
+      "parameters": {
+        "prompt": "Write a concise, professional ServiceNow work note documenting a production deployment failure and rollback. The note will be added to the change request and may be linked to an incident.\n\nFacts:\n- Application: ${trigger.app_name}\n- Version that failed: ${trigger.artifact_version}\n- Git SHA: ${trigger.git_sha}\n- Change request: ${trigger.change_request}\n- Smoke test failure summary: ${deploy_to_prod.artifacts.ao_smoke_test_summary}\n- Failed health checks: ${deploy_to_prod.artifacts.ao_failed_checks}\n- Snapshot being restored: ${deploy_to_prod.artifacts.ao_snapshot_id}\n\nRequirements for the note:\n- 4 to 6 sentences maximum\n- Plain English suitable for incident audit trail\n- Include: what was deployed, what the smoke test failure indicated, that an automated rollback to the pre-deploy snapshot is in progress, and recommended next step for the team\n- Do not use bullet points or headers in the note itself\n\nOutput ONLY valid JSON:\n{\n  \"snow_incident_note\": \"string\",\n  \"recommended_next_step\": \"string\"\n}",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "snow_incident_note": {
+              "type": "string"
+            },
+            "recommended_next_step": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_selection_strategy": "NONE"
+      },
+      "position": {
+        "x": 2284.1255605381166,
+        "y": 604.5739910313902
+      }
+    },
+    {
+      "id": "rollback_to_snapshot",
+      "type": "aap_job_template",
+      "name": "[AAP] Rollback Prod to Pre-Deploy Snapshot",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "app_name": "${trigger.app_name}",
+          "snapshot_id": "${deploy_to_prod.artifacts.ao_snapshot_id}",
+          "change_request": "${trigger.change_request}",
+          "artifact_version": "${trigger.artifact_version}",
+          "snow_incident_note": "${rollback_note_agent.result.content.snow_incident_note}",
+          "recommended_next_step": "${rollback_note_agent.result.content.recommended_next_step}"
+        },
+        "job_template_name": "CI/CD Demo - Rollback to Snapshot",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 2736.9506726457403,
+        "y": 613.0941704035876
+      }
+    },
+    {
+      "id": "success_note_agent",
+      "type": "agentic",
+      "name": "[AI] Write Deployment Success ServiceNow Close Note",
+      "parameters": {
+        "prompt": "Write a concise, professional ServiceNow close note for a successful production deployment. The note will close the change request.\n\nFacts:\n- Application: ${trigger.app_name}\n- Version deployed: ${trigger.artifact_version}\n- Git SHA: ${trigger.git_sha}\n- CI build: ${trigger.ci_build_url}\n- CVE remediated (if any): ${trigger.affected_cve}\n- Change request: ${trigger.change_request}\n- Smoke test result: ${deploy_to_prod.artifacts.ao_smoke_test_summary}\n- Snapshot taken before deploy: ${deploy_to_prod.artifacts.ao_snapshot_id}\n\nRequirements for the note:\n- 3 to 5 sentences maximum\n- Plain English suitable for audit trail\n- Include: what was deployed, which environment, that smoke tests passed, CVE status if applicable, and that the change is complete\n- Do not use bullet points or headers in the note itself\n\nOutput ONLY valid JSON:\n{\n  \"snow_close_note\": \"string\"\n}",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "snow_close_note": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_selection_strategy": "NONE"
+      },
+      "position": {
+        "x": 2283.063358676217,
+        "y": 150.21394467084673
+      }
+    },
+    {
+      "id": "close_loop",
+      "type": "aap_job_template",
+      "name": "[AAP] Close ServiceNow Ticket and Notify Team",
+      "parameters": {
+        "diff_mode": false,
+        "extra_vars": {
+          "app_name": "${trigger.app_name}",
+          "change_request": "${trigger.change_request}",
+          "snow_close_note": "${success_note_agent.result.content.snow_close_note}",
+          "artifact_version": "${trigger.artifact_version}"
+        },
+        "job_template_name": "CI/CD Demo - Close Loop",
+        "organization_name": "Default"
+      },
+      "position": {
+        "x": 2696.0538116591924,
+        "y": 151.70403587443946
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "deploy_dev_and_test",
+      "to": "dev_test_switch"
+    },
+    {
+      "from": "dev_test_switch",
+      "to": "approve_prod_deployment",
+      "from_port": "true"
+    },
+    {
+      "from": "dev_test_switch",
+      "to": "dev_failure_note_agent",
+      "from_port": "false"
+    },
+    {
+      "from": "deploy_to_prod",
+      "to": "prod_health_switch"
+    },
+    {
+      "from": "prod_health_switch",
+      "to": "success_note_agent",
+      "from_port": "true"
+    },
+    {
+      "from": "prod_health_switch",
+      "to": "rollback_note_agent",
+      "from_port": "false"
+    },
+    {
+      "from": "success_note_agent",
+      "to": "close_loop"
+    },
+    {
+      "from": "rollback_note_agent",
+      "to": "rollback_to_snapshot"
+    },
+    {
+      "from": "activity_15bc65d4_71a2_4425_9dd4_203030580124",
+      "to": "deploy_dev_and_test"
+    },
+    {
+      "from": "approve_prod_deployment",
+      "to": "activity_de1da7e5_98cc_4cb6_9f4a_293a45b05fab",
+      "from_port": "approved"
+    },
+    {
+      "from": "activity_de1da7e5_98cc_4cb6_9f4a_293a45b05fab",
+      "to": "deploy_to_prod"
+    }
+  ]
+}

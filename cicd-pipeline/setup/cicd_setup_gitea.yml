@@ -1,0 +1,180 @@
+---
+- name: Install and start Gitea + act_runner using Podman on RHEL 9
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    gitea_port: 3000
+    gitea_data_dir: /opt/gitea
+    gitea_admin_user: gitea-admin
+    gitea_admin_password: "{{ gitea_admin_password | default('ChangeMe!') }}"
+    gitea_admin_email: admin@demo.local
+    runner_data_dir: /opt/gitea-runner
+
+  tasks:
+    - name: Install Podman and git
+      ansible.builtin.dnf:
+        name:
+          - podman
+          - git
+        state: present
+
+    - name: Enable and start Podman socket (needed for act_runner Docker API compat)
+      ansible.builtin.systemd:
+        name: podman.socket
+        state: started
+        enabled: true
+
+    - name: Create data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ gitea_data_dir }}"
+        - "{{ runner_data_dir }}"
+
+    - name: Pull Gitea image
+      ansible.builtin.command:
+        cmd: podman pull docker.io/gitea/gitea:latest
+      changed_when: true
+
+    - name: Stop and remove existing Gitea container (idempotent)
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+      loop:
+        - podman stop gitea
+        - podman rm gitea
+      ignore_errors: true
+      changed_when: true
+
+    - name: Start Gitea container
+      ansible.builtin.command:
+        cmd: >-
+          podman run -d
+          --name gitea
+          --restart=always
+          -p {{ gitea_port }}:3000
+          -p 2222:22
+          -v {{ gitea_data_dir }}:/data:Z
+          -e GITEA__server__DOMAIN={{ ansible_host }}
+          -e "GITEA__server__ROOT_URL=http://{{ ansible_host }}:{{ gitea_port }}/"
+          -e GITEA__server__HTTP_PORT=3000
+          -e GITEA__database__DB_TYPE=sqlite3
+          -e GITEA__database__PATH=/data/gitea.db
+          -e GITEA__security__INSTALL_LOCK=true
+          -e GITEA__service__DISABLE_REGISTRATION=false
+          -e GITEA__admin__DEFAULT_ADMIN_NAME={{ gitea_admin_user }}
+          -e GITEA__admin__DEFAULT_ADMIN_EMAIL={{ gitea_admin_email }}
+          -e GITEA__admin__DEFAULT_ADMIN_PASSWORD={{ gitea_admin_password }}
+          -e GITEA__actions__ENABLED=true
+          -e GITEA__log__LEVEL=Warn
+          docker.io/gitea/gitea:latest
+      changed_when: true
+
+    - name: Wait for Gitea to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gitea_port }}/api/v1/version"
+        status_code: 200
+      register: gitea_health
+      until: gitea_health.status == 200
+      retries: 24
+      delay: 5
+
+    # Token secret is only returned at creation time. On re-runs Gitea returns
+    # HTTP 400 ("access token name has been used already"), so delete by name
+    # first, then create a fresh token.
+    - name: List existing Gitea API tokens for admin
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gitea_port }}/api/v1/users/{{ gitea_admin_user }}/tokens"
+        method: GET
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: gitea_existing_tokens
+
+    - name: Delete existing aap-demo-token if present
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gitea_port }}/api/v1/users/{{ gitea_admin_user }}/tokens/{{ item.id }}"
+        method: DELETE
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        status_code: [204, 404]
+      loop: "{{ gitea_existing_tokens.json | selectattr('name', 'equalto', 'aap-demo-token') | list }}"
+      when: gitea_existing_tokens.json is sequence
+
+    - name: Create Gitea API token for admin
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gitea_port }}/api/v1/users/{{ gitea_admin_user }}/tokens"
+        method: POST
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          name: aap-demo-token
+          scopes:
+            - write:repository
+            - write:user
+            - write:admin
+        status_code: 201
+      register: gitea_token_result
+
+    - name: Get runner registration token from Gitea
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gitea_port }}/api/v1/admin/actions/runners/registration-token"
+        method: POST
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: runner_token_result
+
+    - name: Pull act_runner image
+      ansible.builtin.command:
+        cmd: podman pull docker.io/gitea/act_runner:latest
+      changed_when: true
+
+    - name: Stop and remove existing runner container (idempotent)
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+      loop:
+        - podman stop gitea-runner
+        - podman rm gitea-runner
+      ignore_errors: true
+      changed_when: true
+
+    - name: Start act_runner container
+      ansible.builtin.command:
+        cmd: >-
+          podman run -d
+          --name gitea-runner
+          --restart=always
+          -v {{ runner_data_dir }}:/data:Z
+          -v /run/podman/podman.sock:/var/run/docker.sock:Z
+          -e GITEA_INSTANCE_URL=http://{{ ansible_host }}:{{ gitea_port }}
+          -e GITEA_RUNNER_REGISTRATION_TOKEN={{ runner_token_result.json.token }}
+          -e GITEA_RUNNER_NAME=demo-runner
+          docker.io/gitea/act_runner:latest
+      changed_when: true
+
+    - name: Open Gitea port in firewalld
+      ansible.posix.firewalld:
+        port: "{{ gitea_port }}/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+      ignore_errors: true
+
+    - name: Print Gitea setup summary
+      ansible.builtin.debug:
+        msg:
+          - "Gitea URL: http://{{ ansible_host }}:{{ gitea_port }}"
+          - "Admin user: {{ gitea_admin_user }}"
+          - "Admin password: {{ gitea_admin_password }}"
+          - "API token: {{ gitea_token_result.json.sha1 }}"
+          - "Next: run setup_gitea_repo.yml with gitea_api_token={{ gitea_token_result.json.sha1 }}"

@@ -1,0 +1,112 @@
+---
+# Reset the Gitea inventory-service repo to vulnerable baseline in a single
+# git commit so only one CI run fires (and it exits early - no CHG number).
+#
+# Runs on the demo host via SSH to do a single commit with all file reverts.
+
+- name: Reset Gitea demo repo to vulnerable baseline
+  hosts: all
+  become: false
+  gather_facts: false
+  vars:
+    gitea_host: "gitea.example.local"
+    gitea_port: 3000
+    gitea_url: "http://{{ gitea_host }}:{{ gitea_port }}"
+    gitea_owner: "gitea-admin"
+    gitea_token: ""
+    gitea_repo: "inventory-service"
+    patch_branch: lightwell-patch-CVE-2024-23334
+    reset_dir: "/tmp/demo-reset"
+    gitea_clone_url: "http://{{ gitea_owner }}:{{ gitea_token }}@{{ gitea_host }}:{{ gitea_port }}/{{ gitea_owner }}/{{ gitea_repo }}.git"
+
+  tasks:
+    - name: Delete patch branch via Gitea API
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/branches/{{ patch_branch }}"
+        method: DELETE
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: [204, 404]
+
+    - name: Remove previous reset clone
+      ansible.builtin.file:
+        path: "{{ reset_dir }}"
+        state: absent
+
+    - name: Clone repo locally on demo host
+      ansible.builtin.command:
+        cmd: >-
+          git clone
+          {{ gitea_clone_url }}
+          {{ reset_dir }}
+
+    - name: Configure git user
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+        chdir: "{{ reset_dir }}"
+      loop:
+        - git config user.email "reset@demo.local"
+        - git config user.name "Demo Reset"
+
+    - name: Revert requirements.txt to vulnerable baseline
+      ansible.builtin.copy:
+        dest: "{{ reset_dir }}/requirements.txt"
+        content: |
+          # inventory-service dependencies
+          # VULNERABLE: aiohttp 3.9.0 contains CVE-2024-23334 (path traversal via static file handler)
+          # Lightwell PR will patch this to the remediated build below
+          aiohttp==3.9.0
+
+    - name: Clear PATCHED_CVE
+      ansible.builtin.copy:
+        dest: "{{ reset_dir }}/PATCHED_CVE"
+        content: ""
+
+    - name: Clear CHANGE_REQUEST
+      ansible.builtin.copy:
+        dest: "{{ reset_dir }}/CHANGE_REQUEST"
+        content: ""
+
+    - name: Revert version.txt to 2.3.0
+      ansible.builtin.copy:
+        dest: "{{ reset_dir }}/version.txt"
+        content: "2.3.0\n"
+
+    - name: Stage all changes
+      ansible.builtin.command:
+        cmd: git add requirements.txt PATCHED_CVE CHANGE_REQUEST version.txt
+        chdir: "{{ reset_dir }}"
+
+    - name: Check if anything changed
+      ansible.builtin.command:
+        cmd: git diff --cached --quiet
+        chdir: "{{ reset_dir }}"
+      register: diff_check
+      failed_when: false
+      changed_when: false
+
+    - name: Commit all resets in single commit
+      ansible.builtin.command:
+        cmd: "git commit -m 'chore: reset demo to vulnerable baseline [skip ci]'"
+        chdir: "{{ reset_dir }}"
+      when: diff_check.rc != 0
+
+    - name: Push reset commit
+      ansible.builtin.command:
+        cmd: >-
+          git push
+          {{ gitea_clone_url }}
+          main
+        chdir: "{{ reset_dir }}"
+      when: diff_check.rc != 0
+
+    - name: Clean up clone
+      ansible.builtin.file:
+        path: "{{ reset_dir }}"
+        state: absent
+
+    - name: Reset complete
+      ansible.builtin.debug:
+        msg:
+          - "Repo reset in single commit. Branch {{ patch_branch }} deleted."
+          - "Ready to run CI/CD Demo - Simulate Lightwell PR."

@@ -1,0 +1,70 @@
+---
+- name: Close ServiceNow change request and notify team
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    snow_instance_url: "https://ansible.service-now.com"
+    snow_username: ""
+    snow_password: ""
+    app_name: "inventory-service"
+    artifact_version: "0.0.0"
+    change_request: ""
+    snow_close_note: "Deployment completed successfully. Change closed by automated pipeline."
+
+  tasks:
+    - name: Skip SNOW update if no change request provided
+      ansible.builtin.debug:
+        msg: "No change_request number provided - skipping SNOW update. Deployment of {{ app_name }} {{ artifact_version }} complete."
+      when: change_request | length == 0
+
+    - name: Look up change request sys_id by number
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id,number,state&sysparm_limit=1"
+        method: GET
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: application/json
+        status_code: 200
+      register: snow_lookup
+      when: change_request | length > 0
+
+    - name: Set sys_id
+      ansible.builtin.set_fact:
+        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
+      when:
+        - change_request | length > 0
+        - snow_lookup.json.result | length > 0
+
+    - name: Add AI-generated close note and close the change request
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          work_notes: "[CI/CD Demo - AO Pipeline]\n\n{{ snow_close_note }}"
+          state: "3"
+        status_code: 200
+      when:
+        - change_request | length > 0
+        - snow_sys_id is defined
+      register: snow_update
+
+    - name: Log result
+      ansible.builtin.debug:
+        msg: "Change request {{ change_request }} closed. URL: {{ snow_instance_url }}/nav_to.do?uri=change_request.do?sys_id={{ snow_sys_id | default('N/A') }}"
+      when: change_request | length > 0
+
+    - name: Set close loop stats
+      ansible.builtin.set_stats:
+        data:
+          ao_change_closed: "true"
+          ao_change_request: "{{ change_request }}"

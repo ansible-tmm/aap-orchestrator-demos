@@ -92,6 +92,49 @@
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G,H noBorder
 
+- slug: cicd-pipeline
+  title: CI/CD Pipeline
+  subtitle: Dev test, approval, prod deploy with rollback
+  category: patching
+  status: active
+  featured: false
+  uses_ai: true
+  tmm_created: true
+  tags:
+    - Webhook
+    - Approval
+    - Conditional
+    - Task agent
+  thumbnail:
+    gradient: "linear-gradient(135deg, #1a2a3a 0%, #0a1520 50%, #2a1a1a 100%)"
+    icon: "🚀"
+  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes ServiceNow — or rolls back from snapshot.
+  stats:
+    workflows: 1
+    playbooks: 9
+    setup_minutes: 45
+  url: /demos/cicd-pipeline/
+  github_path: cicd-pipeline/
+  github_doc: cicd-pipeline/README.md
+  setup_guide: cicd-pipeline/REQUIREMENTS.md
+  workflow_json: cicd-pipeline/ao/cicd-pipeline.json
+  youtube_url: https://youtu.be/4iZCS4atxHQ?si=9RjaXJFP1L-NoVXM
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/glossary/webhook-trigger.svg", label: "CI Pipeline Succeeded", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Deploy Dev + Test", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Dev Tests Passed?", pos: "b", h: 96, constraint: "on" }
+      C -->|true| D@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve Prod Deploy", pos: "b", h: 96, constraint: "on" }
+      C -->|false| E@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Dev Failure Note", pos: "b", h: 96, constraint: "on" }
+      D -->|approved| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Drain Load Balancer", pos: "b", h: 96, constraint: "on" }
+      F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Deploy Prod + Smoke", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Prod Smoke Passed?", pos: "b", h: 96, constraint: "on" }
+      H -->|true| I@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Close Note", pos: "b", h: 96, constraint: "on" }
+      H -->|false| J@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Rollback Note", pos: "b", h: 96, constraint: "on" }
+      I --> K@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Close ServiceNow CHG", pos: "b", h: 96, constraint: "on" }
+      J --> L@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Rollback Snapshot", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I,J,K,L noBorder
+
 - slug: cert-lifecycle
   title: Intelligent Cert Lifecycle
   subtitle: AI-driven certificate renewal routing

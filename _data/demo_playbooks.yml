@@ -14,6 +14,46 @@ cve-remediation:
       description: Posts a structured CVE investigation report to Mattermost when no errata is available.
       runs_on: localhost (Mattermost API)
 
+cicd-pipeline:
+  status: active
+  items:
+    - name: cicd_deploy_dev_and_test.yml
+      path: cicd-pipeline/playbooks/cicd_deploy_dev_and_test.yml
+      description: Deploys the artifact to the dev environment (port 8080), runs integration tests, posts ServiceNow work notes, and publishes ao_dev_test_passed for the condition step.
+      runs_on: Demo host (dev + prod app)
+    - name: cicd_drain_lb.yml
+      path: cicd-pipeline/playbooks/cicd_drain_lb.yml
+      description: Simulates a graceful load balancer drain before production deploy and records the drain in the change request.
+      runs_on: Demo host
+    - name: cicd_deploy_prod.yml
+      path: cicd-pipeline/playbooks/cicd_deploy_prod.yml
+      description: Snapshots prod, deploys the artifact (port 80), smoke-tests /health, and publishes ao_prod_health_passed plus ao_snapshot_id.
+      runs_on: Demo host
+    - name: cicd_rollback_to_snapshot.yml
+      path: cicd-pipeline/playbooks/cicd_rollback_to_snapshot.yml
+      description: Restores production from the pre-deploy snapshot after a failed smoke test and verifies health.
+      runs_on: Demo host
+    - name: cicd_close_loop.yml
+      path: cicd-pipeline/playbooks/cicd_close_loop.yml
+      description: Patches the ServiceNow change request to Closed with the AI-generated close note.
+      runs_on: localhost (ServiceNow API)
+    - name: cicd_simulate_lightwell_pr.yml
+      path: cicd-pipeline/playbooks/cicd_simulate_lightwell_pr.yml
+      description: Creates a ServiceNow change request and opens a Gitea PR that bumps aiohttp to the Lightwell remediated build.
+      runs_on: localhost (Gitea + ServiceNow APIs)
+    - name: cicd_reset_demo.yml
+      path: cicd-pipeline/playbooks/cicd_reset_demo.yml
+      description: Resets the Gitea inventory-service repo to the vulnerable aiohttp==3.9.0 baseline in a single commit.
+      runs_on: Demo host
+    - name: cicd_setup_demo_host.yml
+      path: cicd-pipeline/setup/cicd_setup_demo_host.yml
+      description: Installs inventory-service as systemd units on ports 80 (prod) and 8080 (dev) with a baseline snapshot.
+      runs_on: Demo host
+    - name: cicd_setup_gitea.yml
+      path: cicd-pipeline/setup/cicd_setup_gitea.yml
+      description: Installs Gitea and act_runner with Podman on RHEL 9 and prints the admin API token.
+      runs_on: Demo host
+
 disk-utilization:
   status: active
   items:

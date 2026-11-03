@@ -1,0 +1,242 @@
+---
+# Simulates the full Lightwell PR flow via Gitea API:
+#   1. Create branch lightwell-patch-CVE-2024-38819
+#   2. Patch requirements.txt (vulnerable → Lightwell build)
+#   3. Set PATCHED_CVE
+#   4. Bump version.txt
+#   5. Open PR
+#   6. Merge PR  →  Gitea Actions CI fires  →  AO CD pipeline triggers
+#
+# Run this as "CI/CD Demo - Simulate Lightwell PR" job template.
+# No SSH credential needed - runs on localhost via Gitea API.
+
+- name: Simulate Lightwell patch PR in Gitea
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    _gitea_host: "gitea.example.local"
+    _gitea_port: 3000
+    _gitea_url: "http://{{ gitea_host | default(_gitea_host) }}:{{ gitea_port | default(_gitea_port) }}"
+    _gitea_token: "{{ gitea_token | default('') }}"
+    _gitea_owner: "gitea-admin"
+    _gitea_repo: "inventory-service"
+    _snow_instance_url: "https://ansible.service-now.com"
+    _snow_username: "{{ snow_username | default('') }}"
+    _snow_password: "{{ snow_password | default('') }}"
+    gitea_url: "{{ gitea_url_override | default(_gitea_url) }}"
+    gitea_token: "{{ gitea_token_override | default(_gitea_token) }}"
+    gitea_owner: "{{ gitea_owner_override | default(_gitea_owner) }}"
+    gitea_repo: "{{ gitea_repo_override | default(_gitea_repo) }}"
+    snow_instance_url: "{{ snow_instance_url_override | default(_snow_instance_url) }}"
+    snow_username: "{{ snow_username_override | default(_snow_username) }}"
+    snow_password: "{{ snow_password_override | default(_snow_password) }}"
+    base_branch: main
+    patch_branch: lightwell-patch-CVE-2024-23334
+    patched_version: "2.4.0"
+    patched_cve: "CVE-2024-23334"
+    patched_dep: "aiohttp==3.9.2.rhlw-00001"
+
+  tasks:
+    - name: Create ServiceNow change request for this Lightwell patch
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request"
+        method: POST
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          short_description: "Lightwell patch {{ patched_cve }} - {{ gitea_repo }} {{ patched_version }}"
+          description: |
+            Automated deployment of Lightwell security patch for {{ patched_cve }}.
+            Application: {{ gitea_repo }}
+            Patch version: {{ patched_dep }}
+            Target version: {{ patched_version }}
+            Initiated by: AO CI/CD Pipeline simulation
+          type: standard
+          category: Software
+          risk: low
+          impact: "2"
+          urgency: "2"
+        status_code: 201
+      register: snow_chg_result
+
+    - name: Set change request number fact
+      ansible.builtin.set_fact:
+        chg_number: "{{ snow_chg_result.json.result.number }}"
+
+    - name: Show created change request
+      ansible.builtin.debug:
+        msg: "SNOW change request created: {{ chg_number }} - {{ snow_instance_url }}/nav_to.do?uri=change_request.do?sysparm_query=number={{ chg_number }}"
+
+    - name: Get current SHA of main branch
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/branches/{{ base_branch }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: 200
+      register: base_branch_info
+
+    - name: Set base SHA fact
+      ansible.builtin.set_fact:
+        base_sha: "{{ base_branch_info.json.commit.id }}"
+
+    - name: Delete patch branch if it already exists (idempotent)
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/branches/{{ patch_branch }}"
+        method: DELETE
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: [204, 404]
+
+    - name: Create patch branch from main
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/branches"
+        method: POST
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          new_branch_name: "{{ patch_branch }}"
+          old_branch_name: "{{ base_branch }}"
+        status_code: 201
+
+    - name: Get current SHA of requirements.txt on patch branch
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/requirements.txt?ref={{ patch_branch }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: 200
+      register: req_file
+
+    - name: Patch requirements.txt - replace vulnerable dep with Lightwell build
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/requirements.txt"
+        method: PUT
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          message: "fix: patch aiohttp to {{ patched_dep }} ({{ patched_cve }})"
+          content: "{{ ('# inventory-service dependencies\n# Lightwell patch applied: ' + patched_cve + ' (path traversal via static file handler)\n' + patched_dep + '\n') | b64encode }}"
+          sha: "{{ req_file.json.sha }}"
+          branch: "{{ patch_branch }}"
+        status_code: 200
+
+    - name: Get current SHA of PATCHED_CVE on patch branch
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/PATCHED_CVE?ref={{ patch_branch }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: 200
+      register: cve_file
+
+    - name: Set PATCHED_CVE to remediated CVE ID
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/PATCHED_CVE"
+        method: PUT
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          message: "fix: mark {{ patched_cve }} as remediated by Lightwell"
+          content: "{{ (patched_cve + '\n') | b64encode }}"
+          sha: "{{ cve_file.json.sha }}"
+          branch: "{{ patch_branch }}"
+        status_code: 200
+
+    - name: Get current SHA of version.txt on patch branch
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/version.txt?ref={{ patch_branch }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: 200
+      register: ver_file
+
+    - name: Bump version.txt
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/version.txt"
+        method: PUT
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          message: "chore: bump version to {{ patched_version }}"
+          content: "{{ (patched_version + '\n') | b64encode }}"
+          sha: "{{ ver_file.json.sha }}"
+          branch: "{{ patch_branch }}"
+        status_code: 200
+
+    - name: Get current SHA of CHANGE_REQUEST on patch branch (if exists)
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/CHANGE_REQUEST?ref={{ patch_branch }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+        status_code: [200, 404]
+      register: chg_file_check
+
+    - name: Commit CHANGE_REQUEST file so CI can pass CHG number to AO webhook
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/contents/CHANGE_REQUEST"
+        method: "{{ 'PUT' if chg_file_check.status == 200 else 'POST' }}"
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          message: "chore: record SNOW change request {{ chg_number }}"
+          content: "{{ (chg_number + '\n') | b64encode }}"
+          branch: "{{ patch_branch }}"
+          sha: "{{ chg_file_check.json.sha | default(omit) }}"
+        status_code: [200, 201]
+
+    - name: Open pull request
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_owner }}/{{ gitea_repo }}/pulls"
+        method: POST
+        headers:
+          Authorization: "token {{ gitea_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          title: "[Lightwell] Patch {{ patched_cve }} - {{ patched_dep }}"
+          body: |
+            ## Lightwell Automated Security Patch
+
+            **CVE:** {{ patched_cve }}
+            **Severity:** HIGH - Path traversal via static file handler (aiohttp)
+            **SNOW Change Request:** {{ chg_number }}
+
+            ### Changes
+            - `requirements.txt`: upgraded `aiohttp` from `3.9.0` to `{{ patched_dep }}`
+            - `PATCHED_CVE`: updated to record remediated CVE
+            - `version.txt`: bumped to `{{ patched_version }}`
+            - `CHANGE_REQUEST`: added {{ chg_number }} for AO pipeline tracking
+
+            ### Validation
+            CI pipeline will run integration tests. On pass, AO CD pipeline
+            promotes to dev, awaits approval, deploys to prod, and closes {{ chg_number }}.
+          head: "{{ patch_branch }}"
+          base: "{{ base_branch }}"
+        status_code: 201
+      register: pr_result
+
+    - name: Set PR number fact
+      ansible.builtin.set_fact:
+        pr_number: "{{ pr_result.json.number }}"
+
+    - name: Simulation complete - PR ready for manual merge
+      ansible.builtin.debug:
+        msg:
+          - "SNOW change request: {{ chg_number }}"
+          - "PR #{{ pr_number }} is open and ready."
+          - "Review and merge: {{ gitea_url }}/{{ gitea_owner }}/{{ gitea_repo }}/pulls/{{ pr_number }}"
+          - "On merge: CI fires, AO pipeline triggers with {{ chg_number }}, closes ticket on success."

@@ -1,0 +1,102 @@
+---
+# Drain the load balancer before a production deployment.
+# Simulates real LB drain: stops accepting new connections to prod,
+# waits for in-flight requests to complete, updates SNOW.
+# Dev deployments skip this step entirely.
+
+- name: Drain load balancer before production deployment
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    app_name: "inventory-service"
+    artifact_version: "0.0.0"
+    change_request: ""
+    drain_wait_seconds: 10
+    prod_port: 80
+    snow_instance_url: "https://ansible.service-now.com"
+    snow_username: ""
+    snow_password: ""
+
+  tasks:
+    - name: Look up SNOW change request sys_id
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id&sysparm_limit=1"
+        method: GET
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: application/json
+        status_code: 200
+      register: snow_lookup
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
+
+    - name: Set SNOW sys_id fact
+      ansible.builtin.set_fact:
+        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
+      when:
+        - change_request | length > 0
+        - snow_lookup.json.result | length > 0
+
+    - name: Enable maintenance page on prod port
+      ansible.builtin.copy:
+        dest: "/opt/app-prod/maintenance.html"
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>Maintenance</title></head>
+          <body>
+            <h1>{{ app_name }} - Scheduled Maintenance</h1>
+            <p>Deploying version {{ artifact_version }}. Back shortly.</p>
+          </body>
+          </html>
+        mode: "0644"
+
+    - name: SNOW - LB drain started
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          work_notes: "[AO CD Pipeline] Load balancer drain initiated for {{ app_name }}. Stopping new connections to production (port {{ prod_port }}). Waiting {{ drain_wait_seconds }}s for in-flight requests to complete before deploying {{ artifact_version }}."
+        status_code: 200
+      when:
+        - change_request | length > 0
+        - snow_sys_id is defined
+      delegate_to: localhost
+      become: false
+
+    - name: Drain - wait for in-flight requests to complete
+      ansible.builtin.pause:
+        seconds: "{{ drain_wait_seconds }}"
+        prompt: "Draining load balancer - waiting {{ drain_wait_seconds }}s for in-flight requests"
+
+    - name: Confirm prod service is still reachable before handing off to deploy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ prod_port }}/health"
+        method: GET
+        status_code: 200
+      register: pre_deploy_check
+      ignore_errors: true
+
+    - name: Report drain status
+      ansible.builtin.debug:
+        msg:
+          - "Load balancer drained for {{ app_name }}."
+          - "Pre-deploy health check: {{ 'OK' if pre_deploy_check.status == 200 else 'UNREACHABLE (service may already be down)' }}"
+          - "Handing off to production deployment of {{ artifact_version }}."
+
+    - name: Set drain stats
+      ansible.builtin.set_stats:
+        data:
+          ao_lb_drained: "true"
+          ao_drain_summary: "LB drained for {{ app_name }}. Waited {{ drain_wait_seconds }}s. Ready for {{ artifact_version }} deployment."

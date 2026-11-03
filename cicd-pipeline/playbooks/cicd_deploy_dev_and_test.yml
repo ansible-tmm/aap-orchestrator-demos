@@ -1,0 +1,193 @@
+---
+- name: Deploy artifact to dev and run integration tests
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    _app_name: "inventory-service"
+    _artifact_version: "0.0.0"
+    _git_sha: "unknown"
+    app_name: "{{ app_name_override | default(_app_name) }}"
+    artifact_version: "{{ artifact_version_override | default(_artifact_version) }}"
+    git_sha: "{{ git_sha_override | default(_git_sha) }}"
+    change_request: ""
+    ci_build_url: ""
+    snow_instance_url: "https://ansible.service-now.com"
+    snow_username: ""
+    snow_password: ""
+    dev_port: 8080
+    dev_app_dir: "/opt/app-dev"
+    dev_service: "app-dev"
+    health_endpoint: "http://localhost:{{ dev_port }}/version.txt"
+    health_timeout: 30
+
+  tasks:
+    - name: Look up SNOW change request sys_id
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id&sysparm_limit=1"
+        method: GET
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: application/json
+        status_code: 200
+      register: snow_lookup
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
+
+    - name: Set SNOW sys_id fact
+      ansible.builtin.set_fact:
+        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
+      when:
+        - change_request | length > 0
+        - snow_lookup.json.result | length > 0
+
+    - name: SNOW - Dev deployment started
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          work_notes: "[AO CD Pipeline] Dev deployment started for {{ app_name }} {{ artifact_version }} (SHA: {{ git_sha }}). CI build: {{ ci_build_url }}. Running integration tests on dev environment (port {{ dev_port }})."
+        status_code: 200
+      when:
+        - change_request | length > 0
+        - snow_sys_id is defined
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure dev app directory exists
+      ansible.builtin.file:
+        path: "{{ dev_app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Write version manifest to dev
+      ansible.builtin.copy:
+        dest: "{{ dev_app_dir }}/version.txt"
+        content: "{{ artifact_version }}"
+        mode: "0644"
+
+    - name: Write deployment metadata to dev
+      ansible.builtin.copy:
+        dest: "{{ dev_app_dir }}/deploy-info.txt"
+        content: |
+          app={{ app_name }}
+          version={{ artifact_version }}
+          sha={{ git_sha }}
+          env=dev
+          deployed={{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}
+        mode: "0644"
+
+    - name: Write systemd unit for dev app (app.py)
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ dev_service }}.service"
+        content: |
+          [Unit]
+          Description={{ app_name }} dev environment
+          After=network.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory={{ dev_app_dir }}
+          Environment=APP_NAME={{ app_name }}
+          Environment=APP_ENV=dev
+          Environment=APP_PORT={{ dev_port }}
+          ExecStart=/usr/bin/python3 app.py
+          Restart=on-failure
+          RestartSec=3
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Flush handlers before starting service
+      ansible.builtin.meta: flush_handlers
+
+    - name: Restart dev app service
+      ansible.builtin.systemd:
+        name: "{{ dev_service }}"
+        state: restarted
+        enabled: true
+        daemon_reload: true
+
+    - name: Wait for dev service to respond
+      ansible.builtin.uri:
+        url: "{{ health_endpoint }}"
+        method: GET
+        status_code: 200
+      register: health_check
+      until: health_check.status == 200
+      retries: 10
+      delay: 3
+      ignore_errors: true
+
+    - name: Run integration test - verify version matches artifact
+      ansible.builtin.uri:
+        url: "http://localhost:{{ dev_port }}/version.txt"
+        method: GET
+        return_content: true
+      register: version_response
+      ignore_errors: true
+
+    - name: Evaluate test results
+      ansible.builtin.set_fact:
+        service_healthy: "{{ health_check.status is defined and health_check.status == 200 }}"
+        version_correct: "{{ (artifact_version | regex_replace('-b.*$', '')) in (version_response.content | default('')) }}"
+
+    - name: SNOW - Dev integration test result
+      ansible.builtin.uri:
+        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
+        method: PATCH
+        user: "{{ snow_username }}"
+        password: "{{ snow_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          work_notes: >-
+            [AO CD Pipeline] Dev integration tests
+            {% if service_healthy and version_correct %}PASSED{% else %}FAILED{% endif %}
+            for {{ app_name }} {{ artifact_version }}.
+            {% if service_healthy and version_correct %}
+            Health endpoint OK on port {{ dev_port }}, version manifest verified. Proceeding to production approval gate.
+            {% elif not service_healthy %}
+            Service did not respond on port {{ dev_port }}. Production deployment blocked.
+            {% else %}
+            Version manifest mismatch on port {{ dev_port }}. Production deployment blocked.
+            {% endif %}
+        status_code: 200
+      when:
+        - change_request | length > 0
+        - snow_sys_id is defined
+      delegate_to: localhost
+      become: false
+
+    - name: Set test outcome stats
+      ansible.builtin.set_stats:
+        data:
+          ao_dev_test_passed: "{{ 'true' if (service_healthy and version_correct) else 'false' }}"
+          ao_dev_test_summary: >-
+            {% if service_healthy and version_correct %}
+            Dev tests passed: {{ app_name }} {{ artifact_version }} running on port {{ dev_port }}, health endpoint OK, version manifest verified.
+            {% elif not service_healthy %}
+            Dev tests FAILED: service did not respond on port {{ dev_port }} within {{ health_timeout }}s.
+            {% else %}
+            Dev tests FAILED: service is up but version manifest does not contain expected version {{ artifact_version }}.
+            {% endif %}
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true

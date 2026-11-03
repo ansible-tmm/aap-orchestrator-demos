@@ -1,0 +1,12 @@
+flowchart LR
+  A[CI Pipeline Succeeded] --> B[Deploy to Dev + Test]
+  B --> C{Dev Tests Passed?}
+  C -->|true| D[Approve Prod Deploy]
+  C -->|false| E[AI: Dev Failure Note]
+  D -->|approved| F[Drain Load Balancer]
+  F --> G[Deploy Prod + Smoke Test]
+  G --> H{Prod Smoke Passed?}
+  H -->|true| I[AI: Success Close Note]
+  H -->|false| J[AI: Rollback Incident Note]
+  I --> K[Close ServiceNow CHG]
+  J --> L[Rollback to Snapshot]
