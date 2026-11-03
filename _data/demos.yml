@@ -108,7 +108,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0a1520 50%, #2a1a1a 100%)"
     icon: "🚀"
-  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes ServiceNow — or rolls back from snapshot.
+  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes the OpenFlake change — or rolls back from snapshot.
   stats:
     workflows: 1
     playbooks: 9
@@ -130,7 +130,7 @@
       G --> H@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Prod Smoke Passed?", pos: "b", h: 96, constraint: "on" }
       H -->|true| I@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Close Note", pos: "b", h: 96, constraint: "on" }
       H -->|false| J@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Rollback Note", pos: "b", h: 96, constraint: "on" }
-      I --> K@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Close ServiceNow CHG", pos: "b", h: 96, constraint: "on" }
+      I --> K@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Close OpenFlake CHG", pos: "b", h: 96, constraint: "on" }
       J --> L@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Rollback Snapshot", pos: "b", h: 96, constraint: "on" }
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G,H,I,J,K,L noBorder

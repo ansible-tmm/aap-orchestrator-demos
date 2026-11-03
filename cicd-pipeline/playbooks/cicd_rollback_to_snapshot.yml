@@ -1,5 +1,5 @@
 ---
-- name: Rollback prod to pre-deploy snapshot and update ServiceNow
+- name: Rollback prod to pre-deploy snapshot and update OpenFlake
   hosts: all
   become: true
   gather_facts: false
@@ -7,7 +7,7 @@
     app_name: "inventory-service"
     artifact_version: "0.0.0"
     snapshot_id: ""
-    change_request: "CHG0000000"
+    change_request: ""
     snow_incident_note: "Automated rollback executed after smoke test failure."
     recommended_next_step: "Investigate failure and re-run CI pipeline."
     prod_port: 80
@@ -16,6 +16,18 @@
     snapshot_base: "/opt/app-snapshots"
 
   tasks:
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
+
+    - name: Look up change request
+      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
+
     - name: Verify snapshot file exists
       ansible.builtin.stat:
         path: "{{ snapshot_base }}/{{ snapshot_id }}.tar.gz"
@@ -71,12 +83,29 @@
         return_content: true
       register: restored_version
 
+    - name: OpenFlake - Record rollback on change request
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: |-
+          [AO CD Pipeline] Automated rollback completed.
+
+          {{ snow_incident_note }}
+
+          Restored snapshot: {{ snapshot_id }}
+          Running version after restore: {{ restored_version.content | default('unknown') | trim }}
+          Recommended next step: {{ recommended_next_step }}
+      when:
+        - change_request | length > 0
+        - openflake_sys_id is defined
+      delegate_to: localhost
+      become: false
+
     - name: Report rollback completion
       ansible.builtin.debug:
         msg:
           - "Rollback complete. Prod restored from snapshot: {{ snapshot_id }}"
           - "Running version: {{ restored_version.content | default('unknown') }}"
-          - "ServiceNow note: {{ snow_incident_note }}"
+          - "OpenFlake note: {{ snow_incident_note }}"
           - "Recommended next step: {{ recommended_next_step }}"
 
     - name: Set rollback outcome stats

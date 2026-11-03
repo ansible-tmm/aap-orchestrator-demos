@@ -20,7 +20,7 @@ cve-remediation:
       - [investigate, "No errata or host not affected", "AI investigation → structured Mattermost report for SRE review"]
 
 cicd-pipeline:
-  description: After CI validates a Lightwell-remediated dependency, a webhook starts automation orchestrator. The workflow deploys and tests in dev, posts ServiceNow work notes from live run variables, pauses at a contextual approval gate, drains the load balancer, deploys production with a pre-deploy snapshot and smoke test, then either closes the change with an AI-written audit note or rolls production back automatically.
+  description: After CI validates a Lightwell-remediated dependency, a webhook starts automation orchestrator. The workflow deploys and tests in dev, posts OpenFlake (ServiceNow-compatible) work notes from live run variables, pauses at a contextual approval gate, drains the load balancer, deploys production with a pre-deploy snapshot and smoke test, then either closes the change with an AI-written audit note or rolls production back automatically.
   ao_building_blocks:
     - webhook_trigger
     - aap_job_template
@@ -30,16 +30,16 @@ cicd-pipeline:
   why_it_matters:
     - Automation orchestrator owns the CD path after CI — it does not replace Jenkins, GitHub Actions, or Gitea Actions; it coordinates them with ITSM and production runbooks.
     - Approvers see the CVE, artifact version, CI build link, and change request — a governed decision, not a checkbox.
-    - Smoke-test failure restores the pre-deploy snapshot and marks the change failed with a complete audit trail instead of leaving production and the CHG half-done.
+    - Smoke-test failure restores the pre-deploy snapshot and records the failure on the change with a complete audit trail instead of leaving production and the CHG half-done.
   routes:
     headers: [Path, Condition, Action]
     rows:
-      - [Dev failure, "ao_dev_test_passed != true", "AI writes SNOW failure note; production blocked"]
+      - [Dev failure, "ao_dev_test_passed != true", "AI writes OpenFlake failure note; production blocked"]
       - [Happy path, "Dev tests pass + approval", "Drain LB → prod deploy → smoke test → AI close note → close CHG"]
-      - [Prod rollback, "ao_prod_health_passed != true", "AI incident note → restore snapshot → mark change failed"]
+      - [Prod rollback, "ao_prod_health_passed != true", "AI incident note → restore snapshot → update change"]
   demo_ideas:
     - Reset Demo → Simulate Lightwell PR → merge the Gitea PR live and follow the AO canvas into the approval prompt
-    - Keep ServiceNow open beside AO so work notes update at every milestone through CHG Closed
+    - Keep OpenFlake open beside AO so work notes update at every milestone through CHG Closed
     - Break prod /health before the run to walk the automatic snapshot rollback path
 
 disk-utilization:

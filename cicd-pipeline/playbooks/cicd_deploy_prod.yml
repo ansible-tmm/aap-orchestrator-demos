@@ -13,9 +13,6 @@
     ci_build_url: ""
     affected_cve: ""
     change_request: ""
-    snow_instance_url: "https://ansible.service-now.com"
-    snow_username: ""
-    snow_password: ""
     prod_port: 80
     prod_app_dir: "/opt/app-prod"
     prod_service: "app-prod"
@@ -23,46 +20,30 @@
     health_endpoint: "http://localhost:{{ prod_port }}/health"
 
   tasks:
-    - name: Look up SNOW change request sys_id
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id&sysparm_limit=1"
-        method: GET
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Accept: application/json
-        status_code: 200
-      register: snow_lookup
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
       when: change_request | length > 0
       delegate_to: localhost
       become: false
 
-    - name: Set SNOW sys_id fact
-      ansible.builtin.set_fact:
-        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
-      when:
-        - change_request | length > 0
-        - snow_lookup.json.result | length > 0
+    - name: Look up change request
+      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
 
-    - name: SNOW - Approval granted, production deployment starting
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: "[AO CD Pipeline] Production deployment approved and starting for {{ app_name }} {{ artifact_version }}{% if affected_cve %} (remediates {{ affected_cve }}){% endif %}. Taking pre-deploy snapshot before rollout."
-          state: "{{ '2' }}"
-        status_code: 200
+    - name: OpenFlake - Approval granted, production deployment starting
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: >-
+          [AO CD Pipeline] Production deployment approved and starting for
+          {{ app_name }} {{ artifact_version }}{% if affected_cve %} (remediates {{ affected_cve }}){% endif %}.
+          Taking pre-deploy snapshot before rollout.
+        openflake_patch_extra:
+          state: "{{ '2' | string }}"
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
+        - openflake_sys_id is defined
       delegate_to: localhost
       become: false
 
@@ -182,33 +163,23 @@
             {% if not service_healthy %}health_endpoint_unreachable{% endif %}{% if not version_correct %} version_manifest_mismatch{% endif %}
             {% endif %}
 
-    - name: SNOW - Production smoke test result
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: >-
-            [AO CD Pipeline] Production smoke test
-            {% if service_healthy and version_correct %}PASSED{% else %}FAILED{% endif %}
-            for {{ app_name }} {{ artifact_version }}.
-            {% if service_healthy and version_correct %}
-            Health endpoint OK on port {{ prod_port }}, version verified.{% if affected_cve %} CVE {{ affected_cve }} confirmed remediated in production.{% endif %} Snapshot {{ snapshot_id }} retained for rollback if needed.
-            {% else %}
-            {% if not service_healthy %}Health endpoint unreachable on port {{ prod_port }}.{% endif %}
-            {% if not version_correct %}Version manifest mismatch.{% endif %}
-            Snapshot {{ snapshot_id }} available. Automated rollback will be triggered.
-            {% endif %}
-        status_code: 200
+    - name: OpenFlake - Production smoke test result
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: >-
+          [AO CD Pipeline] Production smoke test
+          {% if service_healthy and version_correct %}PASSED{% else %}FAILED{% endif %}
+          for {{ app_name }} {{ artifact_version }}.
+          {% if service_healthy and version_correct %}
+          Health endpoint OK on port {{ prod_port }}, version verified.{% if affected_cve %} CVE {{ affected_cve }} confirmed remediated in production.{% endif %} Snapshot {{ snapshot_id }} retained for rollback if needed.
+          {% else %}
+          {% if not service_healthy %}Health endpoint unreachable on port {{ prod_port }}.{% endif %}
+          {% if not version_correct %}Version manifest mismatch.{% endif %}
+          Snapshot {{ snapshot_id }} available. Automated rollback will be triggered.
+          {% endif %}
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
+        - openflake_sys_id is defined
       delegate_to: localhost
       become: false
 

@@ -1,22 +1,22 @@
 # CI/CD Pipeline — Dev Test, Approval, Prod Deploy with Rollback
 
-Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build — dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written ServiceNow notes, and automatic snapshot rollback on failure.
+Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build — dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written OpenFlake (ServiceNow-compatible) change notes, and automatic snapshot rollback on failure.
 
 **Demo video:** [Lightwell + AAP — Automated CI/CD from PR to Production](https://youtu.be/4iZCS4atxHQ)
 
 ## What this demo shows
 
-Your security team flags CVE-2024-23334 in `aiohttp==3.9.0`. Lightwell backports a fix as `aiohttp==3.9.2.rhlw-00001`. A pull request bumps the dependency and records the ServiceNow change request. After merge, CI runs pytest and fires a webhook into automation orchestrator with app name, artifact version, git SHA, CI build URL, CVE ID, and change number.
+Your security team flags CVE-2024-23334 in `aiohttp==3.9.0`. Lightwell backports a fix as `aiohttp==3.9.2.rhlw-00001`. A pull request bumps the dependency and records the OpenFlake change request. After merge, CI runs pytest and fires a webhook into automation orchestrator with app name, artifact version, git SHA, CI build URL, CVE ID, and change number.
 
 Automation orchestrator then:
 
-1. Deploys the artifact to **dev** (port 8080) and runs integration tests, posting work notes to the change request
-2. Routes on `ao_dev_test_passed` — failure path writes an AI ServiceNow note and stops; success path reaches approval
+1. Deploys the artifact to **dev** (port 8080) and runs integration tests, posting work notes to the change request in OpenFlake
+2. Routes on `ao_dev_test_passed` — failure path writes an AI ITSM note and stops; success path reaches approval
 3. Shows the approver full context (app, version, CVE, CI link, CHG number) — not a bare approve/reject
 4. Drains the load balancer, deploys **prod** (port 80) with a pre-deploy snapshot, and smoke-tests `/health`
 5. On success, an AI agent writes the close note and AAP closes the change; on failure, AI writes an incident note and Ansible restores the snapshot
 
-Automation orchestrator does not replace your CI or ITSM — it coordinates the work between them from CI pass to production verification.
+Automation orchestrator does not replace your CI or ITSM — it coordinates the work between them from CI pass to production verification. Lab demos use **OpenFlake** (same Table API shape as ServiceNow; playbooks call `/api/flake/...` and also accept product-demos `SN_*` credential env vars).
 
 ## Workflow
 
@@ -31,7 +31,7 @@ flowchart LR
   G --> H{Prod Smoke Passed?}
   H -->|true| I[AI: Success Close Note]
   H -->|false| J[AI: Rollback Incident Note]
-  I --> K[Close ServiceNow CHG]
+  I --> K[Close OpenFlake CHG]
   J --> L[Rollback to Snapshot]
 ```
 
@@ -48,7 +48,7 @@ See [workflow.mermaid](workflow.mermaid) and the [demo marketplace page](https:/
 | 5a | **Drain Load Balancer** | AAP job | Graceful drain before prod change |
 | 6a | **Deploy Prod + SNOW Updates** | AAP job | Snapshot, deploy port 80, smoke test, publish `ao_prod_health_passed` |
 | 7a | **Prod Smoke Test Passed?** | Condition | Success → AI close note; failure → AI rollback note |
-| 8a | **Close ServiceNow Ticket** | AAP job | Patches CHG to Closed with AI-written audit note |
+| 8a | **Close Change Request** | AAP job | Patches CHG to Closed in OpenFlake with AI-written audit note |
 | 8b | **Rollback to Snapshot** | AAP job | Restores pre-deploy snapshot after smoke failure |
 
 ## Playbooks
@@ -59,7 +59,7 @@ See [workflow.mermaid](workflow.mermaid) and the [demo marketplace page](https:/
 | `cicd_drain_lb.yml` | CI/CD Demo - Drain Load Balancer | Demo host | Pre-prod LB drain |
 | `cicd_deploy_prod.yml` | CI/CD Demo - Deploy to Prod | Demo host | Snapshot, prod deploy, smoke test |
 | `cicd_rollback_to_snapshot.yml` | CI/CD Demo - Rollback to Snapshot | Demo host | Restore prod from snapshot |
-| `cicd_close_loop.yml` | CI/CD Demo - Close Loop | localhost | Close ServiceNow change request |
+| `cicd_close_loop.yml` | CI/CD Demo - Close Loop | localhost | Close OpenFlake change request |
 | `cicd_simulate_lightwell_pr.yml` | CI/CD Demo - Simulate Lightwell PR | localhost | Open SNOW CHG + Gitea PR (demo prep) |
 | `cicd_reset_demo.yml` | CI/CD Demo - Reset Demo | Demo host | Reset Gitea repo to vulnerable baseline |
 
@@ -102,7 +102,7 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for infrastructure, job templates, webhoo
 2. Run **CI/CD Demo - Simulate Lightwell PR** (~30s) — creates the CHG and opens the PR
 3. Merge the PR in Gitea — CI fires, then the AO webhook starts the workflow
 4. Approve the production gate when the prompt appears
-5. Watch ServiceNow work notes update through close (or demonstrate rollback by breaking prod health first)
+5. Watch OpenFlake work notes update through close (or demonstrate rollback by breaking prod health first)
 
 ## AO building blocks
 

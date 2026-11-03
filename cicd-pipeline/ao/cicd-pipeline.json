@@ -239,7 +239,7 @@
     {
       "id": "close_loop",
       "type": "aap_job_template",
-      "name": "[AAP] Close ServiceNow Ticket and Notify Team",
+      "name": "[AAP] Close Change Request and Notify Team",
       "parameters": {
         "diff_mode": false,
         "extra_vars": {

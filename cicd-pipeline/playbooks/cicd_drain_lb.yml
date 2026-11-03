@@ -1,7 +1,7 @@
 ---
 # Drain the load balancer before a production deployment.
 # Simulates real LB drain: stops accepting new connections to prod,
-# waits for in-flight requests to complete, updates SNOW.
+# waits for in-flight requests to complete, updates OpenFlake.
 # Dev deployments skip this step entirely.
 
 - name: Drain load balancer before production deployment
@@ -14,32 +14,19 @@
     change_request: ""
     drain_wait_seconds: 10
     prod_port: 80
-    snow_instance_url: "https://ansible.service-now.com"
-    snow_username: ""
-    snow_password: ""
 
   tasks:
-    - name: Look up SNOW change request sys_id
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id&sysparm_limit=1"
-        method: GET
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Accept: application/json
-        status_code: 200
-      register: snow_lookup
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
       when: change_request | length > 0
       delegate_to: localhost
       become: false
 
-    - name: Set SNOW sys_id fact
-      ansible.builtin.set_fact:
-        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
-      when:
-        - change_request | length > 0
-        - snow_lookup.json.result | length > 0
+    - name: Look up change request
+      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
 
     - name: Enable maintenance page on prod port
       ansible.builtin.copy:
@@ -55,23 +42,17 @@
           </html>
         mode: "0644"
 
-    - name: SNOW - LB drain started
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: "[AO CD Pipeline] Load balancer drain initiated for {{ app_name }}. Stopping new connections to production (port {{ prod_port }}). Waiting {{ drain_wait_seconds }}s for in-flight requests to complete before deploying {{ artifact_version }}."
-        status_code: 200
+    - name: OpenFlake - LB drain started
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: >-
+          [AO CD Pipeline] Load balancer drain initiated for {{ app_name }}.
+          Stopping new connections to production (port {{ prod_port }}).
+          Waiting {{ drain_wait_seconds }}s for in-flight requests to complete
+          before deploying {{ artifact_version }}.
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
+        - openflake_sys_id is defined
       delegate_to: localhost
       become: false
 

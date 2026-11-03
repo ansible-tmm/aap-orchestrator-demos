@@ -7,8 +7,8 @@
 | AAP 2.7+ with automation orchestrator | Job templates + workflow engine | Existing AAP / containerized install |
 | Demo VM (RHEL 9) | Runs inventory-service on ports 80 (prod) and 8080 (dev); optional Gitea host | EC2 t3.medium or similar |
 | Gitea + Actions runner | App repo, PR merge, CI webhook to AO | `setup/cicd_setup_gitea.yml` on the demo VM |
-| ServiceNow | Change request work notes and close | Developer instance or existing SNOW |
-| AI credential | Three Task agents that write SNOW notes | Any supported model in AO |
+| OpenFlake | Change request work notes and close (ServiceNow-compatible Table API) | Lab OpenFlake instance; `/api/now` is rewritten to `/api/flake` |
+| AI credential | Three Task agents that write ITSM close/failure notes | Any supported model in AO |
 
 One Linux host can run both the app (dev+prod) and Gitea for a compact lab.
 
@@ -70,15 +70,22 @@ CI should exit early (no AO webhook) when `CHANGE_REQUEST` is empty — that is 
 
 1. **Project** — sync this repository (or the `cicd-pipeline/` subtree).
 2. **Inventory** — one host for the demo VM (SSH machine credential).
-3. **Credentials / extra vars** for ServiceNow and Gitea:
+3. **Credentials / extra vars** for OpenFlake and Gitea:
 
-| Variable | Purpose |
-|----------|---------|
-| `snow_instance_url` | ServiceNow base URL |
-| `snow_username` / `snow_password` | Service account for change updates |
+Playbooks talk to **OpenFlake** over its ServiceNow-compatible Table API (`/api/flake/table/...`). They accept either OpenFlake vars/env or the product-demos `SN_*` ServiceNow credential env names.
+
+| Variable / env | Purpose |
+|----------------|---------|
+| `openflake_instance_url` or `OPENFLAKE_INSTANCE_URL` or `SN_HOST` | OpenFlake base URL (no trailing slash) |
+| `openflake_username` / `OPENFLAKE_USERNAME` / `SN_USERNAME` | Basic-auth user (default `admin`) |
+| `openflake_password` / `OPENFLAKE_PASSWORD` / `SN_PASSWORD` | Basic-auth password |
+| `itsm_api_prefix` | API prefix (default `/api/flake`; set `/api/now` only if you rely on OpenFlake’s rewrite) |
+| `openflake_validate_certs` | TLS verify for OpenFlake calls (default `true`) |
 | `gitea_host` / `gitea_port` | Gitea endpoint (defaults: `gitea.example.local:3000`) |
 | `gitea_token` | Admin API token from setup |
 | `gitea_owner` / `gitea_repo` | Defaults: `gitea-admin` / `inventory-service` |
+
+Shared helpers live in `playbooks/tasks/openflake_*.yml`. OpenFlake **replaces** `work_notes` on PATCH (it does not journal-append like ServiceNow), so those tasks append to the existing note text before writing.
 
 ### 4. Register job templates
 
@@ -119,7 +126,7 @@ Before every recording or live show:
 
 1. Run **CI/CD Demo - Reset Demo** (reverts Gitea to vulnerable `aiohttp==3.9.0`).
 2. Run **CI/CD Demo - Simulate Lightwell PR** — creates a SNOW change and opens the Lightwell PR (~30s).
-3. Open the CHG in ServiceNow and the AO canvas side by side.
+3. Open the CHG in OpenFlake and the AO canvas side by side.
 4. Merge the PR in Gitea live — that is the trigger moment.
 5. Switch to the AO canvas; hold at approval and read the prompt aloud.
 6. Approve; watch LB drain → prod deploy → AI close note → CHG Closed.

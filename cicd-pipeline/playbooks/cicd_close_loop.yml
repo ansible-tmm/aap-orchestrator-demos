@@ -1,66 +1,46 @@
 ---
-- name: Close ServiceNow change request and notify team
+# Close the change request in OpenFlake (ServiceNow-compatible Table API).
+- name: Close OpenFlake change request and notify team
   hosts: localhost
   connection: local
   gather_facts: false
   vars:
-    snow_instance_url: "https://ansible.service-now.com"
-    snow_username: ""
-    snow_password: ""
     app_name: "inventory-service"
     artifact_version: "0.0.0"
     change_request: ""
     snow_close_note: "Deployment completed successfully. Change closed by automated pipeline."
 
   tasks:
-    - name: Skip SNOW update if no change request provided
+    - name: Skip OpenFlake update if no change request provided
       ansible.builtin.debug:
-        msg: "No change_request number provided - skipping SNOW update. Deployment of {{ app_name }} {{ artifact_version }} complete."
+        msg: "No change_request number provided - skipping OpenFlake update. Deployment of {{ app_name }} {{ artifact_version }} complete."
       when: change_request | length == 0
 
-    - name: Look up change request sys_id by number
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id,number,state&sysparm_limit=1"
-        method: GET
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Accept: application/json
-        status_code: 200
-      register: snow_lookup
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
       when: change_request | length > 0
 
-    - name: Set sys_id
-      ansible.builtin.set_fact:
-        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
-      when:
-        - change_request | length > 0
-        - snow_lookup.json.result | length > 0
+    - name: Look up change request
+      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
+      when: change_request | length > 0
 
     - name: Add AI-generated close note and close the change request
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: "[CI/CD Demo - AO Pipeline]\n\n{{ snow_close_note }}"
-          state: "3"
-        status_code: 200
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: |-
+          [CI/CD Demo - AO Pipeline]
+
+          {{ snow_close_note }}
+        # `| string` — OpenFlake Text columns reject numeric state values.
+        openflake_patch_extra:
+          state: "{{ '3' | string }}"
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
-      register: snow_update
+        - openflake_sys_id is defined
 
     - name: Log result
       ansible.builtin.debug:
-        msg: "Change request {{ change_request }} closed. URL: {{ snow_instance_url }}/nav_to.do?uri=change_request.do?sys_id={{ snow_sys_id | default('N/A') }}"
+        msg: "Change request {{ change_request }} closed. URL: {{ openflake_url }}/changes/{{ openflake_sys_id | default('N/A') }}"
       when: change_request | length > 0
 
     - name: Set close loop stats

@@ -1,0 +1,28 @@
+---
+# Look up a change_request by number. Sets:
+#   openflake_sys_id, openflake_existing_work_notes, snow_sys_id (alias)
+# Requires: openflake_url, openflake_user, openflake_pass, openflake_api_prefix, change_request
+
+- name: Look up OpenFlake change request by number
+  ansible.builtin.uri:
+    url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id,number,state,work_notes&sysparm_limit=1"
+    method: GET
+    user: "{{ openflake_user }}"
+    password: "{{ openflake_pass }}"
+    force_basic_auth: true
+    validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
+    headers:
+      Accept: application/json
+    status_code: 200
+  register: openflake_lookup
+
+- name: Fail if change request was not found
+  ansible.builtin.fail:
+    msg: "OpenFlake change request {{ change_request }} not found at {{ openflake_url }}"
+  when: openflake_lookup.json.result | default([]) | length == 0
+
+- name: Set change request facts
+  ansible.builtin.set_fact:
+    openflake_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
+    snow_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
+    openflake_existing_work_notes: "{{ openflake_lookup.json.result[0].work_notes | default('', true) }}"

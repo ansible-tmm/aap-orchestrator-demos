@@ -12,9 +12,6 @@
     git_sha: "{{ git_sha_override | default(_git_sha) }}"
     change_request: ""
     ci_build_url: ""
-    snow_instance_url: "https://ansible.service-now.com"
-    snow_username: ""
-    snow_password: ""
     dev_port: 8080
     dev_app_dir: "/opt/app-dev"
     dev_service: "app-dev"
@@ -22,45 +19,28 @@
     health_timeout: 30
 
   tasks:
-    - name: Look up SNOW change request sys_id
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request?sysparm_query=number={{ change_request }}&sysparm_fields=sys_id&sysparm_limit=1"
-        method: GET
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Accept: application/json
-        status_code: 200
-      register: snow_lookup
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
       when: change_request | length > 0
       delegate_to: localhost
       become: false
 
-    - name: Set SNOW sys_id fact
-      ansible.builtin.set_fact:
-        snow_sys_id: "{{ snow_lookup.json.result[0].sys_id }}"
-      when:
-        - change_request | length > 0
-        - snow_lookup.json.result | length > 0
+    - name: Look up change request
+      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
+      when: change_request | length > 0
+      delegate_to: localhost
+      become: false
 
-    - name: SNOW - Dev deployment started
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: "[AO CD Pipeline] Dev deployment started for {{ app_name }} {{ artifact_version }} (SHA: {{ git_sha }}). CI build: {{ ci_build_url }}. Running integration tests on dev environment (port {{ dev_port }})."
-        status_code: 200
+    - name: OpenFlake - Dev deployment started
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: >-
+          [AO CD Pipeline] Dev deployment started for {{ app_name }} {{ artifact_version }}
+          (SHA: {{ git_sha }}). CI build: {{ ci_build_url }}. Running integration tests
+          on dev environment (port {{ dev_port }}).
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
+        - openflake_sys_id is defined
       delegate_to: localhost
       become: false
 
@@ -144,33 +124,23 @@
         service_healthy: "{{ health_check.status is defined and health_check.status == 200 }}"
         version_correct: "{{ (artifact_version | regex_replace('-b.*$', '')) in (version_response.content | default('')) }}"
 
-    - name: SNOW - Dev integration test result
-      ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request/{{ snow_sys_id }}"
-        method: PATCH
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: application/json
-          Accept: application/json
-        body_format: json
-        body:
-          work_notes: >-
-            [AO CD Pipeline] Dev integration tests
-            {% if service_healthy and version_correct %}PASSED{% else %}FAILED{% endif %}
-            for {{ app_name }} {{ artifact_version }}.
-            {% if service_healthy and version_correct %}
-            Health endpoint OK on port {{ dev_port }}, version manifest verified. Proceeding to production approval gate.
-            {% elif not service_healthy %}
-            Service did not respond on port {{ dev_port }}. Production deployment blocked.
-            {% else %}
-            Version manifest mismatch on port {{ dev_port }}. Production deployment blocked.
-            {% endif %}
-        status_code: 200
+    - name: OpenFlake - Dev integration test result
+      ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
+      vars:
+        openflake_work_note_text: >-
+          [AO CD Pipeline] Dev integration tests
+          {% if service_healthy and version_correct %}PASSED{% else %}FAILED{% endif %}
+          for {{ app_name }} {{ artifact_version }}.
+          {% if service_healthy and version_correct %}
+          Health endpoint OK on port {{ dev_port }}, version manifest verified. Proceeding to production approval gate.
+          {% elif not service_healthy %}
+          Service did not respond on port {{ dev_port }}. Production deployment blocked.
+          {% else %}
+          Version manifest mismatch on port {{ dev_port }}. Production deployment blocked.
+          {% endif %}
       when:
         - change_request | length > 0
-        - snow_sys_id is defined
+        - openflake_sys_id is defined
       delegate_to: localhost
       become: false
 

@@ -21,16 +21,10 @@
     _gitea_token: "{{ gitea_token | default('') }}"
     _gitea_owner: "gitea-admin"
     _gitea_repo: "inventory-service"
-    _snow_instance_url: "https://ansible.service-now.com"
-    _snow_username: "{{ snow_username | default('') }}"
-    _snow_password: "{{ snow_password | default('') }}"
     gitea_url: "{{ gitea_url_override | default(_gitea_url) }}"
     gitea_token: "{{ gitea_token_override | default(_gitea_token) }}"
     gitea_owner: "{{ gitea_owner_override | default(_gitea_owner) }}"
     gitea_repo: "{{ gitea_repo_override | default(_gitea_repo) }}"
-    snow_instance_url: "{{ snow_instance_url_override | default(_snow_instance_url) }}"
-    snow_username: "{{ snow_username_override | default(_snow_username) }}"
-    snow_password: "{{ snow_password_override | default(_snow_password) }}"
     base_branch: main
     patch_branch: lightwell-patch-CVE-2024-23334
     patched_version: "2.4.0"
@@ -38,13 +32,17 @@
     patched_dep: "aiohttp==3.9.2.rhlw-00001"
 
   tasks:
-    - name: Create ServiceNow change request for this Lightwell patch
+    - name: Resolve OpenFlake connection
+      ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
+
+    - name: Create OpenFlake change request for this Lightwell patch
       ansible.builtin.uri:
-        url: "{{ snow_instance_url }}/api/now/table/change_request"
+        url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request"
         method: POST
-        user: "{{ snow_username }}"
-        password: "{{ snow_password }}"
+        user: "{{ openflake_user }}"
+        password: "{{ openflake_pass }}"
         force_basic_auth: true
+        validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
         headers:
           Content-Type: application/json
           Accept: application/json
@@ -60,18 +58,19 @@
           type: standard
           category: Software
           risk: low
-          impact: "2"
-          urgency: "2"
-        status_code: 201
-      register: snow_chg_result
+          impact: "{{ '2' | string }}"
+          urgency: "{{ '2' | string }}"
+        status_code: [200, 201]
+      register: openflake_chg_result
 
     - name: Set change request number fact
       ansible.builtin.set_fact:
-        chg_number: "{{ snow_chg_result.json.result.number }}"
+        chg_number: "{{ openflake_chg_result.json.result.number }}"
+        chg_sys_id: "{{ openflake_chg_result.json.result.sys_id }}"
 
     - name: Show created change request
       ansible.builtin.debug:
-        msg: "SNOW change request created: {{ chg_number }} - {{ snow_instance_url }}/nav_to.do?uri=change_request.do?sysparm_query=number={{ chg_number }}"
+        msg: "OpenFlake change request created: {{ chg_number }} - {{ openflake_url }}/changes/{{ chg_sys_id }}"
 
     - name: Get current SHA of main branch
       ansible.builtin.uri:
@@ -213,7 +212,7 @@
 
             **CVE:** {{ patched_cve }}
             **Severity:** HIGH - Path traversal via static file handler (aiohttp)
-            **SNOW Change Request:** {{ chg_number }}
+            **Change Request:** {{ chg_number }}
 
             ### Changes
             - `requirements.txt`: upgraded `aiohttp` from `3.9.0` to `{{ patched_dep }}`
@@ -236,7 +235,7 @@
     - name: Simulation complete - PR ready for manual merge
       ansible.builtin.debug:
         msg:
-          - "SNOW change request: {{ chg_number }}"
+          - "OpenFlake change request: {{ chg_number }} ({{ openflake_url }}/changes/{{ chg_sys_id }})"
           - "PR #{{ pr_number }} is open and ready."
           - "Review and merge: {{ gitea_url }}/{{ gitea_owner }}/{{ gitea_repo }}/pulls/{{ pr_number }}"
           - "On merge: CI fires, AO pipeline triggers with {{ chg_number }}, closes ticket on success."
