@@ -1,0 +1,37 @@
+---
+# Resolve OpenFlake connection settings.
+#
+# OpenFlake implements a ServiceNow-compatible Table API subset.
+# /api/now/* is rewritten to /api/flake/*; demos call /api/flake explicitly.
+#
+# Credential precedence (Ansible default chain):
+#   openflake_* vars → snow_* vars → OPENFLAKE_* env → SN_* env (product-demos)
+
+- name: Resolve OpenFlake connection settings
+  ansible.builtin.set_fact:
+    openflake_url: >-
+      {{
+        (
+          openflake_instance_url
+          | default(snow_instance_url
+            | default(lookup('env', 'OPENFLAKE_INSTANCE_URL')
+              | default(lookup('env', 'SN_HOST') | default('', true), true), true), true)
+        )
+        | regex_replace('/*$', '')
+      }}
+    openflake_user: >-
+      {{
+        openflake_username
+        | default(snow_username
+          | default(lookup('env', 'OPENFLAKE_USERNAME')
+            | default(lookup('env', 'SN_USERNAME') | default('admin', true), true), true), true)
+      }}
+    openflake_pass: >-
+      {{
+        openflake_password
+        | default(snow_password
+          | default(lookup('env', 'OPENFLAKE_PASSWORD')
+            | default(lookup('env', 'SN_PASSWORD') | default('', true), true), true), true)
+      }}
+    openflake_api_prefix: "{{ itsm_api_prefix | default('/api/flake') }}"
+    openflake_verify_certs: "{{ openflake_validate_certs | default(true) | bool }}"

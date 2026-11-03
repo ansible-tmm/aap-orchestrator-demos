@@ -1,0 +1,41 @@
+---
+# PATCH a change_request work note (and optional extra fields).
+#
+# OpenFlake replaces work_notes on write — it does not journal-append like
+# ServiceNow — so callers must pass the full accumulated note text via the
+# lookup task first. `| string` keeps Text columns from becoming dict/list.
+#
+# Requires: openflake_url, openflake_user, openflake_pass, openflake_api_prefix,
+#           openflake_sys_id, openflake_work_note_text
+# Optional: openflake_existing_work_notes, openflake_patch_extra (dict)
+
+- name: Build appended work notes value
+  ansible.builtin.set_fact:
+    openflake_work_notes_value: |-
+      {% if (openflake_existing_work_notes | default('', true) | length) > 0 %}{{ openflake_existing_work_notes }}
+
+      {% endif %}{{ openflake_work_note_text }}
+
+- name: Build OpenFlake change patch payload
+  ansible.builtin.set_fact:
+    openflake_payload: "{{ {'work_notes': openflake_work_notes_value | string} | combine(openflake_patch_extra | default({})) }}"
+
+- name: Update OpenFlake change request
+  ansible.builtin.uri:
+    url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request/{{ openflake_sys_id }}"
+    method: PATCH
+    user: "{{ openflake_user }}"
+    password: "{{ openflake_pass }}"
+    force_basic_auth: true
+    validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    body_format: json
+    body: "{{ openflake_payload }}"
+    status_code: 200
+  register: openflake_update
+
+- name: Refresh cached work notes after successful patch
+  ansible.builtin.set_fact:
+    openflake_existing_work_notes: "{{ openflake_work_notes_value | string }}"
