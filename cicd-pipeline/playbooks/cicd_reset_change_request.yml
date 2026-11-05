@@ -13,14 +13,19 @@
       Reset for AO CI/CD Pipeline demo. Work notes and close notes cleared.
 
   tasks:
+    - name: Normalize change request digits
+      when: >-
+        (change_request | string | regex_search('^\\d+$'))
+        or (change_request | string | regex_search('(?i)^CHG\\d+$'))
+      ansible.builtin.set_fact:
+        _chg_digits: "{{ change_request | string | regex_replace('(?i)^CHG', '') | regex_replace('[^0-9]', '') }}"
+
     - name: Normalize change request number
       ansible.builtin.set_fact:
         _chg_number: >-
           {{
-            (
-              'CHG' ~ (change_request | regex_replace('^CHG', '') | regex_replace('\\D', '') | zfill(7))
-            )
-            if (change_request | string | regex_search('^\\d+$') or change_request | string | regex_search('^CHG\\d+$'))
+            ('CHG' ~ ('%07d' | format(_chg_digits | int)))
+            if (_chg_digits | default('') | length) > 0
             else (change_request | string | trim)
           }}
 
