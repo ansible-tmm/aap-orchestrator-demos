@@ -32,8 +32,12 @@
 
           {{ snow_close_note }}
         # `| string` — OpenFlake Text columns reject numeric state values.
+        # Also set close_notes: OpenFlake Activity/Closed UI surfaces that
+        # field for closure narrative; work_notes alone is easy to miss.
         openflake_patch_extra:
           state: "{{ '3' | string }}"
+          close_code: successful
+          close_notes: "{{ snow_close_note }}"
       when:
         - change_request | length > 0
         - openflake_sys_id is defined
