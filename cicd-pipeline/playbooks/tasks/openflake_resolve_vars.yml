@@ -35,3 +35,5 @@
       }}
     openflake_api_prefix: "{{ itsm_api_prefix | default('/api/flake') }}"
     openflake_verify_certs: "{{ openflake_validate_certs | default(true) | bool }}"
+  delegate_to: localhost
+  become: false

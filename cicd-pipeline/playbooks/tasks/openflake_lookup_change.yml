@@ -15,14 +15,20 @@
       Accept: application/json
     status_code: 200
   register: openflake_lookup
+  delegate_to: localhost
+  become: false
 
 - name: Fail if change request was not found
   ansible.builtin.fail:
     msg: "OpenFlake change request {{ change_request }} not found at {{ openflake_url }}"
   when: openflake_lookup.json.result | default([]) | length == 0
+  delegate_to: localhost
+  become: false
 
 - name: Set change request facts
   ansible.builtin.set_fact:
     openflake_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
     snow_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
     openflake_existing_work_notes: "{{ openflake_lookup.json.result[0].work_notes | default('', true) }}"
+  delegate_to: localhost
+  become: false
