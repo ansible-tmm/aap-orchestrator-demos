@@ -1,6 +1,6 @@
 ---
-# Clear an OpenFlake change request back to a clean "New" demo state
-# (empty work/close notes, open state) so the CI/CD Pipeline can be re-run.
+# Delete and recreate an OpenFlake change request so Activity history is gone.
+# Clearing work_notes alone leaves journal entries and the Activity counter rising.
 - name: Reset OpenFlake change request for CI/CD demo
   hosts: localhost
   connection: local
@@ -10,7 +10,7 @@
     change_request: CHG0034907
     openflake_reset_short_description: APD CI/CD demo change (ready for pipeline)
     openflake_reset_description: >-
-      Reset for AO CI/CD Pipeline demo. Work notes and close notes cleared.
+      Fresh ticket for AO CI/CD Pipeline demo.
 
   tasks:
     - name: Normalize change request digits
@@ -31,21 +31,46 @@
 
     - name: Show change request being reset
       ansible.builtin.debug:
-        msg: "Resetting OpenFlake change request {{ _chg_number }}"
+        msg: "Deleting and recreating OpenFlake change request {{ _chg_number }} (clears Activity history)"
 
     - name: Resolve OpenFlake connection
       ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
 
-    - name: Look up change request (create if missing)
-      ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
-      vars:
-        change_request: "{{ _chg_number }}"
-        openflake_ensure_short_description: "{{ openflake_reset_short_description }}"
-
-    - name: Clear notes and reopen change request
+    - name: Look up existing change request by number
       ansible.builtin.uri:
-        url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request/{{ openflake_sys_id }}"
-        method: PATCH
+        url: >-
+          {{ openflake_url }}{{ openflake_api_prefix }}/table/change_request?sysparm_query=number={{ _chg_number }}&sysparm_fields=sys_id,number&sysparm_limit=1
+        method: GET
+        user: "{{ openflake_user }}"
+        password: "{{ openflake_pass }}"
+        force_basic_auth: true
+        validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
+        headers:
+          Accept: application/json
+        status_code: 200
+      register: openflake_lookup
+      delegate_to: localhost
+      become: false
+
+    - name: Delete existing change request
+      when: openflake_lookup.json.result | default([]) | length > 0
+      ansible.builtin.uri:
+        url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request/{{ openflake_lookup.json.result[0].sys_id }}"
+        method: DELETE
+        user: "{{ openflake_user }}"
+        password: "{{ openflake_pass }}"
+        force_basic_auth: true
+        validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
+        headers:
+          Accept: application/json
+        status_code: [200, 204]
+      delegate_to: localhost
+      become: false
+
+    - name: Recreate change request with the same number
+      ansible.builtin.uri:
+        url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request"
+        method: POST
         user: "{{ openflake_user }}"
         password: "{{ openflake_pass }}"
         force_basic_auth: true
@@ -55,21 +80,22 @@
           Accept: application/json
         body_format: json
         body:
-          # OpenFlake "New" state (same as create).
-          state: "{{ '-5' | string }}"
-          work_notes: ""
-          close_notes: ""
-          close_code: ""
+          number: "{{ _chg_number }}"
           short_description: "{{ openflake_reset_short_description }}"
           description: "{{ openflake_reset_description }}"
-        status_code: [200]
-      register: openflake_reset
+          type: standard
+          category: Software
+          risk: low
+          impact: "{{ '2' | string }}"
+          urgency: "{{ '2' | string }}"
+        status_code: [200, 201]
+      register: openflake_recreate
       delegate_to: localhost
       become: false
 
     - name: Show reset result
       ansible.builtin.debug:
         msg:
-          - "OpenFlake change {{ _chg_number }} reset to New."
-          - "URL: {{ openflake_url }}/changes/{{ openflake_sys_id }}"
-          - "Work notes and close notes cleared — ready for another AO pipeline run."
+          - "OpenFlake change {{ _chg_number }} deleted and recreated (New)."
+          - "URL: {{ openflake_url }}/changes/{{ openflake_recreate.json.result.sys_id }}"
+          - "Activity history cleared — ready for another AO pipeline run."
