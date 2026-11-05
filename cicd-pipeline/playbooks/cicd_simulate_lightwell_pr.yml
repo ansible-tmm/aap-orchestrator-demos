@@ -90,7 +90,13 @@
         method: DELETE
         headers:
           Authorization: "token {{ gitea_token }}"
-        status_code: [204, 404]
+        status_code: [204, 404, 500]
+      register: _gitea_del_branch
+      failed_when: >-
+        _gitea_del_branch.status not in [204, 404]
+        and ('does not exist' not in (_gitea_del_branch.json.message | default('') | lower))
+        and ('not found' not in (_gitea_del_branch.json.message | default('') | lower))
+      changed_when: _gitea_del_branch.status == 204
 
     - name: Create patch branch from main
       ansible.builtin.uri:
