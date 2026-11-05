@@ -82,5 +82,3 @@
         if (openflake_ensure_create is defined and openflake_ensure_create is not skipped)
         else (openflake_lookup.json.result[0].work_notes | default('', true))
       }}
-  delegate_to: localhost
-  become: false

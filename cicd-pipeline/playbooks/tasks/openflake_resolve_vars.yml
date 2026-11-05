@@ -6,6 +6,9 @@
 #
 # Credential precedence (Ansible default chain):
 #   openflake_* vars → snow_* vars → OPENFLAKE_* env → SN_* env (product-demos)
+#
+# set_fact stays on the inventory host (no delegate_to) so later delegated
+# uri tasks still see openflake_url / credentials.
 
 - name: Resolve OpenFlake connection settings
   ansible.builtin.set_fact:
@@ -35,5 +38,13 @@
       }}
     openflake_api_prefix: "{{ itsm_api_prefix | default('/api/flake') }}"
     openflake_verify_certs: "{{ openflake_validate_certs | default(true) | bool }}"
-  delegate_to: localhost
-  become: false
+
+- name: Require a resolvable OpenFlake URL
+  ansible.builtin.assert:
+    that:
+      - (openflake_url | default('') | length) > 0
+      - openflake_url is match('^https?://')
+    fail_msg: >-
+      OpenFlake URL is empty or not absolute (got '{{ openflake_url | default('') }}').
+      Attach the OpenFlake Controller credential to this job template (injects
+      openflake_instance_url) or set OPENFLAKE_INSTANCE_URL / SN_HOST.
