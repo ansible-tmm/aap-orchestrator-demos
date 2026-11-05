@@ -1,7 +1,9 @@
 ---
-# Look up a change_request by number. Sets:
+# Look up a change_request by number. If missing, create it with that number
+# so demo triggers can use any CHG* value. Sets:
 #   openflake_sys_id, openflake_existing_work_notes, snow_sys_id (alias)
 # Requires: openflake_url, openflake_user, openflake_pass, openflake_api_prefix, change_request
+# Optional: openflake_ensure_short_description, app_name, artifact_version
 
 - name: Look up OpenFlake change request by number
   ansible.builtin.uri:
@@ -18,17 +20,67 @@
   delegate_to: localhost
   become: false
 
-- name: Fail if change request was not found
-  ansible.builtin.fail:
-    msg: "OpenFlake change request {{ change_request }} not found at {{ openflake_url }}"
+- name: Create OpenFlake change request when number is missing
   when: openflake_lookup.json.result | default([]) | length == 0
+  ansible.builtin.uri:
+    url: "{{ openflake_url }}{{ openflake_api_prefix }}/table/change_request"
+    method: POST
+    user: "{{ openflake_user }}"
+    password: "{{ openflake_pass }}"
+    force_basic_auth: true
+    validate_certs: "{{ openflake_verify_certs | default(true) | bool }}"
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    body_format: json
+    body:
+      number: "{{ change_request }}"
+      short_description: >-
+        {{
+          openflake_ensure_short_description
+          | default(
+              'APD demo change '
+              ~ change_request
+              ~ (
+                  (' — ' ~ app_name ~ ' ' ~ artifact_version)
+                  if (app_name | default('') | length) > 0
+                  else ''
+                ),
+              true
+            )
+        }}
+      description: >-
+        Auto-created by APD CI/CD playbooks because change request
+        {{ change_request }} was not found in OpenFlake.
+      type: standard
+      category: Software
+      risk: low
+      impact: "{{ '2' | string }}"
+      urgency: "{{ '2' | string }}"
+    status_code: [200, 201]
+  register: openflake_ensure_create
   delegate_to: localhost
   become: false
 
-- name: Set change request facts
+- name: Set change request facts from lookup or create
   ansible.builtin.set_fact:
-    openflake_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
-    snow_sys_id: "{{ openflake_lookup.json.result[0].sys_id }}"
-    openflake_existing_work_notes: "{{ openflake_lookup.json.result[0].work_notes | default('', true) }}"
+    openflake_sys_id: >-
+      {{
+        openflake_ensure_create.json.result.sys_id
+        if (openflake_ensure_create is defined and openflake_ensure_create is not skipped)
+        else openflake_lookup.json.result[0].sys_id
+      }}
+    snow_sys_id: >-
+      {{
+        openflake_ensure_create.json.result.sys_id
+        if (openflake_ensure_create is defined and openflake_ensure_create is not skipped)
+        else openflake_lookup.json.result[0].sys_id
+      }}
+    openflake_existing_work_notes: >-
+      {{
+        ''
+        if (openflake_ensure_create is defined and openflake_ensure_create is not skipped)
+        else (openflake_lookup.json.result[0].work_notes | default('', true))
+      }}
   delegate_to: localhost
   become: false
