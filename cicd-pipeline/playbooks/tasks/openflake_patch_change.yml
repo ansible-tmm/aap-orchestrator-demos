@@ -15,10 +15,14 @@
       {% if (openflake_existing_work_notes | default('', true) | length) > 0 %}{{ openflake_existing_work_notes }}
 
       {% endif %}{{ openflake_work_note_text }}
+  delegate_to: localhost
+  become: false
 
 - name: Build OpenFlake change patch payload
   ansible.builtin.set_fact:
     openflake_payload: "{{ {'work_notes': openflake_work_notes_value | string} | combine(openflake_patch_extra | default({})) }}"
+  delegate_to: localhost
+  become: false
 
 - name: Update OpenFlake change request
   ansible.builtin.uri:
@@ -35,7 +39,11 @@
     body: "{{ openflake_payload }}"
     status_code: 200
   register: openflake_update
+  delegate_to: localhost
+  become: false
 
 - name: Refresh cached work notes after successful patch
   ansible.builtin.set_fact:
     openflake_existing_work_notes: "{{ openflake_work_notes_value | string }}"
+  delegate_to: localhost
+  become: false

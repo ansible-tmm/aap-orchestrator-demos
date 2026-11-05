@@ -22,14 +22,10 @@
     - name: Resolve OpenFlake connection
       ansible.builtin.include_tasks: tasks/openflake_resolve_vars.yml
       when: change_request | length > 0
-      delegate_to: localhost
-      become: false
 
     - name: Look up change request
       ansible.builtin.include_tasks: tasks/openflake_lookup_change.yml
       when: change_request | length > 0
-      delegate_to: localhost
-      become: false
 
     - name: OpenFlake - Dev deployment started
       ansible.builtin.include_tasks: tasks/openflake_patch_change.yml
@@ -41,8 +37,6 @@
       when:
         - change_request | length > 0
         - openflake_sys_id is defined
-      delegate_to: localhost
-      become: false
 
     - name: Ensure dev app directory exists
       ansible.builtin.file:
@@ -141,8 +135,6 @@
       when:
         - change_request | length > 0
         - openflake_sys_id is defined
-      delegate_to: localhost
-      become: false
 
     - name: Set test outcome stats
       ansible.builtin.set_stats:
