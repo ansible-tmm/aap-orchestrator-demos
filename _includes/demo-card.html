@@ -20,9 +20,17 @@
   {% endfor %}
 {% endif %}
 
+{% if demo.tmm_created %}
+  {% assign card_origin = "tmm-created" %}
+{% elsif demo.ai_generated %}
+  {% assign card_origin = "ai-generated" %}
+{% else %}
+  {% assign card_origin = "" %}
+{% endif %}
 <article
   class="demo-card{% if featured %} demo-card--featured{% endif %}{% if demo.status == 'coming-soon' %} demo-card--soon{% endif %}{% if demo.ai_generated %} demo-card--ai-generated{% endif %}{% if demo.tmm_created %} demo-card--tmm-created{% endif %}"
   data-status="{{ demo.status }}"
+  data-origin="{{ card_origin }}"
   data-category="{{ demo.category }}"
   data-building-blocks="{{ card_blocks }}"
   data-search="{{ demo.title | downcase }} {{ demo.subtitle | downcase }} {{ demo.blurb | downcase }} {{ demo.category | replace: '-', ' ' | downcase }} {{ card_block_labels | downcase }}"
