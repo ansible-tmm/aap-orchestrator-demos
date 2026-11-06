@@ -48,10 +48,6 @@ cicd-pipeline:
       - "<strong>Approve when prompted.</strong> Let it run through dev deploy/test. When it hits <strong>Dev Lead Approval - Promote to Production</strong>, Approve it. Stay until the run completes successfully (prod deploy + close loop)."
       - "<strong>Check OpenFlake.</strong> Open the change. When the pipeline finishes you should see about seven activities on the issue (work notes / updates from the AAP steps along the way, ending with close)."
     tip: Before every recording or live show, run <strong>CI/CD Demo - Reset Demo</strong> so Gitea is back on vulnerable <code>aiohttp==3.9.0</code>. For a second take, break the prod <code>/health</code> endpoint before merge to walk the automatic snapshot rollback path.
-  demo_ideas:
-    - Reset Demo → Simulate Lightwell PR → merge the Gitea PR live and follow the AO canvas into the approval prompt
-    - Keep OpenFlake open beside AO so work notes update at every milestone through CHG Closed
-    - Break prod /health before the run to walk the automatic snapshot rollback path
 
 disk-utilization:
   description: Servers run out of disk space at different urgency levels. At 72% you do nothing. At 85% you reclaim cache and old logs before it hurts. At 97% you add capacity. On EC2, expand the EBS volume, grow the partition, and extend XFS. Each path posts a tier-specific Mattermost message so the team knows what ran.

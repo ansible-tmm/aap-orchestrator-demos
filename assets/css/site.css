@@ -1471,6 +1471,12 @@ button.ao-block:focus-visible {
   stroke: none !important;
 }
 
+/* Glossary SVGs use currentColor/black fills; invert for the dark workflow canvas.
+   PNG node cards are already light — leave them alone. */
+.workflow-diagram .mermaid image[href*="/assets/icons/glossary/"] {
+  filter: brightness(0) invert(0.85);
+}
+
 .cta-row {
   display: none;
 }
