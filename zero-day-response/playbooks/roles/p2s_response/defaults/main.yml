@@ -1,0 +1,25 @@
+---
+p2s_cves: [CVE-2026-109618, CVE-2026-109619]
+p2s_rh_api: https://access.redhat.com/hydra/rest/securitydata/cve
+# Upstream fixed releases (php.net, 21 Oct 2026). Branches <= 8.1: source backports only.
+p2s_upstream_fixed: {"8.5": "8.5.12", "8.4": "8.4.27", "8.3": "8.3.36", "8.2": "8.2.35"}
+p2s_fixed_images: {"8.4": "docker.io/library/php:8.4.27-apache"}
+
+# Reviewed parameter envelope for interim controls (anything outside -> human review)
+p2s_required_settings: [session.upload_progress.enabled, memory_limit, post_max_size]
+p2s_allowed_settings:
+  session.upload_progress.enabled: ["0"]
+  post_max_size: ["8M", "16M", "32M"]
+  upload_max_filesize: ["2M", "4M", "8M", "16M"]
+  memory_limit: ["-1"]
+  fatal_error_backtraces: ["0"]
+p2s_default_spec:
+  settings:
+    - {setting: session.upload_progress.enabled, value: "0", citation: "RHSB-2026-013 §Mitigation 1"}
+    - {setting: post_max_size, value: "8M", citation: "RHSB-2026-013 §Mitigation 3"}
+    - {setting: upload_max_filesize, value: "4M", citation: "RHSB-2026-013 §Mitigation 3"}
+    - {setting: memory_limit, value: "-1", citation: "RHSB-2026-013 §Mitigation 2 (requires cgroup memory boundary)"}
+  requires: [restart_not_reload, cgroup_memory_boundary, non_overridable_scope]
+p2s_spec: "{{ p2s_default_spec }}"
+p2s_cgroup_memory: 768m
+p2s_scope: test

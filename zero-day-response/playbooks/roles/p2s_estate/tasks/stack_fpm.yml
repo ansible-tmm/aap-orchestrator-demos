@@ -1,0 +1,60 @@
+---
+- name: Install httpd
+  ansible.builtin.dnf: {name: httpd, state: present}
+
+- name: Find all php-fpm builds, including installed
+  ansible.builtin.command: dnf -q repoquery --showduplicates --qf '%{version}-%{release}' php-fpm
+  register: _php_avail
+  changed_when: false
+
+- name: Require a vulnerable build below the fixed version
+  ansible.builtin.assert:
+    that: (_php_avail.stdout_lines | select('version', p2s_fixed.rhel10_php, '<') | list | length) > 0
+    fail_msg: "STOP 2: no php-fpm build below the fixed RHEL 10 version is available"
+
+- name: Choose php build for this host
+  ansible.builtin.set_fact:
+    _php_build: "{{ p2s_fixed.rhel10_php if p2s_php_target == 'fixed' else (_php_avail.stdout_lines | select('version', p2s_fixed.rhel10_php, '<') | community.general.version_sort | last) }}"
+
+- name: List every installed PHP package for aligned pinning
+  ansible.builtin.command: rpm -qa 'php*' --qf '%{NAME}\n'
+  register: _php_installed
+  changed_when: false
+
+- name: Install every PHP package at {{ _php_build }}
+  ansible.builtin.dnf:
+    name: "{{ ((_php_installed.stdout_lines + ['php', 'php-fpm', 'php-cli', 'php-common']) | unique) | map('regex_replace', '$', '-' ~ _php_build) | list }}"
+    state: present
+    allow_downgrade: true
+  notify: restart php-fpm
+
+- name: Listen port for FPM site
+  ansible.builtin.lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^Listen '
+    line: "Listen {{ p2s_fpm_http_port }}"
+  notify: restart httpd
+
+- name: Deploy app
+  ansible.builtin.copy: {src: app/, dest: /var/www/html/, owner: root, group: root, mode: '0644'}
+
+- name: Service name for app + lock down verification endpoint
+  ansible.builtin.copy:
+    dest: /etc/httpd/conf.d/p2s.conf
+    content: |
+      SetEnv P2S_SERVICE {{ p2s_service }}
+      <Directory "/var/www/html/__p2s">
+          Require local
+      </Directory>
+  notify: restart httpd
+
+- name: Pass env to FPM workers
+  ansible.builtin.lineinfile:
+    path: /etc/php-fpm.d/www.conf
+    regexp: '^env\[P2S_SERVICE\]'
+    line: "env[P2S_SERVICE] = {{ p2s_service }}"
+  notify: restart php-fpm
+
+- name: Enable services
+  ansible.builtin.systemd: {name: "{{ item }}", state: started, enabled: true}
+  loop: [php-fpm, httpd]

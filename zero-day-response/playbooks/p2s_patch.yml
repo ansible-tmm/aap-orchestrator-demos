@@ -1,0 +1,66 @@
+---
+- import_playbook: p2s_inventory.yml
+
+- name: Patch ({{ p2s_scope | default('test') }})
+  hosts: "{{ 'lane_test' if (p2s_scope | default('test')) == 'test' else (((p2s_targets | default(['_none_'])) if (p2s_targets | default([])) is not string else (p2s_targets | from_json)) | join(',')) }}"
+  gather_facts: false
+  become: true
+  ignore_unreachable: true
+  serial: "{{ 1 if (p2s_scope | default('test')) == 'prod' else '100%' }}"
+  vars:
+    p2s_scope: test
+    p2s_fixed: "{{ (lookup('ansible.builtin.file', 'roles/p2s_estate/defaults/main.yml') | from_yaml).p2s_fixed }}"
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  tasks:
+    - block:
+        - name: Reachability before any action or verification
+          ansible.builtin.ping:
+          register: _reach
+        - ansible.builtin.fail: {msg: "unreachable"}
+          when: _reach is unreachable
+        - ansible.builtin.include_role: {name: p2s_response, tasks_from: patch}
+      rescue:
+        - ansible.builtin.set_fact:
+            _p2s_halt: true
+          delegate_to: localhost
+          delegate_facts: true
+        - ansible.builtin.set_fact:
+            p2s_patch: "{{ p2s_patch | default({'host': inventory_hostname, 'patched': false, 'reason': 'patch or rollback task failed'}) }}"
+
+- name: Publish complete patch result after all serial batches
+  hosts: localhost
+  gather_facts: false
+  vars:
+    p2s_scope: test
+    _targets: "{{ (groups['lane_test'] if p2s_scope == 'test' else (p2s_targets | from_json if p2s_targets is string else p2s_targets)) | unique | list }}"
+  tasks:
+    - name: Start result list
+      ansible.builtin.set_fact: {_results: []}
+    - name: Include every intended target, missing evidence fails closed
+      ansible.builtin.set_fact:
+        _results: "{{ _results + [hostvars[item].p2s_patch | default({'host': item, 'patched': false, 'reason': 'no result collected'})] }}"
+      loop: "{{ _targets }}"
+    - ansible.builtin.set_fact: {_required: []}
+    - name: Every targeted host with a patchable stream must be patched
+      ansible.builtin.set_fact:
+        _required: "{{ _required + [item] }}"
+      loop: "{{ _results }}"
+      when: hostvars[item.host].p2s_stack | default('unknown') != 'vendor-bundled-php'
+    - ansible.builtin.set_fact:
+        _all_ok: "{{ _results | length > 0 and (_required | rejectattr('patched') | list | length == 0) }}"
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_patch: "{{ _results }}"
+          p2s_patched_hosts: "{{ _results | selectattr('patched') | map(attribute='host') | unique | list }}"
+          p2s_patch_all_ok_str: "{{ _all_ok | string | lower }}"
+    - ansible.builtin.fail:
+        msg: "Patch verification failed on one or more required targets"
+      when: not (_all_ok | bool)

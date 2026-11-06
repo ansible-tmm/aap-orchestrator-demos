@@ -22,6 +22,7 @@ Automation orchestrator is the workflow engine in AAP for visual, multi-step aut
 |---|---|---|
 | [RHEL CVE Remediation](cve-remediation/) | **Active** | AI triage via Lightspeed MCP → auto-patch dev, approve prod, or investigate with Mattermost report |
 | [Multi-OS Cloud Patching](multi-os-cloud-patching/) | **Active** | Playbook orchestration — RHEL and Windows on AWS with snapshot rollback (playbooks from product-demos) |
+| [Zero-Day Response: PHP2Shell](zero-day-response/) | **Active** | Zero-day before the fix — evidence and look-back, AI reads the advisory, policy gate and test host, owners approve, patch only where a fix exists |
 | [Disk Utilization & Remediation](disk-utilization/) | **Active** | Check disk usage → switch on % → continue, cleanup, EBS expand, or fallback → Mattermost notify |
 | [Intelligent Cert Lifecycle](cert-lifecycle/) | **Active** | AI agent picks PEM vs keystore renewal; operator approves; AAP renews and validates |
 | [Service State Routing](service-health/) | **Active** | Check service → switch on state → log OK, start, restart, or install |
@@ -50,6 +51,7 @@ See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/
 | [proactive-assessment/](proactive-assessment/) | Scheduled scan-before-expiry |
 | [cve-remediation/](cve-remediation/) | Intelligent CVE patching with Lightspeed MCP |
 | [multi-os-cloud-patching/](multi-os-cloud-patching/) | Multi-OS cloud patching with snapshot rollback (product-demos playbooks) |
+| [zero-day-response/](zero-day-response/) | Zero-day response — contain before the fix, patch where it exists, prove it |
 | [disk-utilization/](disk-utilization/) | Proportional disk remediation with switch routing |
 | [event-driven-xsos-rca/](event-driven-xsos-rca/) | SQS → EDA → xSOS RCA for unknown issues |
 | [ai-incident-triage/](ai-incident-triage/) | AI-assisted incident response |

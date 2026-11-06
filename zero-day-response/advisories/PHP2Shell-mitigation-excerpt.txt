@@ -1,0 +1,73 @@
+RECORDED ADVISORY EXCERPT for PHP2Shell (CVE-2026-109618 / CVE-2026-109619). Verbatim spans, nothing paraphrased.
+Span 1: RHSB-2026-013.snapshot.txt (sha256 856f806b38edc18145cd0f59bf1911159514d0c0a05ff329475cf946ebb6dbdd), from heading 'Mitigation' up to 'Acknowledgements'.
+Span 2: php.net-2026-10-21.snapshot.txt (sha256 bafcd8831586056fa65c0dbec0758b4d58d47123f0215b6f3b9122328e0c04c8), the paragraph beginning 'If you cannot update immediately'.
+
+===== SPAN 1: Red Hat Security Bulletin RHSB-2026-013 =====
+Mitigation
+
+Overall Guidance
+
+Configuration changes can prevent the vulnerable paths from being reached, but they may disrupt workloads and are not a substitute for patching. Disabling session upload progress fully protects against CVE-2026-115560, and removes exposure to CVE-2026-109619 on the php package shipped with Red Hat Enterprise Linux 7, but on other products it blocks only the confirmed session paths. The memory limit and request size changes remove the attacker-controllable failure for CVE-2026-109618 but do not eliminate it, because an underlying allocation failure can still reach the affected code. Patching is the only comprehensive solution that both fixes the vulnerabilities and maintains full functionality.
+
+The PHP project publishes additional application-level hardening guidance in its upstream advisories, linked in the References section below.
+
+Product-Specific Mitigation Steps
+
+Apply all settings below using php_admin_value in the PHP-FPM pool or Apache HTTP Server configuration so that applications cannot override them. Settings must take effect before request parsing begins, so ini_set() and PHP-FPM .user.ini files are not suitable.
+
+Restart every worker after any change. A reload is not sufficient, because existing workers may retain affected state from earlier requests.
+
+systemctl restart httpd      # mod_php, the default on RHEL 7
+systemctl restart php-fpm    # PHP-FPM, the default on RHEL 8 and later
+
+In containerized deployments, replace the running container or pod.
+
+Disable Session Upload Progress
+
+Addresses CVE-2026-109619 and CVE-2026-115560. This is the single most effective change and the only one required on Red Hat Enterprise Linux 7.
+
+Warning: Applications using PHP's native session upload-progress reporting will no longer receive progress data. Applications that report upload progress in the browser are unaffected.
+
+session.upload_progress.enabled = 0
+
+This directive is commented out in the shipped /etc/php.ini and defaults to enabled, so the line must be added and set to 0. Uncommenting the shipped line leaves the feature enabled.
+
+Audit for .htaccess, virtual host php_value, and .user.ini settings that could re-enable it per directory. Using php_admin_value prevents these overrides. Verify through a temporary phpinfo() page rather than php -i, which reports the command-line configuration.
+
+CVE-2026-115560 affects only applications that set session.serialize_handler to php_binary or php_serialize in configuration and then switch it to php at runtime with ini_set() before calling session_start(). Applications that never change the serialize handler at runtime are not exposed to that flaw. This setting remains recommended regardless, as it also addresses CVE-2026-109619.
+
+Keep this setting in place until the updates are applied. For CVE-2026-115560 alone, upstream expects a fix in the next routine PHP release.
+
+Remove the Controllable Memory Limit
+
+Addresses CVE-2026-109618. Not required on Red Hat Enterprise Linux 7, which is not affected by this flaw.
+
+Warning: This removes PHP's own memory ceiling. Do not apply it without an external availability boundary in place, or a single runaway request can exhaust system memory.
+
+memory_limit = -1
+
+Verify that no pool, directory, or application setting reimposes a finite limit. Impose the availability boundary with a container or cgroup limit instead, preferably with a policy that terminates only the affected worker.
+
+Warning: Do not use RLIMIT_AS or RLIMIT_DATA for this purpose. They produce exactly the allocation failure that reaches the affected code and will make the problem worse.
+
+Limit Request Size
+
+Addresses CVE-2026-109618.
+
+Warning: Applications accepting large uploads or large form posts will break if the limit is set below what they require. Review current values before applying.
+
+post_max_size = 8M     # applications that do not require file uploads
+post_max_size = 32M    # applications that require file uploads
+
+Keep upload_max_filesize below post_max_size. Consider enforcing further limits at the web server or proxy for decoded request size, input field count, multipart part count, header count, and nesting depth. These must also apply to requests without a usable Content-Length header.
+
+Additional Steps for PHP 8.5
+
+Addresses the confirmed fatal error backtrace path for CVE-2026-109619. The setting does not exist on earlier PHP versions. Of the products listed above, this applies to Red Hat Hardened Images.
+
+Warning: Fatal error backtraces will no longer be recorded, which may hinder application debugging.
+
+fatal_error_backtraces = 0
+
+===== SPAN 2: php.net security notice (21 Oct 2026) =====
+If you cannot update immediately: while only an update is a complete solution, the following measures reduce exposure to specific attack paths but do not make an installation safe.

@@ -1,0 +1,21 @@
+---
+# Fixed builds per stream (Red Hat Security Data API / php.net, CVE-2026-109618 & -109619)
+p2s_fixed:
+  rhel10_php: "8.3.36-1.el10_2"        # RHSA-2026:87070
+  rhel10_php84: "8.4.27-1.el10_2"      # RHSA-2026:87071
+  upstream_84: "8.4.27"
+  upstream_83: "8.3.36"
+  upstream_82: "8.2.35"
+  upstream_85: "8.5.12"
+
+# Baseline state for the estate (reset target)
+p2s_php_target: vulnerable              # vulnerable | fixed (clear lane uses fixed)
+p2s_container_image_vulnerable: docker.io/library/php:8.4.26-apache
+p2s_container_image_fixed: docker.io/library/php:8.4.27-apache
+p2s_container_image: "{{ p2s_container_image_vulnerable }}"
+p2s_vendor_image: localhost/acmecms:5.2
+p2s_fpm_http_port: 80                   # test host serves FPM on 8008 (http_port_t)
+p2s_cgroup_memory: 768m
+p2s_controls_applied: false
+p2s_edge_multipart_block: false
+p2s_seed_lookback_evidence: false

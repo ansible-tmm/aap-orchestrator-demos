@@ -1,0 +1,28 @@
+---
+- name: Install podman + haproxy
+  ansible.builtin.dnf: {name: [podman, haproxy], state: present}
+
+- name: Allow haproxy to reach the app container port
+  ansible.posix.seboolean: {name: haproxy_connect_any, state: true, persistent: true}
+  when: ansible_selinux.status | default('disabled') == 'enabled'
+
+- name: App content
+  ansible.builtin.copy: {src: app/, dest: /srv/p2s-app/, mode: '0644'}
+
+- name: Edge config
+  ansible.builtin.template: {src: haproxy.cfg.j2, dest: /etc/haproxy/haproxy.cfg, validate: 'haproxy -c -f %s'}
+  notify: reload haproxy
+
+- name: Quadlet configuration directory
+  ansible.builtin.file: {path: /etc/containers/systemd, state: directory, mode: '0755'}
+
+- name: Quadlet unit for the app container
+  ansible.builtin.template: {src: php-app.container.j2, dest: /etc/containers/systemd/php-app.container}
+  notify: restart php-app
+
+- name: Pull image
+  containers.podman.podman_image: {name: "{{ p2s_container_image }}"}
+
+- name: Start services
+  ansible.builtin.systemd: {name: "{{ item }}", state: started, enabled: "{{ true if item == 'haproxy' else omit }}", daemon_reload: true}
+  loop: [php-app, haproxy]

@@ -1,0 +1,92 @@
+---
+# Single source of truth for the AI-extracted control spec, used by the canvas gate (p2s_spec_check.yml)
+# and by the reviewed control role (validate_spec.yml). Never fails: it returns _violations instead.
+#  - every value must be a literal php.ini value (e.g. 0, -1, 32M); a sentence or relation is a violation
+#  - setting and value must sit inside _env; every setting needs a citation
+#  - if post_max_size is set and upload_max_filesize is not, the reviewed role derives it
+#    ("Keep upload_max_filesize below post_max_size", RHSB-2026-013): largest allowed value below post_max_size
+- name: Load the reviewed envelope privately (inventory or extra vars cannot widen it)
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/defaults/main.yml"
+    name: _p2s_reviewed
+
+- name: Parse spec
+  ansible.builtin.set_fact:
+    _env: "{{ _p2s_reviewed.p2s_allowed_settings }}"
+    _spec_in: "{{ p2s_spec | from_json if p2s_spec is string else p2s_spec }}"
+    _literal_re: '^-?[0-9]+[KMGkmg]?$'
+
+- name: Setting and literal-value checks
+  vars:
+    _items: "{{ _spec_in.settings | default([]) }}"
+  ansible.builtin.set_fact:
+    _violations: >-
+      {{ (_items | rejectattr('setting', 'in', _env) | map(attribute='setting')
+            | map('regex_replace', '$', ' (setting not in reviewed role)') | list)
+         + (_items | selectattr('setting', 'in', _env)
+            | rejectattr('value', 'regex', _literal_re) | map(attribute='setting')
+            | map('regex_replace', '$', ' (value is not a literal php.ini value)') | list) }}
+
+- name: Reject each setting listed more than once
+  ansible.builtin.set_fact:
+    _violations: "{{ _violations + [item ~ ' (setting listed more than once)'] }}"
+  loop: "{{ _spec_in.settings | default([]) | map(attribute='setting') | unique | list }}"
+  when: (_spec_in.settings | default([]) | selectattr('setting', 'equalto', item) | list | length) > 1
+
+- name: Required settings from the privately loaded reviewed defaults
+  ansible.builtin.set_fact:
+    _violations: "{{ _violations + (_p2s_reviewed.p2s_required_settings | difference(_spec_in.settings | default([]) | map(attribute='setting') | list) | map('regex_replace', '$', ' (required setting missing)') | list) }}"
+
+- name: Every setting needs a non-empty string citation
+  ansible.builtin.set_fact:
+    _violations: "{{ _violations + [item.setting | default('?') ~ ' (no citation)'] }}"
+  loop: "{{ _spec_in.settings | default([]) }}"
+  when: item.citation is not defined or item.citation is not string or (item.citation | trim | length == 0)
+  loop_control: {label: "{{ item.setting | default('?') }}"}
+
+- name: Value-in-envelope checks
+  ansible.builtin.set_fact:
+    _violations: "{{ _violations + [item.setting ~ '=' ~ item.value ~ ' (value outside envelope)'] }}"
+  loop: "{{ _spec_in.settings | default([]) | selectattr('setting', 'in', _env) | selectattr('value', 'regex', _literal_re) | list }}"
+  when: (item.value | string) not in _env[item.setting]
+  loop_control: {label: "{{ item.setting }}={{ item.value }}"}
+
+- name: Inputs for derivation
+  ansible.builtin.set_fact:
+    _kv_in: "{{ dict(_spec_in.settings | default([]) | map(attribute='setting') | zip(_spec_in.settings | default([]) | map(attribute='value') | map('string'))) }}"
+    _derived: []
+    _best: ''
+
+- name: Pick the largest allowed upload_max_filesize strictly below post_max_size
+  ansible.builtin.set_fact:
+    _best: "{{ item }}"
+  loop: "{{ _env.upload_max_filesize }}"
+  when:
+    - "'post_max_size' in _kv_in and 'upload_max_filesize' not in _kv_in"
+    - _kv_in.post_max_size in _env.post_max_size
+    - (item | human_to_bytes) < (_kv_in.post_max_size | human_to_bytes)
+    - _best == '' or (item | human_to_bytes) > (_best | human_to_bytes)
+
+- name: Record derived setting
+  ansible.builtin.set_fact:
+    _derived:
+      - setting: upload_max_filesize
+        value: "{{ _best }}"
+        citation: 'reviewed role: derived from RHSB-2026-013 requirement "Keep upload_max_filesize below post_max_size"'
+        derived: true
+  when: _best != ''
+
+- name: Size order (only when both values are literal)
+  vars:
+    _eff: "{{ (_spec_in.settings | default([])) + _derived }}"
+    _kv: "{{ dict(_eff | map(attribute='setting') | zip(_eff | map(attribute='value') | map('string'))) }}"
+  ansible.builtin.set_fact:
+    _violations: "{{ _violations + ['upload_max_filesize must be below post_max_size'] }}"
+  when:
+    - "'post_max_size' in _kv and 'upload_max_filesize' in _kv"
+    - _kv.post_max_size in _env.post_max_size and _kv.upload_max_filesize in _env.upload_max_filesize
+    - (_kv.upload_max_filesize | human_to_bytes) >= (_kv.post_max_size | human_to_bytes)
+
+- name: Effective spec
+  ansible.builtin.set_fact:
+    _spec_effective: "{{ _spec_in | combine({'settings': (_spec_in.settings | default([])) + _derived}) }}"

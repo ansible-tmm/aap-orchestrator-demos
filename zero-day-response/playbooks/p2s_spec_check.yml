@@ -1,0 +1,21 @@
+---
+# Governance gate: is the AI-extracted control spec inside the reviewed parameter envelope?
+# Uses the same normalisation as the control role, so the gate and the role can never disagree.
+- name: Spec envelope check
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+    - ansible.builtin.include_role: {name: p2s_response, tasks_from: normalise_spec}
+    - ansible.builtin.set_stats:
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_spec_ok: "{{ (_violations | length == 0) | string | lower }}"
+          p2s_spec_violations: "{{ _violations }}"
+          p2s_spec_derived: "{{ _derived }}"
+          p2s_spec_settings: >-
+            {{ _spec_effective.settings | map(attribute='setting') | zip(_spec_effective.settings | map(attribute='value'))
+               | map('join', '=') | join(', ') }}{{ ' (upload_max_filesize derived by the reviewed role: below post_max_size)' if _derived | length > 0 else '' }}

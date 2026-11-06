@@ -1,0 +1,113 @@
+---
+# Verification = control present and effective. It is NOT a claim that the host is safe.
+- name: Effective settings (FPM)
+  ansible.builtin.uri: {url: "http://127.0.0.1:{{ p2s_fpm_http_port | default(80) }}/__p2s/status.php?p2s-verify=1", return_content: true}
+  register: _v_fpm
+  failed_when: false
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: Effective settings (container)
+  ansible.builtin.uri: {url: "http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1", return_content: true}
+  register: _v_ctr
+  until: _v_ctr.status == 200
+  retries: 10
+  delay: 2
+  failed_when: false
+  when: p2s_stack in ['container-mod-php', 'mixed']
+
+- name: cgroup boundary (FPM)
+  ansible.builtin.command: systemctl show php-fpm -p MemoryMax --value
+  register: _v_mem_fpm
+  changed_when: false
+  failed_when: false
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: cgroup boundary (container)
+  ansible.builtin.command: podman inspect php-app --format '{{ '{{' }}.HostConfig.Memory{{ '}}' }}'
+  register: _v_mem_ctr
+  changed_when: false
+  failed_when: false
+  when: p2s_stack in ['container-mod-php', 'mixed']
+
+- name: Edge rejects a benign multipart POST carrying PHP_SESSION_UPLOAD_PROGRESS (no exploit payload)
+  ansible.builtin.shell: >-
+    printf 'demo' > /tmp/p2s-probe.txt &&
+    curl -A p2s-verify -s -o /dev/null -w '%{http_code}' -F 'PHP_SESSION_UPLOAD_PROGRESS=p2s-verify' -F 'invoice=@/tmp/p2s-probe.txt'
+    http://127.0.0.1/upload.php?p2s-verify=1
+  register: _v_edge
+  changed_when: false
+  when: p2s_stack in ['container-mod-php', 'mixed']
+
+- name: Business transaction - small invoice upload on the FPM service
+  ansible.builtin.shell: >-
+    printf 'invoice' > /tmp/p2s-inv.txt &&
+    curl -A p2s-verify -s -F 'PHP_SESSION_UPLOAD_PROGRESS=p2s-verify' -F 'invoice=@/tmp/p2s-inv.txt' http://127.0.0.1:{{ p2s_fpm_http_port | default(80) }}/upload.php?p2s-verify=1
+  register: _v_txn
+  changed_when: false
+  failed_when: false
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: Isolation check
+  ansible.builtin.command: firewall-cmd --list-services
+  register: _v_fw
+  changed_when: false
+  when: p2s_action | default('') == 'isolate'
+
+- name: Vendor appliance is up on its own loopback
+  ansible.builtin.uri:
+    url: http://127.0.0.1/__p2s/status.php?p2s-verify=1
+    return_content: true
+  register: _v_vendor_local
+  when: p2s_action | default('') == 'isolate'
+
+- name: Vendor HTTP must be unreachable from test host
+  ansible.builtin.command:
+    argv: [curl, -m5, --noproxy, '*', "http://{{ hostvars[inventory_hostname].private_ip_address }}/?p2s-verify=1"]
+  delegate_to: "{{ groups['lane_test'] | first }}"
+  register: _v_vendor_external
+  changed_when: false
+  failed_when: false
+  when: p2s_action | default('') == 'isolate'
+
+- name: Collect checks
+  vars:
+    _want: "{{ _ini | default({}) }}"
+    _wkeys: "{{ _want.keys() | list }}"
+    _wvals: "{{ _want.values() | map('string') | list }}"
+    _fpm_ini: "{{ (_v_fpm.json | default({})).ini | default({}) }}"
+    _ctr_ini: "{{ (_v_ctr.json | default({})).ini | default({}) }}"
+  ansible.builtin.set_fact:
+    _checks: >-
+      {{ ([] if p2s_stack not in ['rhel-php-fpm', 'mixed'] else [
+            {'check': 'fpm: effective settings match spec',
+             'ok': (_wkeys | map('extract', _fpm_ini) | map('string') | list) == _wvals},
+            {'check': 'fpm: cgroup memory boundary present',
+             'ok': (_v_mem_fpm.stdout | default('infinity')) not in ['infinity', '']},
+            {'check': 'fpm: workers restarted after change',
+             'ok': ((_v_fpm.json | default({})).started | default(0) | int) >= (_change_epoch | default(0) | int)},
+            {'check': 'business: small invoice upload still works',
+             'ok': (_v_txn.stdout | default('')) is search('"ok":true')}])
+       + ([] if p2s_stack not in ['container-mod-php', 'mixed'] else [
+            {'check': 'container: effective settings match spec',
+             'ok': (_wkeys | map('extract', _ctr_ini) | map('string') | list) == _wvals},
+            {'check': 'container: cgroup memory boundary present',
+             'ok': (_v_mem_ctr.stdout | default('0') | int) > 0},
+            {'check': 'edge: multipart POST rejected (403) - uploads disabled on this service',
+             'ok': (_v_edge.stdout | default('')) == '403'}])
+       + ([] if (p2s_action | default('')) != 'isolate' else [
+            {'check': 'isolation: inbound HTTP blocked by the host firewall',
+             'ok': (_v_fw is not unreachable) and (_v_fw.rc | default(1)) == 0 and 'http' not in _v_fw.stdout.split()},
+            {'check': 'isolation: appliance measured alive on loopback',
+             'ok': (_v_vendor_local is not unreachable) and (_v_vendor_local.status | default(-1)) == 200},
+            {'check': 'isolation: HTTP unreachable from test host',
+             'ok': (_v_vendor_external is not unreachable) and (_v_vendor_external.rc | default(0) | int) != 0}]) }}
+
+- name: Verdict
+  ansible.builtin.set_fact:
+    p2s_verify:
+      host: "{{ inventory_hostname }}"
+      service: "{{ p2s_service }}"
+      action: "{{ p2s_action | default('') }}"
+      checks: "{{ _checks }}"
+      control_verified: "{{ _checks | length > 0 and (_checks | rejectattr('ok') | list | length == 0) }}"
+      statement: "Interim control verified; the vulnerability remains until patched (PHP: mitigations do not make an installation safe)."

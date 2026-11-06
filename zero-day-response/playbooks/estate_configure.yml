@@ -1,0 +1,22 @@
+---
+# Build (or reset) the PHP2Shell demo estate to its vulnerable baseline.
+- import_playbook: p2s_inventory.yml
+
+- name: PHP2Shell demo estate - configure / reset baseline
+  hosts: php2shell:!lane_unknown
+  become: true
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  roles:
+    - p2s_estate
+  post_tasks:
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      run_once: true

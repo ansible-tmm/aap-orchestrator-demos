@@ -1,0 +1,9 @@
+---
+# Whitelisted external record for the deliberately unreachable asset.
+ansible_host: 192.0.2.10
+p2s_criticality: medium
+p2s_exposure: internet
+p2s_lane: unknown
+p2s_owner: unassigned
+p2s_service: legacy-cms
+p2s_stack: unknown

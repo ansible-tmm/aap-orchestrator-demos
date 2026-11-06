@@ -1,0 +1,372 @@
+{
+ "name": "Zero-Day Response - PHP2Shell: FIX + PROVE",
+ "schema_version": "2.0.0",
+ "description": "Fix watch: record the vendor's answer per stream, patch only where a fix exists (test, change approval, rolling with rollback), remove controls only where the fix is verified, re-scan, draft status for humans.",
+ "triggers": [
+  {
+   "id": "trigger_manual",
+   "name": "Fix watch (scheduled / manual)",
+   "type": "manual_trigger",
+   "position": {
+    "x": 0,
+    "y": 300
+   },
+   "parameters": {
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "incident_id": {
+       "type": "string",
+       "default": "SIR-PHP2SHELL-001"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "nodes": [
+  {
+   "id": "rh_a",
+   "name": "Red Hat \u00b7 CVE-\u2026618",
+   "type": "http_request",
+   "position": {
+    "x": 420,
+    "y": 140
+   },
+   "parameters": {
+    "method": "GET",
+    "url": "https://access.redhat.com/hydra/rest/securitydata/cve/CVE-2026-109618.json",
+    "headers": {
+     "Accept": "application/json"
+    }
+   },
+   "settings": {
+    "timeout": 60,
+    "retry_policy": {
+     "max_retries": 4,
+     "initial_interval": 5,
+     "max_interval": 30,
+     "backoff_coefficient": 2
+    }
+   }
+  },
+  {
+   "id": "rh_b",
+   "name": "Red Hat \u00b7 CVE-\u2026619",
+   "type": "http_request",
+   "position": {
+    "x": 420,
+    "y": 460
+   },
+   "parameters": {
+    "method": "GET",
+    "url": "https://access.redhat.com/hydra/rest/securitydata/cve/CVE-2026-109619.json",
+    "headers": {
+     "Accept": "application/json"
+    }
+   },
+   "settings": {
+    "timeout": 60,
+    "retry_policy": {
+     "max_retries": 4,
+     "initial_interval": 5,
+     "max_interval": 30,
+     "backoff_coefficient": 2
+    }
+   }
+  },
+  {
+   "id": "rh_join",
+   "name": "Vendor answers",
+   "type": "converge",
+   "position": {
+    "x": 840,
+    "y": 300
+   },
+   "parameters": {
+    "strategy": "all"
+   }
+  },
+  {
+   "id": "fix_status",
+   "name": "FIX \u00b7 Who has a fix?",
+   "type": "aap_job_template",
+   "position": {
+    "x": 1260,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-fix-availability",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_rh_docs": [
+      "${rh_a.body}",
+      "${rh_b.body}"
+     ]
+    }
+   },
+   "description": "Decides on exactly the API responses recorded above"
+  },
+  {
+   "id": "any_fix",
+   "name": "Any fix?",
+   "type": "condition",
+   "position": {
+    "x": 1680,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${fix_status.artifacts.p2s_any_fix} == \"true\""
+   }
+  },
+  {
+   "id": "fix_scan",
+   "name": "KNOW \u00b7 Current state",
+   "type": "aap_job_template",
+   "position": {
+    "x": 2100,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-know-scan",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}"
+    }
+   }
+  },
+  {
+   "id": "fix_test",
+   "name": "TEST \u00b7 Patch + verify",
+   "type": "aap_job_template",
+   "position": {
+    "x": 2520,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-fix-patch",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_scope": "test"
+    }
+   },
+   "settings": {
+    "continue_on_failure": true
+   }
+  },
+  {
+   "id": "fix_test_ok",
+   "name": "Test patched?",
+   "type": "condition",
+   "position": {
+    "x": 2940,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${fix_test.artifacts.p2s_patch_all_ok_str} == \"true\""
+   }
+  },
+  {
+   "id": "approve_change",
+   "name": "OWNER \u00b7 Change",
+   "type": "approval",
+   "position": {
+    "x": 3360,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "CHANGE - expedited - ${trigger.incident_id}\n\nVendor fix availability (Red Hat Security Data API, recorded in this run): ${fix_status.artifacts.p2s_fix_summary}\nPatched in test and verified against the advisory: ${fix_test.job_url}\nTested commit: ${fix_test.artifacts.p2s_commit}\nProduction targets with a fix available: ${fix_scan.artifacts.p2s_patch_targets_text}\nStill waiting for a fix (stay contained): ${fix_scan.artifacts.p2s_pending_services}\n\nAPPROVE = rolling patch (health gate; on failure the package/image rolls back and interim controls stay).\nREJECT = remain contained; re-evaluated at the next fix-watch run.",
+    "approver_users": [
+     "admin"
+    ],
+    "decision_window": 86400,
+    "fallback_decision": "reject"
+   }
+  },
+  {
+   "id": "fix_prod",
+   "name": "PROD \u00b7 Rolling patch",
+   "type": "aap_job_template",
+   "position": {
+    "x": 3780,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-fix-patch",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_scope": "prod",
+     "p2s_targets": "${fix_scan.artifacts.p2s_patch_targets}"
+    }
+   },
+   "description": "Only hosts whose stream has a fix; the rest stay contained",
+   "settings": {
+    "continue_on_failure": true
+   }
+  },
+  {
+   "id": "fix_standdown",
+   "name": "PROD \u00b7 Remove controls",
+   "type": "aap_job_template",
+   "position": {
+    "x": 4200,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-fix-standdown",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_targets": "${fix_prod.artifacts.p2s_patched_hosts}"
+    }
+   },
+   "description": "Refuses on any host not running a fixed build",
+   "settings": {
+    "continue_on_failure": true
+   }
+  },
+  {
+   "id": "fix_rescan",
+   "name": "PROVE \u00b7 Re-scan",
+   "type": "aap_job_template",
+   "position": {
+    "x": 4620,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-know-scan",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}"
+    }
+   }
+  },
+  {
+   "id": "close_draft",
+   "name": "AI \u00b7 Fix status draft",
+   "type": "agentic",
+   "position": {
+    "x": 5040,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "Draft the FIX status for ${trigger.incident_id} (PHP2Shell) for human review. You do not close anything.\n\nFix availability per stream (Red Hat API, recorded): ${fix_status.artifacts.p2s_streams}\nState before this run (scan before patching): ${fix_scan.artifacts.p2s_table}\nTest environment patch result: ${fix_test.artifacts.p2s_patch}\nPatch results: ${fix_prod.artifacts.p2s_patch}\nControls removed (only where the fix is verified): ${fix_standdown.artifacts.p2s_standdown}\nRe-scan after change: ${fix_rescan.artifacts.p2s_table}\n\nRules: separate what is FIXED (verified) from what is STILL CONTAINED (no fix yet) and what is UNKNOWN. Do not call the incident closed while any lane is open. Remind that forensic triage is a separate disposition from patching. Assets already clear in the before-scan had a fixed build before this run; report them as clear without speculating how. Keep each list item under 15 words.\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"case_can_close\":{\"type\":\"boolean\"},\"fixed\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"next_step\":{\"minLength\":1,\"type\":\"string\"},\"still_contained\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"unknown\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"}},\"required\":[\"fixed\",\"still_contained\",\"unknown\",\"case_can_close\",\"next_step\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   }
+  },
+  {
+   "id": "check_close_draft",
+   "name": "CHECK \u00b7 Fix status",
+   "type": "aap_job_template",
+   "position": {
+    "x": 5460,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${close_draft.result.content}",
+     "p2s_ai_schema": "close_draft"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  },
+  {
+   "id": "prove_case_b",
+   "name": "PROVE \u00b7 Record to case",
+   "type": "aap_job_template",
+   "position": {
+    "x": 5880,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-prove-case-record",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}",
+     "p2s_case_kind": "fix_status",
+     "p2s_case_entry": "${check_close_draft.artifacts.p2s_ai}"
+    }
+   },
+   "description": "Lab: AAP job artifact. In production: posts to the SOAR/ITSM case. Refuses an empty draft."
+  }
+ ],
+ "edges": [
+  {
+   "from": "trigger_manual",
+   "to": "rh_a"
+  },
+  {
+   "from": "trigger_manual",
+   "to": "rh_b"
+  },
+  {
+   "from": "rh_a",
+   "to": "rh_join"
+  },
+  {
+   "from": "rh_b",
+   "to": "rh_join"
+  },
+  {
+   "from": "rh_join",
+   "to": "fix_status"
+  },
+  {
+   "from": "fix_status",
+   "to": "any_fix"
+  },
+  {
+   "from": "any_fix",
+   "to": "fix_scan",
+   "from_port": "true"
+  },
+  {
+   "from": "fix_scan",
+   "to": "fix_test"
+  },
+  {
+   "from": "fix_test",
+   "to": "fix_test_ok"
+  },
+  {
+   "from": "fix_test_ok",
+   "to": "approve_change",
+   "from_port": "true"
+  },
+  {
+   "from": "approve_change",
+   "to": "fix_prod",
+   "from_port": "approved"
+  },
+  {
+   "from": "fix_prod",
+   "to": "fix_standdown"
+  },
+  {
+   "from": "fix_standdown",
+   "to": "fix_rescan"
+  },
+  {
+   "from": "fix_rescan",
+   "to": "close_draft"
+  },
+  {
+   "from": "check_close_draft",
+   "to": "prove_case_b"
+  },
+  {
+   "from": "close_draft",
+   "to": "check_close_draft"
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+---
+# DEMO LAB ONLY: a reset recreates a pristine estate, including its logs. Never run this outside the lab.
+- name: Rotate the demo estate journal
+  ansible.builtin.command: journalctl --rotate
+
+- name: Remove archived journal history from the previous demo estate
+  ansible.builtin.command: journalctl --vacuum-time=1s
+
+- name: Truncate current web logs without deleting their open files
+  ansible.builtin.shell: |
+    for logfile in /var/log/httpd/access_log /var/log/httpd/error_log; do
+      if test -f "$logfile"; then : > "$logfile"; fi
+    done
+
+- name: Find rotated web logs from the previous demo estate
+  ansible.builtin.find:
+    paths: /var/log/httpd
+    patterns: ['access_log-*', 'error_log-*']
+    file_type: file
+  register: _p2s_old_web_logs
+
+- name: Remove rotated web logs from the previous demo estate
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _p2s_old_web_logs.files }}"
+  loop_control: {label: "{{ item.path }}"}

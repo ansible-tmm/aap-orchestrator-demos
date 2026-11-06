@@ -755,3 +755,40 @@
       F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Operators", pos: "b", h: 96, constraint: "on" }
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G noBorder
+
+- slug: zero-day-response
+  title: Zero-Day Response
+  subtitle: KNOW, CONTAIN, FIX, PROVE — PHP2Shell on RHEL and AWS
+  category: patching
+  status: active
+  featured: false
+  uses_ai: true
+  tmm_created: true
+  tags:
+    - Task agent
+    - Approval
+    - Conditional
+    - AWS
+  thumbnail:
+    gradient: "linear-gradient(135deg, #4a1a1a 0%, #1a0d0d 50%, #2a1a3a 100%)"
+    icon: "🚨"
+  blurb: A zero-day lands before the fix. Evidence and look-back in parallel, AI reads the vendor advisory, a policy gate and test host prove the interim controls, owners approve, and the fix is applied only where it exists. Two workflows, 12 playbooks and a six-instance AWS estate.
+  stats:
+    workflows: 2
+    playbooks: 12
+    setup_minutes: 25
+  url: /demos/zero-day-response/
+  github_path: zero-day-response/
+  github_doc: zero-day-response/README.md
+  workflow_json: zero-day-response/ao/flow-a-know-contain.json
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Advisory received", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "KNOW: Evidence + look-back", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Explain for humans", pos: "b", h: 96, constraint: "on" }
+      C --> D@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Read the advisory", pos: "b", h: 96, constraint: "on" }
+      D --> E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Policy gate + test", pos: "b", h: 96, constraint: "on" }
+      E --> F@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Security + service owner", pos: "b", h: 96, constraint: "on" }
+      F -->|Approved| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "PROD: Contain + verify", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Board update", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder
