@@ -7,11 +7,18 @@ description: Browse automation orchestrator demo workflows and use cases
 {% assign all_demos = site.data.demos %}
 {% assign active_count = 0 %}
 {% assign soon_count = 0 %}
+{% assign tmm_count = 0 %}
+{% assign ai_count = 0 %}
 {% for d in all_demos %}
   {% if d.status == "active" %}
     {% assign active_count = active_count | plus: 1 %}
   {% else %}
     {% assign soon_count = soon_count | plus: 1 %}
+  {% endif %}
+  {% if d.tmm_created %}
+    {% assign tmm_count = tmm_count | plus: 1 %}
+  {% elsif d.ai_generated %}
+    {% assign ai_count = ai_count | plus: 1 %}
   {% endif %}
 {% endfor %}
 
@@ -57,6 +64,26 @@ description: Browse automation orchestrator demo workflows and use cases
       {% endif %}
     {% endfor %}
   </div>
+  <div class="filters__row filters__row--origin" role="tablist" aria-label="Filter by origin">
+    <span class="filter-origin">
+      <button type="button" class="filter-pill filter-pill--origin filter-pill--origin-tmm" data-filter-origin="tmm-created">
+        TMM Created <span class="count">{{ tmm_count }}</span>
+      </button>
+      <span class="filter-info" tabindex="0" role="img" aria-label="TMM Created: Fully built playbooks and workflows. Orderable for Red Hatters on demo.redhat.com.">
+        <span class="filter-info__icon" aria-hidden="true">ⓘ</span>
+        <span class="filter-info__tooltip" role="tooltip">Fully built playbooks and workflows. Orderable for Red Hatters on demo.redhat.com.</span>
+      </span>
+    </span>
+    <span class="filter-origin">
+      <button type="button" class="filter-pill filter-pill--origin filter-pill--origin-ai" data-filter-origin="ai-generated">
+        AI Generated <span class="count">{{ ai_count }}</span>
+      </button>
+      <span class="filter-info" tabindex="0" role="img" aria-label="AI Generated: Human-defined use case with an AI-scaffolded solution. Not fully validated yet.">
+        <span class="filter-info__icon" aria-hidden="true">ⓘ</span>
+        <span class="filter-info__tooltip" role="tooltip">Human-defined use case with an AI-scaffolded solution. Not fully validated yet.</span>
+      </span>
+    </span>
+  </div>
 </div>
 
 <p class="filter-empty hidden" id="filter-empty" role="status">No demos match your search.</p>
@@ -80,13 +107,24 @@ description: Browse automation orchestrator demo workflows and use cases
 <section class="section" id="all-demos">
   <h2 class="section-heading">All demos</h2>
   <div class="card-grid card-grid--all">
+    {% comment %} Active: TMM Created first, then remaining (AI Generated), preserving demos.yml order within each group {% endcomment %}
     {% for demo in all_demos %}
-      {% if demo.featured == false and demo.status == "active" %}
+      {% if demo.featured == false and demo.status == "active" and demo.tmm_created %}
         {% include demo-card.html demo=demo featured=false %}
       {% endif %}
     {% endfor %}
     {% for demo in all_demos %}
-      {% if demo.featured == false and demo.status != "active" %}
+      {% if demo.featured == false and demo.status == "active" and demo.tmm_created != true %}
+        {% include demo-card.html demo=demo featured=false %}
+      {% endif %}
+    {% endfor %}
+    {% for demo in all_demos %}
+      {% if demo.featured == false and demo.status != "active" and demo.tmm_created %}
+        {% include demo-card.html demo=demo featured=false %}
+      {% endif %}
+    {% endfor %}
+    {% for demo in all_demos %}
+      {% if demo.featured == false and demo.status != "active" and demo.tmm_created != true %}
         {% include demo-card.html demo=demo featured=false %}
       {% endif %}
     {% endfor %}
