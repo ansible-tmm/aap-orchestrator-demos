@@ -93,7 +93,7 @@
       class A,B,C,D,E,F,G,H noBorder
 
 - slug: cicd-pipeline
-  title: CI/CD Pipeline
+  title: Automating CI/CD pipelines with Lightwell
   subtitle: Dev test, approval, prod deploy with rollback
   category: patching
   status: active
