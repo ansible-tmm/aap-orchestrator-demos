@@ -119,6 +119,8 @@
   setup_guide: cicd-pipeline/REQUIREMENTS.md
   workflow_json: cicd-pipeline/ao/cicd-pipeline.json
   youtube_url: https://youtu.be/4iZCS4atxHQ?si=9RjaXJFP1L-NoVXM
+  arcade_embed: https://demo.arcade.software/VOEd9Xf8aRVQ4OdDIasz?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
+  arcade_title: Automating CI/CD pipelines with Lightwell + Red Hat Ansible
   workflow_mermaid: |
     flowchart LR
       A@{ img: "__ASSET__/assets/icons/glossary/webhook-trigger.svg", label: "CI Pipeline Succeeded", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Deploy Dev + Test", pos: "b", h: 96, constraint: "on" }
