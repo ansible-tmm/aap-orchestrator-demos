@@ -1,4 +1,4 @@
-# CI/CD Pipeline — Dev Test, Approval, Prod Deploy with Rollback
+# Automating CI/CD pipelines with Lightwell
 
 Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build — dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written OpenFlake (ServiceNow-compatible) change notes, and automatic snapshot rollback on failure.
 
