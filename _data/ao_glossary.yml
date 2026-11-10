@@ -34,12 +34,15 @@ category_order:
 marketplace_filters:
   - agentic
   - switch
+  - conditional
+  - converge
   - approval
   - webhook_trigger
   - manual_trigger
   - aap_job_template
   - aap_job_template_dynamic
   - script
+  - http_request
   - mcp_integration
   - servicenow_mcp
 

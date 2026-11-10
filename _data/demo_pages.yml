@@ -409,7 +409,7 @@ novel-incident-remediation:
     - Compare the unknown path approval step — show the AI reasoning in the SNOW ticket before approving
 
 zero-day-response:
-  description: A zero-day is being exploited before a fix exists. Two automation orchestrator workflows run the response a board asks for — KNOW (evidence, classification, log look-back), CONTAIN (AI-extracted interim controls, policy gate, test, two named owner approvals, production verify, board update), then FIX and PROVE (per-stream fix availability from the Red Hat Security Data API, test and rolling patch, controls removed only where the fix is verified, re-scan, case kept open while lanes remain).
+  description: A zero-day is being exploited before a fix exists. Two automation orchestrator workflows run the response a board asks for — KNOW (evidence, classification, log look-back), CONTAIN (AI-extracted interim controls, policy gate, test, two named owner approvals, production verify, board update), then FIX and PROVE (per-stream fix availability from the Red Hat Security Data API, test and rolling patch, controls removed only where the fix is verified, re-scan, case kept open while lanes remain). Import both workflows with the two Download JSON buttons — KNOW + CONTAIN first, then FIX + PROVE. This is a historical replay — the advisories are recorded snapshots, the estate is a lab, "AcmeCMS" is a simulated vendor, and there is no exploit code.
   ao_building_blocks:
     - manual_trigger
     - agentic

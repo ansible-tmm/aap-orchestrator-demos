@@ -783,6 +783,10 @@
   github_path: zero-day-response/
   github_doc: zero-day-response/README.md
   workflow_json: zero-day-response/ao/flow-a-know-contain.json
+  workflow_json_label: KNOW + CONTAIN
+  workflow_json_more:
+    - path: zero-day-response/ao/flow-b-fix-prove.json
+      label: FIX + PROVE
   workflow_mermaid: |
     flowchart LR
       A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Advisory received", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "KNOW: Evidence + look-back", pos: "b", h: 96, constraint: "on" }
