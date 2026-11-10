@@ -1,19 +1,19 @@
 # Certificate Rotation 102: Expiry Threshold Routing
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
-Rule-based certificate expiry handling — distinct from  [Intelligent Cert Lifecycle](../cert-lifecycle/) which uses an AI agent to pick renewal templates. This demo switches on `cert_status` from days remaining — no LLM required.
+Rule-based certificate expiry handling - distinct from  [Intelligent Cert Lifecycle](../cert-lifecycle/) which uses an AI agent to pick renewal templates. This demo switches on `cert_status` from days remaining - no LLM required.
 
 | `cert_status` | Days remaining | Action |
 |---|---|---|
-| `healthy` | > 60 | Skip — no action |
+| `healthy` | > 60 | Skip - no action |
 | `plan` | 30–60 | Open change request |
 | `renew` | 7–30 | Run renewal playbook |
 | `emergency` | < 7 | Renew + alert + verify chain |
 
-**One-liner:** *Expiry isn't pass/fail — it's a countdown.*
+**One-liner:** *Expiry isn't pass/fail - it's a countdown.*
 
 ## Workflow
 

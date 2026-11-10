@@ -23,7 +23,7 @@ The GitHub Pages marketplace (`index.html`) renders a **Featured** section with 
 | `cert-lifecycle` | Intelligent Cert Lifecycle |
 | `ticket-enrichment` | Ticket Enrichment |
 
-## Example — swap featured slot
+## Example - swap featured slot
 
 ```yaml
 # Before promoting multi-os-cloud-patching to featured:

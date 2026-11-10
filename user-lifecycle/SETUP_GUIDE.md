@@ -1,7 +1,7 @@
 # User Lifecycle Demo - Full Setup Guide
 
-This demo routes user lifecycle requests by `request_type` — `new_hire`, `contractor`,
-`role_change`, or `termination` — using an automation orchestrator (AO) switch node.
+This demo routes user lifecycle requests by `request_type` - `new_hire`, `contractor`,
+`role_change`, or `termination` - using an automation orchestrator (AO) switch node.
 A `Process Request` job validates the input and republishes `request_type` as an
 artifact; the switch then fans out to the matching provisioning/termination job, and
 every branch ends with a Mattermost notification.
@@ -47,8 +47,8 @@ Machine credential must have privilege escalation (sudo) enabled.
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `user-lifecycle/` subtree) from Git.
-2. **Inventory** — create a host for the demo VM:
+1. **Project** - sync this repo (or the `user-lifecycle/` subtree) from Git.
+2. **Inventory** - create a host for the demo VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -76,7 +76,7 @@ the `job_template_name` values in the AO workflow JSON exactly.
 
 - SSH Machine credential (with sudo) on the four account-management templates
   (Provision New Hire, Provision Contractor, Update Role, Terminate User).
-- No SSH needed on `User Lifecycle - Process Request` or `Notify Chatroom` — both run on
+- No SSH needed on `User Lifecycle - Process Request` or `Notify Chatroom` - both run on
   localhost with `connection: local`.
 
 **Prompt on launch → Extra Variables:** enable this on every template so AO can pass the
@@ -91,7 +91,7 @@ red = termination). It requires two variables:
 
 | Variable | Purpose |
 |----------|---------|
-| `api_chat_token` | Mattermost bot API token (required — no default) |
+| `api_chat_token` | Mattermost bot API token (required - no default) |
 | `mattermost_server` | Host:port (default `44.209.231.244:8065`) |
 
 ```bash
@@ -122,11 +122,11 @@ The demo ships with a **manual trigger** whose `input_schema` accepts:
 | `user_groups` | no | `users` | Comma-separated groups for the user |
 | `contract_days` | no | `90` | Days until contractor account expiry |
 
-**Survey option** — expose these same fields as an AO survey (or a Controller survey on
+**Survey option** - expose these same fields as an AO survey (or a Controller survey on
 `User Lifecycle - Process Request`) so a human maps `request_type` from a dropdown of the
 four values. This is the interactive demo path.
 
-**Webhook option** — replace/supplement the manual trigger with a webhook that posts the
+**Webhook option** - replace/supplement the manual trigger with a webhook that posts the
 same JSON payload (`request_type`, `target_username`, `requestor`, `user_groups`,
 `contract_days`). A ticketing/HR system can then drive the workflow unattended. Either
 way, `Process Request` validates the input and fails fast on a missing or invalid
@@ -143,9 +143,9 @@ Import the workflow JSON into automation orchestrator:
 **After import, update environment-specific values:**
 
 1. `job_template` (the `job_template_name` on each AAP job node) if you named your
-   templates differently — they must resolve to real templates in your Controller.
+   templates differently - they must resolve to real templates in your Controller.
 2. `credential_id` / `credential` on each node for your Controller's credentials.
-3. `organization_name` — the JSON uses `Default`; change if your templates live in
+3. `organization_name` - the JSON uses `Default`; change if your templates live in
    another organization.
 
 ## Configure the Switch Node

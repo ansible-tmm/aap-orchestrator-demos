@@ -1,6 +1,6 @@
 # Event-Driven xSOS RCA
 
-**Status: Active (nostromo)** — SQS → EDA → AO webhook path verified. Playbooks and rulebook in this repo support automated root-cause analysis with [xSOS](https://github.com/ryran/xsos) on the affected host.
+**Status: Active (nostromo)** - SQS → EDA → AO webhook path verified. Playbooks and rulebook in this repo support automated root-cause analysis with [xSOS](https://github.com/ryran/xsos) on the affected host.
 
 ## What this demo shows
 
@@ -86,7 +86,7 @@ An alternate rulebook using `run_module` + `ansible.builtin.uri` lives at [`eda/
 | `run_xsos_analysis.yml` | `analyzed_host`, `issue_summary`, `analyzed_at`, `xsos_report_path`, `xsos_report_preview` |
 | `gather_host_facts.yml` | `analyzed_host`, `gathered_at`, `os_distribution`, `kernel`, `architecture`, `uptime_seconds`, `total_memory_mb`, `free_memory_mb`, `swap_total_mb`, `swap_free_mb`, `cpu_count`, `load_1m`/`load_5m`/`load_15m`, `default_ipv4`, `mounts`, `selinux_status` |
 
-`notify_chatroom.yml` expects an `ai_summary` (or `rca_summary`) extra var — the text an AO AI/Task Agent step produced after reasoning over the artifacts above — plus `notify_host`, `issue_summary`, `os_distribution`, and `xsos_report_path` to build the Mattermost message. All have sane defaults if a field wasn't threaded through.
+`notify_chatroom.yml` expects an `ai_summary` (or `rca_summary`) extra var - the text an AO AI/Task Agent step produced after reasoning over the artifacts above - plus `notify_host`, `issue_summary`, `os_distribution`, and `xsos_report_path` to build the Mattermost message. All have sane defaults if a field wasn't threaded through.
 
 ## Quick start
 
@@ -125,7 +125,7 @@ target_host: rca-target
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/publish_unknown_issue_event.yml \
-  -e issue_summary="API latency spike on web tier — cause unknown"
+  -e issue_summary="API latency spike on web tier - cause unknown"
 ```
 
 Sample payload shape: [`test/sample_event.json`](test/sample_event.json).
@@ -142,8 +142,8 @@ Summary:
 2. Create job templates:
    - **`Linux - Post AO Webhook`** → `event-driven-xsos-rca/playbooks/post_ao_webhook.yml` (called by EDA)
    - **`Linux - Run xSOS Analysis`** → `event-driven-xsos-rca/playbooks/run_xsos_analysis.yml` (called by AO workflow)
-   - **`Linux - Gather Host Facts`** → `event-driven-xsos-rca/playbooks/gather_host_facts.yml` (called by AO workflow, in parallel with the xSOS step — same inventory/credential as xSOS)
-   - **`Linux - Notify RCA Chatroom`** → `event-driven-xsos-rca/playbooks/notify_chatroom.yml` (called by AO workflow, after the AI reasoning step — needs `api_chat_token` on the Mattermost credential, same as the disk-utilization demo's Notify Chatroom template). Use an execution environment with the `community.general` collection (e.g. the `Rhel` EE); the default supported EE doesn't ship it and the `mattermost` module will fail to resolve.
+   - **`Linux - Gather Host Facts`** → `event-driven-xsos-rca/playbooks/gather_host_facts.yml` (called by AO workflow, in parallel with the xSOS step - same inventory/credential as xSOS)
+   - **`Linux - Notify RCA Chatroom`** → `event-driven-xsos-rca/playbooks/notify_chatroom.yml` (called by AO workflow, after the AI reasoning step - needs `api_chat_token` on the Mattermost credential, same as the disk-utilization demo's Notify Chatroom template). Use an execution environment with the `community.general` collection (e.g. the `Rhel` EE); the default supported EE doesn't ship it and the `mattermost` module will fail to resolve.
 3. Create an AO workflow with an **EDA webhook trigger**; copy the webhook URL into activation extra vars
 4. Fan the webhook trigger out to **Run xSOS Analysis** and **Gather Host Facts** in parallel, join both into a **Task Agent (AI)** step prompted to summarize host health from the published artifacts, then route its output as `ai_summary` into **Notify RCA Chatroom**
 5. **Create an AO service account** for webhook auth (see [Service account setup](#service-account-setup) below)
@@ -158,7 +158,7 @@ ao_webhook_client_id: "<service account client_id>"
 ao_webhook_client_secret: "<service account client_secret>"
 ```
 
-7. Run `publish_unknown_issue_event.yml` — within ~5 seconds EDA should launch **Post AO Webhook**, then AO should start the xSOS workflow
+7. Run `publish_unknown_issue_event.yml` - within ~5 seconds EDA should launch **Post AO Webhook**, then AO should start the xSOS workflow
 
 The rulebook uses **`run_job_template`**, not `run_module`, because AAP EDA only supports Controller-backed actions. The SQS source exposes your JSON payload as **`event.body`** in the rulebook (not `event.payload`).
 
@@ -173,7 +173,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/gather_host_facts.yml \
   -e _host=rca-target
 ```
 
-Reports land on the target under `xsos_output_dir` (default `/var/tmp/xsos-rca/`). Both playbooks publish their findings via `set_stats` for downstream AO steps — run them back-to-back locally, or in parallel from AO, since neither depends on the other.
+Reports land on the target under `xsos_output_dir` (default `/var/tmp/xsos-rca/`). Both playbooks publish their findings via `set_stats` for downstream AO steps - run them back-to-back locally, or in parallel from AO, since neither depends on the other.
 
 Once you have an AI-generated summary (from an AO Task Agent step, or typed in for a smoke test), try the notify step on its own:
 
@@ -181,7 +181,7 @@ Once you have an AI-generated summary (from an AO Task Agent step, or typed in f
 ansible-playbook -i inventory/hosts.yml playbooks/notify_chatroom.yml \
   -e notify_host=rca-target \
   -e issue_summary="Manual xSOS smoke test" \
-  -e ai_summary="CPU and memory look healthy; load average is elevated due to a stuck backup job — recommend killing PID 4821 and re-running the backup off-peak." \
+  -e ai_summary="CPU and memory look healthy; load average is elevated due to a stuck backup job - recommend killing PID 4821 and re-running the backup off-peak." \
   -e api_chat_token="<mattermost bot token>"
 ```
 
@@ -197,7 +197,7 @@ In automation orchestrator, go to **Access Management → Service Accounts** and
 
 ### 2. Create a credential and save the client ID / secret
 
-On the service account's **Credentials** tab, create a new credential. AO will display the `client_id` and `client_secret` **once** — copy both values immediately. If you lose them, you'll need to rotate to a new credential.
+On the service account's **Credentials** tab, create a new credential. AO will display the `client_id` and `client_secret` **once** - copy both values immediately. If you lose them, you'll need to rotate to a new credential.
 
 ### 3. Assign a role with webhook access
 
@@ -247,7 +247,7 @@ post_ao_webhook.yml
 | Mattermost | Yes | Chat destination for the AI-generated RCA summary |
 | EDA | Yes | SQS source → `run_job_template` → Post AO Webhook → AO |
 | AAP Controller credential on EDA activation | Yes | Required for `run_job_template` |
-| AO service account | Yes | OAuth 2.0 client credentials for webhook auth — see [Service account setup](#service-account-setup) |
+| AO service account | Yes | OAuth 2.0 client credentials for webhook auth - see [Service account setup](#service-account-setup) |
 | `amazon.aws` collection | Yes | SQS source plugin in decision environment |
 
 ## IAM (minimum)
@@ -260,14 +260,14 @@ post_ao_webhook.yml
 
 - `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `sqs:GetQueueAttributes`
 
-Use an instance role, access keys in a credential, or AAP cloud credential — match your environment.
+Use an instance role, access keys in a credential, or AAP cloud credential - match your environment.
 
 ## AWS credentials: laptop vs. AAP
 
-`setup_sqs_queue.yml` and `publish_unknown_issue_event.yml` are the two playbooks you'd run manually (setup once, publish to smoke-test) — but they also work unmodified as AAP job templates. Both auto-detect which credential to use:
+`setup_sqs_queue.yml` and `publish_unknown_issue_event.yml` are the two playbooks you'd run manually (setup once, publish to smoke-test) - but they also work unmodified as AAP job templates. Both auto-detect which credential to use:
 
-- **AAP job template with an AWS credential attached** — the credential injects `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` into the job's environment. The playbooks detect that automatically and use it, ignoring the `saml` default entirely. No extra vars needed.
-- **Local laptop, no AWS credential in the environment** — falls back to your `saml` SSO profile.
+- **AAP job template with an AWS credential attached** - the credential injects `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` into the job's environment. The playbooks detect that automatically and use it, ignoring the `saml` default entirely. No extra vars needed.
+- **Local laptop, no AWS credential in the environment** - falls back to your `saml` SSO profile.
 
 You don't need to pass `aws_profile` as an extra var in either case; it "just works" based on what's actually available.
 
@@ -287,7 +287,7 @@ aws-saml.py --target-profile saml
 ansible-playbook -i inventory/hosts.yml playbooks/publish_unknown_issue_event.yml
 ```
 
-Check `klist` first if you're not sure whether you already have a valid ticket — `Cache not found` means you need to `kinit` again.
+Check `klist` first if you're not sure whether you already have a valid ticket - `Cache not found` means you need to `kinit` again.
 
 ## Next steps
 

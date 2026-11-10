@@ -416,7 +416,7 @@ ai-incident-triage:
   items:
     - name: snow_auto_remediation.yml
       path: ai-incident-triage/aap/playbooks/snow_auto_remediation.yml
-      description: Runs automated remediation on the target host for a ServiceNow incident — checks uptime, disk, and service status.
+      description: Runs automated remediation on the target host for a ServiceNow incident - checks uptime, disk, and service status.
       runs_on: RHEL node
 
 ticket-enrichment:

@@ -11,7 +11,7 @@ paths converge on recovery validation and operator notification.
 |-----------|---------|------------------|
 | AAP 2.7 with AO | Controller + automation orchestrator | `aws-aap-containerized` repo or existing AAP install |
 | Demo VM(s) | RHEL 9 target host(s) running the correlated services (e.g. `httpd`, `postgres`) that targeted/AI remediation restarts and validates | EC2 t3.small in `us-east-1` (or your region) |
-| LLM / model connection | Backs the **AI Triage Agent** (`agentic`) node — analyzes the alert pattern and returns a JSON root-cause recommendation | Configure a model/LLM connection in AO and bind it to the agentic node |
+| LLM / model connection | Backs the **AI Triage Agent** (`agentic`) node - analyzes the alert pattern and returns a JSON root-cause recommendation | Configure a model/LLM connection in AO and bind it to the agentic node |
 | Mattermost | Operator notification with correlation summary | Container on bastion (or reuse an existing Mattermost instance) |
 
 ## Step-by-Step Setup
@@ -52,8 +52,8 @@ ssh -i "$CORR_DEMO_SSH_KEY" ec2-user@"$CORR_DEMO_VM_IP" \
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `multi-service-correlation/` subtree) from Git.
-2. **Inventory** — create host(s) matching the `host` values you will send in the
+1. **Project** - sync this repo (or the `multi-service-correlation/` subtree) from Git.
+2. **Inventory** - create host(s) matching the `host` values you will send in the
    `alert_payloads` trigger input (the default payload uses `node1`):
 
 | Host | `ansible_host` | Notes |
@@ -87,7 +87,7 @@ exactly.
 
 Note: both the targeted path (`Targeted Remediation` node) and the AI path
 (`AI-Guided Remediation` node) map to the **same** `Multi-Service - Targeted
-Remediation` job template — the AI path simply feeds it the agent's `root_cause`
+Remediation` job template - the AI path simply feeds it the agent's `root_cause`
 instead of the correlation playbook's. Likewise both validate nodes use the single
 `Multi-Service - Validate Recovery` template.
 
@@ -96,10 +96,10 @@ instead of the correlation playbook's. Likewise both validate nodes use the sing
 - SSH Machine credential on `Multi-Service - Targeted Remediation` and
   `Multi-Service - Validate Recovery` (they run against the affected hosts and use
   `become: true`).
-- No SSH needed on `Multi-Service - Correlate Alerts` or `Notify Chatroom` — both
+- No SSH needed on `Multi-Service - Correlate Alerts` or `Notify Chatroom` - both
   run on localhost.
 
-**Prompt on launch** — enable **Prompt on launch → Extra Variables** on all four
+**Prompt on launch** - enable **Prompt on launch → Extra Variables** on all four
 templates so AO can pass the mapped `extra_vars` from upstream nodes and the trigger.
 
 ### 4. Configure Notify (Mattermost)
@@ -124,7 +124,7 @@ MM_TOKEN=$(curl -s http://<bastion>:8065/api/v4/users/login \
 
 ### 5. Configure the AI Triage Agent Model Connection
 
-The `AI Triage Agent` node is an `agentic` node — it is **not** an AAP job
+The `AI Triage Agent` node is an `agentic` node - it is **not** an AAP job
 template. It sends a prompt built from the correlation artifacts (`alert_hosts`,
 `correlated_services`, `alert_count`, `same_host`) and expects a JSON response
 matching this `response_schema`: `root_cause` (string), `confidence` (number),
@@ -146,11 +146,11 @@ Import the workflow JSON into automation orchestrator:
 **After import, update environment-specific values:**
 
 1. `job_template` / job template IDs on each AAP job node so they resolve to your
-   Controller's templates (the JSON references them by `job_template_name` — confirm
+   Controller's templates (the JSON references them by `job_template_name` - confirm
    the names match Step 3).
 2. `credential_id` on each node for your Controller's credentials.
 3. The **model/LLM connection** bound to the `AI Triage Agent` node.
-4. `organization_name` is `Default` throughout — change if your org differs.
+4. `organization_name` is `Default` throughout - change if your org differs.
 
 ## Configure the Switch Node
 
@@ -170,11 +170,11 @@ dependency pattern). Otherwise it sets `unknown`.
 ## Test / Verification
 
 Exercise both branches through the manual trigger **Correlated Alert Event**, whose
-`input_schema` requires a single field, `alert_payloads` — a JSON **string**
+`input_schema` requires a single field, `alert_payloads` - a JSON **string**
 containing an array of alert objects with `host`, `service`, `severity`, and
 `message` fields.
 
-**Root-cause-found branch (targeted path)** — use the trigger default, or any
+**Root-cause-found branch (targeted path)** - use the trigger default, or any
 payload where every alert is on the same host with more than one alert (or a DB +
 app pair). The default payload already satisfies this (two alerts on `node1`,
 `httpd` + `postgres`):
@@ -190,7 +190,7 @@ Expected: switch takes `root_cause_found` → `Multi-Service - Targeted Remediat
 restarts `httpd`,`postgres` → `Multi-Service - Validate Recovery` → yellow/green
 Mattermost notification.
 
-**Unknown branch (AI Task-agent path)** — send a single alert, or alerts spread
+**Unknown branch (AI Task-agent path)** - send a single alert, or alerts spread
 across multiple hosts with no DB+app dependency pattern, so `correlation_result`
 becomes `unknown`:
 

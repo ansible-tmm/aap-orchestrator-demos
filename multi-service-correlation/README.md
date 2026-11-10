@@ -1,6 +1,6 @@
 # Multi-Service Correlation
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 Multiple correlated alerts arrive across services. The workflow correlates them, identifies root cause when possible, and routes to targeted remediation or AI-assisted triage when not.
 
