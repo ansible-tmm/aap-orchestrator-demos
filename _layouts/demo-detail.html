@@ -139,6 +139,15 @@ mermaid: true
   <ol class="detail-steps">
     {% for step in detail.walkthrough.steps %}
       <li>{{ step }}</li>
+      {% assign step_num = forloop.index %}
+      {% for note in detail.walkthrough.notes %}
+        {% assign note_after = note.after | plus: 0 %}
+        {% if note_after == step_num %}
+  </ol>
+  <p class="detail-walkthrough__tip"><strong>{{ note.label | default: "Note" }}:</strong> {{ note.text }}</p>
+  <ol class="detail-steps" start="{{ step_num | plus: 1 }}">
+        {% endif %}
+      {% endfor %}
     {% endfor %}
   </ol>
   {% endif %}
