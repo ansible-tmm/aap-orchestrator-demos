@@ -11,7 +11,7 @@ The GitHub Pages site (`index.html` + `_data/demos.yml`) has two card sections:
 | **Featured** | 3 columns (`card-grid--featured`) | Hero demos — largest visual presence |
 | **All demos** | Auto-fill, smaller cards | Full catalog |
 
-Within **All demos**, cards render **active** demos first (in `demos.yml` order), then **coming soon**.
+Within **All demos**, cards render **active** demos first, then **coming soon**. Within each status group, **TMM Created** cards sort before **AI Generated** (still preserving `demos.yml` order inside each origin group).
 
 ## Featured card limit: exactly 3
 

@@ -473,7 +473,8 @@ a {
   gap: 8px;
 }
 
-.filters__row--blocks {
+.filters__row--blocks,
+.filters__row--origin {
   gap: 6px;
 }
 
@@ -503,6 +504,25 @@ a {
   color: #c4b5fd;
 }
 
+.filter-pill--origin {
+  padding: 5px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filter-pill--origin-tmm {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.filter-pill--origin-ai {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+}
+
 .filter-pill:hover {
   border-color: #444;
   color: #fff;
@@ -512,6 +532,18 @@ a {
   border-color: #5b3d7a;
   color: #e9d5ff;
   background: #1f1528;
+}
+
+.filter-pill--origin-tmm:hover {
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.filter-pill--origin-ai:hover {
+  border-color: rgba(129, 140, 248, 0.55);
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.2);
 }
 
 .filter-pill.active {
@@ -526,9 +558,82 @@ a {
   border-color: #7c3aed;
 }
 
+.filter-pill--origin-tmm.active {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+  border-color: #ef4444;
+}
+
+.filter-pill--origin-ai.active {
+  background: rgba(99, 102, 241, 0.28);
+  color: #c7d2fe;
+  border-color: #6366f1;
+}
+
 .filter-pill .count {
   opacity: 0.6;
   margin-left: 4px;
+}
+
+.filter-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #777;
+  cursor: help;
+  outline: none;
+}
+
+.filter-info__icon {
+  font-size: 13px;
+  line-height: 1;
+  font-style: normal;
+}
+
+.filter-info:hover,
+.filter-info:focus-visible {
+  color: #ddd;
+}
+
+.filter-info__tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ddd;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+  z-index: 20;
+}
+
+.filter-info:hover .filter-info__tooltip,
+.filter-info:focus-visible .filter-info__tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .demo-card__blocks {
@@ -1364,6 +1469,12 @@ button.ao-block:focus-visible {
 .workflow-diagram .mermaid svg .node:has(image) > rect {
   fill: none !important;
   stroke: none !important;
+}
+
+/* Glossary SVGs use currentColor/black fills; invert for the dark workflow canvas.
+   PNG node cards are already light — leave them alone. */
+.workflow-diagram .mermaid image[href*="/assets/icons/glossary/"] {
+  filter: brightness(0) invert(0.85);
 }
 
 .cta-row {

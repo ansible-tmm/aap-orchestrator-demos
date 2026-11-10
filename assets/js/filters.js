@@ -1,6 +1,7 @@
 (function () {
   const statusPills = document.querySelectorAll('[data-filter-status]');
   const blockPills = document.querySelectorAll('[data-filter-block]');
+  const originPills = document.querySelectorAll('[data-filter-origin]');
   const cards = document.querySelectorAll('.demo-card');
   const navLinks = document.querySelectorAll('[data-filter-nav]');
   const searchInput = document.getElementById('demo-search');
@@ -10,6 +11,7 @@
 
   let activeStatus = 'all';
   let activeBlock = null;
+  let activeOrigin = null;
 
   function cardMatchesStatus(card, status) {
     if (status === 'all') return true;
@@ -20,6 +22,11 @@
     if (!block) return true;
     const blocks = (card.dataset.buildingBlocks || '').split(',').filter(Boolean);
     return blocks.indexOf(block) >= 0;
+  }
+
+  function cardMatchesOrigin(card, origin) {
+    if (!origin) return true;
+    return card.dataset.origin === origin;
   }
 
   function cardMatchesSearch(card, query) {
@@ -40,6 +47,12 @@
     });
   }
 
+  function setActiveOriginPill(origin) {
+    originPills.forEach(function (pill) {
+      pill.classList.toggle('active', origin && pill.dataset.filterOrigin === origin);
+    });
+  }
+
   function applyFilters() {
     const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
     let visibleCount = 0;
@@ -48,6 +61,7 @@
       const show =
         cardMatchesStatus(card, activeStatus) &&
         cardMatchesBlock(card, activeBlock) &&
+        cardMatchesOrigin(card, activeOrigin) &&
         cardMatchesSearch(card, query);
       card.classList.toggle('hidden', !show);
       if (show) visibleCount += 1;
@@ -69,6 +83,12 @@
     applyFilters();
   }
 
+  function applyOriginFilter(origin) {
+    activeOrigin = origin;
+    setActiveOriginPill(activeOrigin);
+    applyFilters();
+  }
+
   function applyStatusFilter(status) {
     activeStatus = status;
     setActiveStatusPill(activeStatus);
@@ -77,6 +97,11 @@
 
   function readFiltersFromUrl() {
     var params = new URLSearchParams(window.location.search);
+    var originParam = params.get('origin');
+    if (originParam === 'tmm-created' || originParam === 'ai-generated') {
+      applyOriginFilter(originParam);
+    }
+
     var blockParam = params.get('block');
     if (blockParam) {
       applyBlockFilter(blockParam);
@@ -91,6 +116,11 @@
 
     if (hash.indexOf('block-') === 0) {
       applyBlockFilter(hash.slice(6));
+      return;
+    }
+
+    if (hash === 'tmm-created' || hash === 'ai-generated') {
+      applyOriginFilter(hash);
     }
   }
 
@@ -107,6 +137,13 @@
     });
   });
 
+  originPills.forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      const origin = pill.dataset.filterOrigin;
+      applyOriginFilter(activeOrigin === origin ? null : origin);
+    });
+  });
+
   if (searchInput) {
     searchInput.addEventListener('input', applyFilters);
   }
@@ -117,7 +154,9 @@
       if (filter && statusPills.length) {
         e.preventDefault();
         activeBlock = null;
+        activeOrigin = null;
         setActiveBlockPill(null);
+        setActiveOriginPill(null);
         applyStatusFilter(filter);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }

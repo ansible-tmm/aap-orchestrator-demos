@@ -1,4 +1,4 @@
-# CI/CD Pipeline — Dev Test, Approval, Prod Deploy with Rollback
+# Automating CI/CD pipelines with Lightwell
 
 Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build — dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written OpenFlake (ServiceNow-compatible) change notes, and automatic snapshot rollback on failure.
 
@@ -98,11 +98,14 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for infrastructure, job templates, webhoo
 
 ## Running the demo (short path)
 
-1. Run **CI/CD Demo - Reset Demo**
-2. Run **CI/CD Demo - Simulate Lightwell PR** (~30s) — creates the CHG and opens the PR
-3. Merge the PR in Gitea — CI fires, then the AO webhook starts the workflow
-4. Approve the production gate when the prompt appears
-5. Watch OpenFlake work notes update through close (or demonstrate rollback by breaking prod health first)
+Keep Controller, automation orchestrator, OpenFlake, and Gitea open side by side (URLs / passwords from the product-demos seed summary; Gitea is `apdadmin` / `Ansible123!`).
+
+1. Run **CI/CD Demo - Reset Demo** (before every show)
+2. Run **CI/CD Demo - Simulate Lightwell PR** (~30s) — creates the CHG and opens the PR; confirm `requirements.txt` shows `aiohttp==3.9.2.rhlw-00001`
+3. Merge the PR in Gitea — watch **Actions** on `inventory-service`; CI posts the webhook into automation orchestrator on success
+4. In automation orchestrator → **Workflow Runs**, open **CI/CD Pipeline - Dev Test, Approval, Prod Deploy with Rollback**
+5. Approve **Dev Lead Approval - Promote to Production**; stay until prod deploy + close loop finish
+6. In OpenFlake, open the change — about seven activities through close (or break prod `/health` first to demo rollback)
 
 ## AO building blocks
 
