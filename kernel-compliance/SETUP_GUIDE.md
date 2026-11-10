@@ -42,8 +42,8 @@ The scan playbook (`check_kernel.yml`) uses `uname -r`, `rpm -qa kernel`, and `n
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `kernel-compliance/` subtree) from Git.
-2. **Inventory** — create a host for the demo VM:
+1. **Project** - sync this repo (or the `kernel-compliance/` subtree) from Git.
+2. **Inventory** - create a host for the demo VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -74,9 +74,9 @@ Create six job templates from `kernel-compliance/playbooks/`. The **Name** colum
 **Credentials:**
 
 - SSH Machine credential on the Linux templates: `Kernel - Check Compliance`, `Kernel - Log Compliant`, `Kernel - Schedule Reboot`, `Kernel - Apply Update`, `Kernel - Flag EOL Migration` (the scan, reboot, and update plays use `become: true`).
-- No SSH needed on `Kernel - Notify Chatroom` — it runs on `localhost` with `connection: local`.
+- No SSH needed on `Kernel - Notify Chatroom` - it runs on `localhost` with `connection: local`.
 
-**Prompt on launch — Extra Variables:** enable **Prompt on launch → Extra Variables** on every template above so AO can pass artifacts (`kernel_compliance`, `kernel_running`, `kernel_latest`, `remediation_action`, `notify_host`) between nodes.
+**Prompt on launch - Extra Variables:** enable **Prompt on launch → Extra Variables** on every template above so AO can pass artifacts (`kernel_compliance`, `kernel_running`, `kernel_latest`, `remediation_action`, `notify_host`) between nodes.
 
 ### 4. Configure Mattermost Notifications
 
@@ -119,7 +119,7 @@ The trigger is a schedule trigger with empty parameters (no `input_schema`); the
 
 **After import, update environment-specific values for your Controller:**
 
-1. `job_template_name` on each node already matches the table in Step 3 — confirm the templates exist with those exact names in the `Default` organization (each node sets `organization_name: "Default"`).
+1. `job_template_name` on each node already matches the table in Step 3 - confirm the templates exist with those exact names in the `Default` organization (each node sets `organization_name: "Default"`).
 2. Add / update the `credential_id` on each job node to point at your Controller's credentials (the exported JSON intentionally omits credential IDs for a clean import).
 3. Confirm each node's `extra_vars` reference the upstream artifacts from `check_kernel` and the matching remediation node (see the Switch table below).
 
@@ -129,10 +129,10 @@ The switch step `Route by kernel_compliance` evaluates `${check_kernel.artifacts
 
 | Switch port | Label | Condition | Remediation JT | Downstream notify |
 |-------------|-------|-----------|----------------|-------------------|
-| `case_0` | `compliant` | `${check_kernel.artifacts.kernel_compliance} == 'compliant'` | `Kernel - Log Compliant` | Notify — Compliant |
-| `case_1` | `reboot_required` | `${check_kernel.artifacts.kernel_compliance} == 'reboot_required'` | `Kernel - Schedule Reboot` | Notify — Reboot Scheduled |
-| `case_2` | `drift` | `${check_kernel.artifacts.kernel_compliance} == 'drift'` | `Kernel - Apply Update` | Notify — Kernel Updated |
-| `case_3` | `eol` | `${check_kernel.artifacts.kernel_compliance} == 'eol'` | `Kernel - Flag EOL Migration` | Notify — EOL Flagged |
+| `case_0` | `compliant` | `${check_kernel.artifacts.kernel_compliance} == 'compliant'` | `Kernel - Log Compliant` | Notify - Compliant |
+| `case_1` | `reboot_required` | `${check_kernel.artifacts.kernel_compliance} == 'reboot_required'` | `Kernel - Schedule Reboot` | Notify - Reboot Scheduled |
+| `case_2` | `drift` | `${check_kernel.artifacts.kernel_compliance} == 'drift'` | `Kernel - Apply Update` | Notify - Kernel Updated |
+| `case_3` | `eol` | `${check_kernel.artifacts.kernel_compliance} == 'eol'` | `Kernel - Flag EOL Migration` | Notify - EOL Flagged |
 
 Each remediation node forwards `kernel_compliance`, `kernel_running`, and (except EOL) `kernel_latest` to its notify node, plus `remediation_action` published by the remediation playbook (`Log Compliant`, `Schedule Reboot`, `Apply Kernel Update`, `Flag EOL Migration`) and `notify_host` from the scan.
 

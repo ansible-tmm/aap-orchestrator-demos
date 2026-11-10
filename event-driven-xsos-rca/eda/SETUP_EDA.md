@@ -1,15 +1,15 @@
-# EDA setup — Unknown issue xSOS RCA
+# EDA setup - Unknown issue xSOS RCA
 
 Use this checklist to test the SQS → EDA rulebook → automation orchestrator webhook flow end to end.
 
-**Architecture and why we use `run_job_template`:** see [README — EDA actions on AAP](../README.md#eda-actions-on-aap).
+**Architecture and why we use `run_job_template`:** see [README - EDA actions on AAP](../README.md#eda-actions-on-aap).
 
 The rulebooks AAP syncs from the repo are:
 
 | Rulebook file | Action | Notes |
 |---|---|---|
 | `extensions/eda/rulebooks/event-driven-xsos-rca.yml` | `run_job_template` → Linux - Post AO Webhook | Works without activation inventory (uses Controller cred) |
-| `extensions/eda/rulebooks/event-driven-xsos-rca-run-module.yml` | `run_module` → `ansible.builtin.uri` | **Does not work on AAP EDA activations** — see note below |
+| `extensions/eda/rulebooks/event-driven-xsos-rca-run-module.yml` | `run_module` → `ansible.builtin.uri` | **Does not work on AAP EDA activations** - see note below |
 
 Use only one activation per queue at a time to avoid duplicate processing.
 
@@ -91,16 +91,16 @@ Attach it to the rulebook activation.
 
 **Automation Decisions → Rulebook activations → Create**
 
-### Option A — `run_job_template` (current default)
+### Option A - `run_job_template` (current default)
 
 | Field | Value |
 |---|---|
 | Rulebook | Unknown issue xSOS RCA |
 | Inventory | *(optional)* |
 
-### Option B — `run_module` + `uri` (local CLI only, not AAP)
+### Option B - `run_module` + `uri` (local CLI only, not AAP)
 
-This pattern **cannot run** as an AAP rulebook activation today — there is no inventory in the EDA UI
+This pattern **cannot run** as an AAP rulebook activation today - there is no inventory in the EDA UI
 and the worker does not receive `--inventory`. Use for local testing:
 
 ```bash
@@ -179,7 +179,7 @@ curl -X POST "http://54.159.25.87:8080/api/v1/webhooks/eda/357ce7cf-0138-409f-ad
 {
   "issue_id": "demo-20260706-001",
   "host": "rca-target",
-  "summary": "Unknown production issue — automated RCA requested",
+  "summary": "Unknown production issue - automated RCA requested",
   "severity": "high",
   "source": "manual-demo",
   "requested_action": "xsos_analysis"

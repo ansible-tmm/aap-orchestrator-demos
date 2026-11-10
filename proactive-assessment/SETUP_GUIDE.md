@@ -49,8 +49,8 @@ branch, seed at least one cert that expires within the window (see
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `proactive-assessment/` subtree) from Git.
-2. **Inventory** — create a host for the target VM:
+1. **Project** - sync this repo (or the `proactive-assessment/` subtree) from Git.
+2. **Inventory** - create a host for the target VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -87,7 +87,7 @@ Create five job templates from `proactive-assessment/playbooks/`. The
 
 - SSH Machine credential on the target-host templates (`Cert - Scan Certificates`,
   `Cert - Renew Proactive`, `Cert - Log OK`)
-- No SSH needed on `Cert - Compliance Report` or `Notify Chatroom` — both run on localhost
+- No SSH needed on `Cert - Compliance Report` or `Notify Chatroom` - both run on localhost
 
 **Extra vars passed from AO** (enable **Prompt on launch → Extra Variables** on
 each template so AO can inject upstream artifacts):
@@ -127,7 +127,7 @@ Import the workflow JSON into automation orchestrator:
 
 | File | Switch routes on | Trigger |
 |------|------------------|---------|
-| [`ao/proactive-assessment-301.json`](ao/proactive-assessment-301.json) | `cert_scan_result` (`needs_renewal` / `all_ok`) | Scheduled — nightly cron |
+| [`ao/proactive-assessment-301.json`](ao/proactive-assessment-301.json) | `cert_scan_result` (`needs_renewal` / `all_ok`) | Scheduled - nightly cron |
 
 **Schedule / trigger.** The workflow defines a `schedule_trigger` named
 **"Nightly Cert Scan"** with cron `0 2 * * *` (daily at 02:00). On import, the
@@ -139,7 +139,7 @@ cron expression in AO or launch the workflow manually for demos. The edge
 
 1. `job_template` / `job_template_name` on each AAP job node (must resolve on your Controller)
 2. `credential_id` on each node (use your Controller's credential IDs)
-3. `organization_name` — exported as `Default`; change if your JTs live elsewhere
+3. `organization_name` - exported as `Default`; change if your JTs live elsewhere
 4. Confirm the cron schedule (`0 2 * * *`) suits your demo window
 
 ### 6. Configure the Switch Node
@@ -151,7 +151,7 @@ branches reconverge on the compliance report and notification.
 | Switch port | Label | Condition | Target job | Playbook |
 |-------------|-------|-----------|------------|----------|
 | `case_0` | `needs_renewal` | `${scan_certs.artifacts.cert_scan_result} == 'needs_renewal'` | `Renew Expiring Certs` (`Cert - Renew Proactive`) | `renew_proactive.yml` |
-| `case_1` | `all_ok` | `${scan_certs.artifacts.cert_scan_result} == 'all_ok'` | `Log OK — No Action` (`Cert - Log OK`) | `log_ok.yml` |
+| `case_1` | `all_ok` | `${scan_certs.artifacts.cert_scan_result} == 'all_ok'` | `Log OK - No Action` (`Cert - Log OK`) | `log_ok.yml` |
 
 Downstream (both paths): `Compliance Report` (`Cert - Compliance Report`) →
 `Notify Chatroom` (`Notify Chatroom`).
@@ -170,7 +170,7 @@ expiry window.
 
 ```bash
 # Ensure no scanned cert expires within 30 days, then run the scan.
-# Expected: cert_scan_result=all_ok → Log OK — No Action → Compliance Report
+# Expected: cert_scan_result=all_ok → Log OK - No Action → Compliance Report
 #           → green Mattermost notification (compliance ~100%).
 ```
 

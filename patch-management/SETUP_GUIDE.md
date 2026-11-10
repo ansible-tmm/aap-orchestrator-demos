@@ -42,8 +42,8 @@ ssh -i "$PATCH_DEMO_SSH_KEY" ec2-user@"$PATCH_DEMO_VM_IP" 'sudo dnf updateinfo -
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `patch-management/` subtree) from Git.
-2. **Inventory** — create a host that matches the trigger `host` default of `node1`:
+1. **Project** - sync this repo (or the `patch-management/` subtree) from Git.
+2. **Inventory** - create a host that matches the trigger `host` default of `node1`:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -67,9 +67,9 @@ Create six job templates from `patch-management/playbooks/`. The names must matc
 **Credentials:**
 
 - SSH Machine credential on all Linux templates (Check Patches, Patch Now, Schedule Change, Weekly Batch, Report Compliant).
-- No SSH needed on `Patch Management - Notify Chatroom` — it runs on localhost with `connection: local`.
+- No SSH needed on `Patch Management - Notify Chatroom` - it runs on localhost with `connection: local`.
 
-**Prompt on launch — Extra Variables:** enable this on every template so AO can pass artifacts downstream. The workflow feeds `highest_severity` and the `advisory_count_*` values from the check node into the remediation and notify nodes, plus `remediation_action`, `packages_updated`, `reboot_required`, and `notify_host` into the notify node.
+**Prompt on launch - Extra Variables:** enable this on every template so AO can pass artifacts downstream. The workflow feeds `highest_severity` and the `advisory_count_*` values from the check node into the remediation and notify nodes, plus `remediation_action`, `packages_updated`, `reboot_required`, and `notify_host` into the notify node.
 
 ### 4. Configure Mattermost Notifications
 
@@ -109,12 +109,12 @@ Import the workflow JSON into automation orchestrator:
 
 The check node publishes `highest_severity` plus `advisory_count_critical`, `advisory_count_important`, `advisory_count_moderate`, and `notify_host` via `set_stats` for the switch and downstream nodes.
 
-**After import, update environment-specific values** — the exported JSON ships with placeholders:
+**After import, update environment-specific values** - the exported JSON ships with placeholders:
 
-1. `credential_id` on every `aap_job_template` node — replace `YOUR_AAP_CREDENTIAL_ID` with your Controller credential ID.
-2. `job_template_name` on each node — confirm the names match the templates you created in Step 3 for your Controller.
-3. `organization_name` — set to your organization (exported default is `Default`).
-4. The trigger `host` input — exported default is `node1`; change it to match your inventory host.
+1. `credential_id` on every `aap_job_template` node - replace `YOUR_AAP_CREDENTIAL_ID` with your Controller credential ID.
+2. `job_template_name` on each node - confirm the names match the templates you created in Step 3 for your Controller.
+3. `organization_name` - set to your organization (exported default is `Default`).
+4. The trigger `host` input - exported default is `node1`; change it to match your inventory host.
 
 ## Configure the Switch Node
 
@@ -122,10 +122,10 @@ The switch (`route_switch`) reads `${check_patches.artifacts.highest_severity}` 
 
 | Switch label | Condition (from AO JSON) | Port | Remediation JT | Playbook | Follow-up notify node |
 |--------------|--------------------------|------|----------------|----------|-----------------------|
-| `critical` | `${check_patches.artifacts.highest_severity} == 'critical'` | `case_0` | `Patch Management - Patch Now` | `remediate_patch_now.yml` (apply security updates now, check reboot) | Notify — Patched |
-| `important` | `${check_patches.artifacts.highest_severity} == 'important'` | `case_1` | `Patch Management - Schedule Change` | `remediate_schedule_change.yml` (list advisories, schedule window) | Notify — Scheduled |
-| `moderate` | `${check_patches.artifacts.highest_severity} == 'moderate'` | `case_2` | `Patch Management - Weekly Batch` | `remediate_weekly_batch.yml` (write batch manifest) | Notify — Batched |
-| `none` | `${check_patches.artifacts.highest_severity} == 'none'` | `case_3` | `Patch Management - Report Compliant` | `remediate_report_compliant.yml` (log compliant, exit) | Notify — Compliant |
+| `critical` | `${check_patches.artifacts.highest_severity} == 'critical'` | `case_0` | `Patch Management - Patch Now` | `remediate_patch_now.yml` (apply security updates now, check reboot) | Notify - Patched |
+| `important` | `${check_patches.artifacts.highest_severity} == 'important'` | `case_1` | `Patch Management - Schedule Change` | `remediate_schedule_change.yml` (list advisories, schedule window) | Notify - Scheduled |
+| `moderate` | `${check_patches.artifacts.highest_severity} == 'moderate'` | `case_2` | `Patch Management - Weekly Batch` | `remediate_weekly_batch.yml` (write batch manifest) | Notify - Batched |
+| `none` | `${check_patches.artifacts.highest_severity} == 'none'` | `case_3` | `Patch Management - Report Compliant` | `remediate_report_compliant.yml` (log compliant, exit) | Notify - Compliant |
 
 The `critical` branch additionally passes `advisory_count_critical` as an extra var, `important` passes `advisory_count_important`, and `moderate` passes `advisory_count_moderate`; all branches pass `highest_severity`.
 
@@ -143,7 +143,7 @@ On the **Patch Assessment** (`check_patches`) node in AO, set `extra_vars`:
 | Report Compliant | `none` | `remediate_report_compliant.yml` | green (`#4ade80`) |
 
 ```bash
-# Live scan on the demo VM (no test override) — see the real highest severity
+# Live scan on the demo VM (no test override) - see the real highest severity
 ssh -i "$PATCH_DEMO_SSH_KEY" ec2-user@"$PATCH_DEMO_VM_IP" 'sudo dnf updateinfo --summary'
 
 # In AO, launch the workflow with test_highest_severity=critical on the check node.

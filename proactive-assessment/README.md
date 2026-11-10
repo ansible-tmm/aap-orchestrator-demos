@@ -1,6 +1,6 @@
 # Certificate Rotation 301: Proactive Assessment
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 This demo extends 201 with:
 
@@ -17,7 +17,7 @@ flowchart LR
   A[Scheduled scan trigger] --> B[Inventory certificate expiry]
   B --> C{Expires within window?}
   C -->|Yes| D[Renew proactively]
-  C -->|No| E[Log OK — no action]
+  C -->|No| E[Log OK - no action]
   D --> F[Validate TLS]
   F --> G[Compliance report]
 ```

@@ -1,4 +1,4 @@
-# AO canvas building blocks — definitions sourced from nexus-docs (Automation Orchestrator).
+# AO canvas building blocks - definitions sourced from nexus-docs (Automation Orchestrator).
 # Update description text when upstream workflow docs change.
 # icon: Official PatternFly RhUi icon SVGs from @patternfly/react-icons (matching AO source).
 
@@ -48,49 +48,49 @@ terms:
     label: Manual trigger
     icon: assets/icons/glossary/manual-trigger.svg
     category: triggers
-    description: Starts a workflow when a user clicks Run in the UI or calls the workflow execution API — the simplest entry point for on-demand runs like demos, break-glass remediation, or operator-initiated changes. No extra configuration is required, and runs appear in history with the triggering user as the source.
+    description: Starts a workflow when a user clicks Run in the UI or calls the workflow execution API - the simplest entry point for on-demand runs like demos, break-glass remediation, or operator-initiated changes. No extra configuration is required, and runs appear in history with the triggering user as the source.
     nexus_source: workflows/add-a-manual-trigger.md
 
   schedule_trigger:
     label: Schedule trigger
     icon: assets/icons/glossary/schedule-trigger.svg
     category: triggers
-    description: Starts a workflow automatically on a recurring schedule — nightly, hourly, or a custom cron expression — for recurring housekeeping like certificate renewal checks, drift detection, or report generation without a human or external system kicking off the run.
+    description: Starts a workflow automatically on a recurring schedule - nightly, hourly, or a custom cron expression - for recurring housekeeping like certificate renewal checks, drift detection, or report generation without a human or external system kicking off the run.
     nexus_source: workflows/add-a-schedule-trigger.md
 
   webhook_trigger:
     label: Webhook trigger
     icon: assets/icons/glossary/webhook-trigger.svg
     category: triggers
-    description: Starts a workflow when an external system sends an authenticated HTTP POST to a generated endpoint URL, with the request body available as trigger input for downstream steps. Commonly used to integrate CI/CD pipelines, monitoring tools, or Splunk alerts — each workflow gets its own unique URL path.
+    description: Starts a workflow when an external system sends an authenticated HTTP POST to a generated endpoint URL, with the request body available as trigger input for downstream steps. Commonly used to integrate CI/CD pipelines, monitoring tools, or Splunk alerts - each workflow gets its own unique URL path.
     nexus_source: workflows/add-a-webhook-trigger.md
 
   eda_trigger:
     label: Event-Driven Ansible trigger
     icon: assets/icons/glossary/eda-trigger.svg
     category: triggers
-    description: Starts a workflow when Event-Driven Ansible routes a matching event — from logs, queues, or webhooks — to an automation orchestrator endpoint configured on the rulebook activation, using the same webhook mechanism as external POST callers for AI triage and remediation.
+    description: Starts a workflow when Event-Driven Ansible routes a matching event - from logs, queues, or webhooks - to an automation orchestrator endpoint configured on the rulebook activation, using the same webhook mechanism as external POST callers for AI triage and remediation.
     nexus_source: workflows/add-an-event-driven-ansible-trigger.md
 
   agentic:
     label: Task agent
     icon: assets/icons/glossary/ai-node.svg
     category: ai
-    description: Adds LLM reasoning to a workflow — the step receives a natural-language prompt, can call enabled tools, and returns structured output that downstream steps reference through expressions. Use it for unstructured data (logs, tickets, alerts) to summarize, classify, triage, and recommend remediation actions; pair with an approval step for human oversight.
+    description: Adds LLM reasoning to a workflow - the step receives a natural-language prompt, can call enabled tools, and returns structured output that downstream steps reference through expressions. Use it for unstructured data (logs, tickets, alerts) to summarize, classify, triage, and recommend remediation actions; pair with an approval step for human oversight.
     nexus_source: workflows/understand-workflow-ai-agents.md
 
   mcp_integration:
     label: MCP integration
     icon: assets/icons/glossary/mcp-integration.svg
     category: ai
-    description: Model Context Protocol server tools that Task agents can call to read or change external systems — inventory, ITSM, vulnerability data, and more. Configure integrations under Integrations so agents work with live platform data instead of hallucinating context, choosing which tools each agent can access.
+    description: Model Context Protocol server tools that Task agents can call to read or change external systems - inventory, ITSM, vulnerability data, and more. Configure integrations under Integrations so agents work with live platform data instead of hallucinating context, choosing which tools each agent can access.
     nexus_source: workflows/workflow-planning-and-prereqs.md
 
   servicenow_mcp:
     label: ServiceNow MCP
     icon: assets/icons/glossary/servicenow-mcp.svg
     category: ai
-    description: An MCP integration scoped to ServiceNow that lets Task agents query incidents, update records, and close tickets without custom HTTP glue code — commonly used by triage agents that enrich incidents and resolution agents that update state after remediation completes.
+    description: An MCP integration scoped to ServiceNow that lets Task agents query incidents, update records, and close tickets without custom HTTP glue code - commonly used by triage agents that enrich incidents and resolution agents that update state after remediation completes.
     nexus_source: workflows/add-action-steps.md
 
   switch:
@@ -118,7 +118,7 @@ terms:
     label: Loop step
     icon: assets/icons/glossary/loop-node.svg
     category: control_flow
-    description: Repeats a set of steps for each item in a collection or while a condition is true, giving downstream steps access to loop variables such as the current item and index. Ideal for processing batches — hosts, tickets, certificates — without duplicating canvas steps; combine with converge when parallel iterations need to rejoin.
+    description: Repeats a set of steps for each item in a collection or while a condition is true, giving downstream steps access to loop variables such as the current item and index. Ideal for processing batches - hosts, tickets, certificates - without duplicating canvas steps; combine with converge when parallel iterations need to rejoin.
     nexus_source: workflows/understand-control-flow-steps.md
 
   converge:
@@ -139,33 +139,33 @@ terms:
     label: AAP job template
     icon: assets/icons/glossary/aap-execution.svg
     category: aap
-    description: Launches a single Ansible Automation Platform job template from the workflow, polling until the job completes and exposing results to downstream steps. The standard bridge between automation orchestrator reasoning and AAP execution — one playbook with resolved inventory, credentials, limits, and extra vars.
+    description: Launches a single Ansible Automation Platform job template from the workflow, polling until the job completes and exposing results to downstream steps. The standard bridge between automation orchestrator reasoning and AAP execution - one playbook with resolved inventory, credentials, limits, and extra vars.
     nexus_source: workflows/add-aap-job-execution-step.md
 
   aap_job_template_dynamic:
     label: AAP job template (dynamic expression)
     icon: assets/icons/glossary/aap-execution.svg
     category: aap
-    description: Launches an AAP job template selected at runtime via expressions — for example, dragging job_template_name from an upstream Task agent — by toggling Use expressions to replace the organization and job template dropdowns with expression fields. Ideal when AI triage picks the remediation playbook based on incident context.
+    description: Launches an AAP job template selected at runtime via expressions - for example, dragging job_template_name from an upstream Task agent - by toggling Use expressions to replace the organization and job template dropdowns with expression fields. Ideal when AI triage picks the remediation playbook based on incident context.
     nexus_source: workflows/add-aap-job-execution-step.md
 
   aap_workflow_template:
     label: AAP workflow template
     icon: assets/icons/glossary/aap-execution.svg
     category: aap
-    description: Launches an entire AAP workflow job template — a multi-job pipeline already defined in Ansible Automation Platform with its own conditionals and convergence. Use when remediation spans multiple coordinated job templates, or select it dynamically with expressions when an agent recommends a workflow rather than a single job.
+    description: Launches an entire AAP workflow job template - a multi-job pipeline already defined in Ansible Automation Platform with its own conditionals and convergence. Use when remediation spans multiple coordinated job templates, or select it dynamically with expressions when an agent recommends a workflow rather than a single job.
     nexus_source: workflows/understand-aap-execution-steps.md
 
   script:
     label: Script step
     icon: assets/icons/glossary/script-node.svg
     category: actions
-    description: Runs Python or Bash to parse, transform, or reshape data between steps — for example, normalizing an API response before a Task agent or AAP job consumes it. Lightweight alternative to launching a playbook; test with mock upstream output in the builder before publishing. Disabled by default until execution-plane capabilities are available in your deployment — intended for demos and early evaluation today. Additional scripting languages may be supported later based on demand.
+    description: Runs Python or Bash to parse, transform, or reshape data between steps - for example, normalizing an API response before a Task agent or AAP job consumes it. Lightweight alternative to launching a playbook; test with mock upstream output in the builder before publishing. Disabled by default until execution-plane capabilities are available in your deployment - intended for demos and early evaluation today. Additional scripting languages may be supported later based on demand.
     nexus_source: workflows/understand-testing-deploying-workflows.md
 
   http_request:
     label: HTTP request
     icon: assets/icons/glossary/http-request.svg
     category: actions
-    description: Calls an external HTTP API from the workflow, with the response status and body available to downstream steps through the expression system. Use it to integrate REST endpoints that aren't exposed through MCP tools — verify endpoints first, since step testing sends real network requests.
+    description: Calls an external HTTP API from the workflow, with the response status and body available to downstream steps through the expression system. Use it to integrate REST endpoints that aren't exposed through MCP tools - verify endpoints first, since step testing sends real network requests.
     nexus_source: workflows/understand-testing-deploying-workflows.md

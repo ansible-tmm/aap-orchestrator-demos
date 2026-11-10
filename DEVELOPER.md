@@ -19,7 +19,7 @@ cat disk-utilization/README.md
 
 ## How demos are organized
 
-**One demo = one top-level folder.** Category labels (cert-rotation, incident-remediation, etc.) live in `_data/demos.yml` for marketplace filtering — not in the filesystem.
+**One demo = one top-level folder.** Category labels (cert-rotation, incident-remediation, etc.) live in `_data/demos.yml` for marketplace filtering - not in the filesystem.
 
 ```
 <demo-slug>/
@@ -60,19 +60,19 @@ aap-orchestrator-demos/
 ├── README.md
 ├── DEVELOPER.md
 ├── _data/demos.yml          # Marketplace catalog (slug, category, paths)
-├── cert-lifecycle/          # Active — category: cert-rotation
+├── cert-lifecycle/          # Active - category: cert-rotation
 ├── cert-expiry-switch/      # Coming soon
 ├── risk-based-routing/      # Coming soon
 ├── proactive-assessment/    # Coming soon
 ├── cve-remediation/         # Active
 ├── disk-utilization/        # Active
-├── event-driven-xsos-rca/   # In progress — category: incident-remediation
+├── event-driven-xsos-rca/   # In progress - category: incident-remediation
 ├── ai-incident-triage/      # Coming soon
-├── ticket-enrichment/       # Coming soon — Arcade ready, assets pending upload
+├── ticket-enrichment/       # Coming soon - Arcade ready, assets pending upload
 ├── multi-service-correlation/
 ├── service-health/
 ├── patch-management/
-├── multi-os-cloud-patching/   # Active — category: patching
+├── multi-os-cloud-patching/   # Active - category: patching
 ├── user-lifecycle/
 ├── backup-management/
 ├── subscription-management/
@@ -87,7 +87,7 @@ aap-orchestrator-demos/
 - **nginx** on port 443 uses a **PEM certificate** → agent selects `Renew Certificate` template
 - **API server** on port 8443 uses a **Java keystore** → agent selects `Renew Java Keystore Certificate` template
 
-The agent discovers available job templates from AAP, reads host variables, checks past job run history, and reasons about the correct approach — **intelligent routing without hardcoded if-statements**.
+The agent discovers available job templates from AAP, reads host variables, checks past job run history, and reasons about the correct approach - **intelligent routing without hardcoded if-statements**.
 
 ```
 Splunk Alert (cert expired)
@@ -141,7 +141,7 @@ See [disk-utilization/SETUP_GUIDE.md](disk-utilization/SETUP_GUIDE.md) for envir
 
 The demo marketplace at [ansible-tmm.github.io/aap-orchestrator-demos](https://ansible-tmm.github.io/aap-orchestrator-demos/) is built with Jekyll from this repo. Demo cards are defined in [`_data/demos.yml`](_data/demos.yml).
 
-**Featured cards:** The marketplace Featured section uses a 3-column grid — keep exactly **3** demos with `featured: true`. All other demos appear in the smaller **All demos** grid (active first). See [CLAUDE.md](CLAUDE.md).
+**Featured cards:** The marketplace Featured section uses a 3-column grid - keep exactly **3** demos with `featured: true`. All other demos appear in the smaller **All demos** grid (active first). See [CLAUDE.md](CLAUDE.md).
 
 Local build:
 

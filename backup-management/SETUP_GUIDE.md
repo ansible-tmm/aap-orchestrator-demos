@@ -61,8 +61,8 @@ If the status file is missing, the check playbook resolves `backup_result` to
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `backup-management/` subtree) from Git.
-2. **Inventory** — create a host and reference it by the name you pass to the
+1. **Project** - sync this repo (or the `backup-management/` subtree) from Git.
+2. **Inventory** - create a host and reference it by the name you pass to the
    workflow trigger. The workflow's default trigger `host` is `node1`:
 
 | Host | `ansible_host` | Notes |
@@ -95,7 +95,7 @@ match the `job_template_name` values in the AO workflow JSON exactly:
 
 - SSH Machine credential on the host-facing templates (Check, Verify, Retry,
   Escalate, Log Skipped).
-- No SSH needed on Notify Chatroom — the playbook runs on `localhost` with
+- No SSH needed on Notify Chatroom - the playbook runs on `localhost` with
   `connection: local`.
 
 **Prompt on launch:** enable **Extra Variables** on every template so AO can
@@ -142,13 +142,13 @@ and downstream nodes.
 
 **After import, update environment-specific values:**
 
-1. `job_template_name` on each node — must match the templates you created in
+1. `job_template_name` on each node - must match the templates you created in
    step 3 (already set to `Backup Management - *`; adjust only if you renamed
    them).
-2. `credential_id` on every node — the exported JSON uses the placeholder
+2. `credential_id` on every node - the exported JSON uses the placeholder
    `YOUR_AAP_CREDENTIAL_ID`; replace with your Controller credential ID.
-3. `organization_name` — exported as `Default`; change if your org differs.
-4. The trigger `host` default (`node1`) — set to the inventory host you created.
+3. `organization_name` - exported as `Default`; change if your org differs.
+4. The trigger `host` default (`node1`) - set to the inventory host you created.
 
 ### 6. Configure the Switch Node
 
@@ -157,10 +157,10 @@ conditions, each routing to a response job template and then a notification:
 
 | Switch label | Condition | Response job template | Notify node |
 |--------------|-----------|-----------------------|-------------|
-| `success` | `backup_result == 'success'` | `Backup Management - Verify Backup` | Notify — Verified (green) |
-| `partial` | `backup_result == 'partial'` | `Backup Management - Retry Backup` | Notify — Retried (amber) |
-| `failed` | `backup_result == 'failed'` | `Backup Management - Escalate Backup` | Notify — Escalated (red) |
-| `skipped` | `backup_result == 'skipped'` | `Backup Management - Log Skipped` | Notify — Skipped (grey) |
+| `success` | `backup_result == 'success'` | `Backup Management - Verify Backup` | Notify - Verified (green) |
+| `partial` | `backup_result == 'partial'` | `Backup Management - Retry Backup` | Notify - Retried (amber) |
+| `failed` | `backup_result == 'failed'` | `Backup Management - Escalate Backup` | Notify - Escalated (red) |
+| `skipped` | `backup_result == 'skipped'` | `Backup Management - Log Skipped` | Notify - Skipped (grey) |
 
 Switch ports map to edges `case_0` → verify, `case_1` → retry, `case_2` →
 escalate, `case_3` → log skipped.

@@ -1,8 +1,8 @@
 # Automating CI/CD pipelines with Lightwell
 
-Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build — dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written OpenFlake (ServiceNow-compatible) change notes, and automatic snapshot rollback on failure.
+Continuous delivery for a Lightwell-remediated dependency: CI validates the fix, then automation orchestrator owns everything after the green build - dev deploy and tests, a contextual human approval gate, load balancer drain, production deploy with smoke test, AI-written OpenFlake (ServiceNow-compatible) change notes, and automatic snapshot rollback on failure.
 
-**Demo video:** [Lightwell + AAP — Automated CI/CD from PR to Production](https://youtu.be/4iZCS4atxHQ)
+**Demo video:** [Lightwell + AAP - Automated CI/CD from PR to Production](https://youtu.be/4iZCS4atxHQ)
 
 ## What this demo shows
 
@@ -11,12 +11,12 @@ Your security team flags CVE-2024-23334 in `aiohttp==3.9.0`. Lightwell backports
 Automation orchestrator then:
 
 1. Deploys the artifact to **dev** (port 8080) and runs integration tests, posting work notes to the change request in OpenFlake
-2. Routes on `ao_dev_test_passed` — failure path writes an AI ITSM note and stops; success path reaches approval
-3. Shows the approver full context (app, version, CVE, CI link, CHG number) — not a bare approve/reject
+2. Routes on `ao_dev_test_passed` - failure path writes an AI ITSM note and stops; success path reaches approval
+3. Shows the approver full context (app, version, CVE, CI link, CHG number) - not a bare approve/reject
 4. Drains the load balancer, deploys **prod** (port 80) with a pre-deploy snapshot, and smoke-tests `/health`
 5. On success, an AI agent writes the close note and AAP closes the change; on failure, AI writes an incident note and Ansible restores the snapshot
 
-Automation orchestrator does not replace your CI or ITSM — it coordinates the work between them from CI pass to production verification. Lab demos use **OpenFlake** (same Table API shape as ServiceNow; playbooks call `/api/flake/...` and also accept product-demos `SN_*` credential env vars).
+Automation orchestrator does not replace your CI or ITSM - it coordinates the work between them from CI pass to production verification. Lab demos use **OpenFlake** (same Table API shape as ServiceNow; playbooks call `/api/flake/...` and also accept product-demos `SN_*` credential env vars).
 
 ## Workflow
 
@@ -101,11 +101,11 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for infrastructure, job templates, webhoo
 Keep Controller, automation orchestrator, OpenFlake, and Gitea open side by side (URLs / passwords from the product-demos seed summary; Gitea is `apdadmin` / `Ansible123!`).
 
 1. Run **CI/CD Demo - Reset Demo** (before every show)
-2. Run **CI/CD Demo - Simulate Lightwell PR** (~30s) — creates the CHG and opens the PR; confirm `requirements.txt` shows `aiohttp==3.9.2.rhlw-00001`
-3. Merge the PR in Gitea — watch **Actions** on `inventory-service`; CI posts the webhook into automation orchestrator on success
+2. Run **CI/CD Demo - Simulate Lightwell PR** (~30s) - creates the CHG and opens the PR; confirm `requirements.txt` shows `aiohttp==3.9.2.rhlw-00001`
+3. Merge the PR in Gitea - watch **Actions** on `inventory-service`; CI posts the webhook into automation orchestrator on success
 4. In automation orchestrator → **Workflow Runs**, open **CI/CD Pipeline - Dev Test, Approval, Prod Deploy with Rollback**
 5. Approve **Dev Lead Approval - Promote to Production**; stay until prod deploy + close loop finish
-6. In OpenFlake, open the change — about seven activities through close (or break prod `/health` first to demo rollback)
+6. In OpenFlake, open the change - about seven activities through close (or break prod `/health` first to demo rollback)
 
 ## AO building blocks
 
