@@ -48,6 +48,9 @@ cicd-pipeline:
       - "<strong>Approve when prompted.</strong> Let it run through dev deploy/test. When it hits <strong>Dev Lead Approval - Promote to Production</strong>, Approve it. Stay until the run completes successfully (prod deploy + close loop)."
       - "<strong>Check OpenFlake.</strong> Open the change. When the pipeline finishes you should see about seven activities on the issue (work notes / updates from the AAP steps along the way, ending with close)."
     notes:
+      - after: 1
+        label: Note
+        text: OpenFlake stands in for ServiceNow in this lab. It is an open source, ServiceNow-compatible ITSM used for demo purposes only; the same Table API pattern maps to a real ServiceNow instance in customer environments.
       - after: 5
         label: Presenter note
         text: Human approval steps are optional - teams can add more gates, remove them, or fully automate promotion based on maturity and trust. For emergency response under high security exposure, organizations often waive approvals to move faster.
