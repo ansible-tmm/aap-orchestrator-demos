@@ -483,6 +483,21 @@ novel-incident-remediation:
       description: Logs the unrecognized incident details and posts a work note to the ServiceNow ticket flagging it for manual triage.
       runs_on: localhost (ServiceNow API)
 
+check-mode-change-control:
+  status: active
+  items:
+    - name: multi_domain_change.yml
+      path: check-mode-change-control/aap/playbooks/multi_domain_change.yml
+      description: Runs the multi-domain change (package, sysctl config, service) and publishes per-domain impact via set_stats. Registered as both the Check and Apply job templates.
+      runs_on: All in-scope hosts (web, db, loadbalancer)
+    - name: update_snow_change.yml
+      path: check-mode-change-control/aap/playbooks/update_snow_change.yml
+      description: Looks up the change request sys_id and PATCHes it with the work note passed by the workflow; sets state 3 (Closed) on the approved path.
+      runs_on: localhost (ServiceNow REST)
+    - name: simulate_change_process.yml
+      path: check-mode-change-control/test/simulate_change_process.yml
+      description: Creates the change request in ServiceNow and fires the automation orchestrator webhook to initiate the check-mode change control workflow.
+      runs_on: localhost (ServiceNow + automation orchestrator APIs)
 zero-day-response:
   status: active
   items:
@@ -496,11 +511,11 @@ zero-day-response:
       runs_on: RHEL hosts
     - name: p2s_scan.yml
       path: zero-day-response/playbooks/p2s_scan.yml
-      description: KNOW — evidence from every PHP asset, then the deterministic classification.
+      description: KNOW  -  evidence from every PHP asset, then the deterministic classification.
       runs_on: RHEL hosts
     - name: p2s_lookback.yml
       path: zero-day-response/playbooks/p2s_lookback.yml
-      description: KNOW — log look-back, were we already hit?
+      description: KNOW  -  log look-back, were we already hit?
       runs_on: RHEL hosts
     - name: p2s_ai_check.yml
       path: zero-day-response/playbooks/p2s_ai_check.yml
@@ -508,19 +523,19 @@ zero-day-response:
       runs_on: localhost
     - name: p2s_spec_check.yml
       path: zero-day-response/playbooks/p2s_spec_check.yml
-      description: Policy gate — is the AI-extracted control spec inside the reviewed envelope?
+      description: Policy gate  -  is the AI-extracted control spec inside the reviewed envelope?
       runs_on: localhost
     - name: p2s_controls.yml
       path: zero-day-response/playbooks/p2s_controls.yml
-      description: CONTAIN — applies and verifies the interim controls, test then production.
+      description: CONTAIN  -  applies and verifies the interim controls, test then production.
       runs_on: RHEL hosts
     - name: p2s_fix_availability.yml
       path: zero-day-response/playbooks/p2s_fix_availability.yml
-      description: FIX — decides per stream on the Red Hat API answers the workflow recorded.
+      description: FIX  -  decides per stream on the Red Hat API answers the workflow recorded.
       runs_on: localhost
     - name: p2s_patch.yml
       path: zero-day-response/playbooks/p2s_patch.yml
-      description: FIX — patch and verify, test then rolling production with rollback.
+      description: FIX  -  patch and verify, test then rolling production with rollback.
       runs_on: RHEL hosts
     - name: p2s_standdown.yml
       path: zero-day-response/playbooks/p2s_standdown.yml
@@ -528,7 +543,7 @@ zero-day-response:
       runs_on: RHEL hosts
     - name: p2s_case_record.yml
       path: zero-day-response/playbooks/p2s_case_record.yml
-      description: PROVE — records the AI-drafted update on the case; refuses an empty draft.
+      description: PROVE  -  records the AI-drafted update on the case; refuses an empty draft.
       runs_on: localhost
     - name: p2s_independent_check.yml
       path: zero-day-response/playbooks/p2s_independent_check.yml

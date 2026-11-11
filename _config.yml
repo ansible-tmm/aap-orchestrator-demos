@@ -34,6 +34,7 @@ exclude:
   - novel-incident-remediation/
   - cicd-pipeline/
   - zero-day-response/
+  - check-mode-change-control/
   - collections/
   - shared/
   - README.md
