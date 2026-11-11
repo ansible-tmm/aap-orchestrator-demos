@@ -16,15 +16,18 @@
         disk_use_percent: "{{ _test_disk_use_percent | int }}"
       when: _test_disk_use_percent | length > 0
 
-    - name: Gather mount facts
-      ansible.builtin.setup:
-        gather_subset:
-          - mounts
-      when: _test_disk_use_percent | length == 0
-
-    - name: Resolve mount from facts
-      ansible.builtin.set_fact:
-        _mounts: "{{ ansible_mounts | selectattr('mount', 'equalto', disk_mount) | list }}"
+    # Prefer df over ansible_mounts: container EEs (AAP 2.7 supported EE) often
+    # expose only /runner in ansible_mounts while / is an overlay that df sees.
+    # See https://github.com/ansible-tmm/aap-orchestrator-demos/issues/8
+    - name: Read disk usage with df
+      ansible.builtin.command:
+        argv:
+          - df
+          - -P
+          - "{{ disk_mount }}"
+      register: disk_df
+      changed_when: false
+      failed_when: false
       when: _test_disk_use_percent | length == 0
 
     - name: Fail when mount is missing
@@ -32,11 +35,18 @@
         msg: "Mount {{ disk_mount }} not found on {{ inventory_hostname }}."
       when:
         - _test_disk_use_percent | length == 0
-        - _mounts | length == 0
+        - >-
+          (disk_df.rc | default(1) | int) != 0
+          or (disk_df.stdout_lines | default([]) | length) < 2
 
     - name: Calculate disk use percent for mount
       ansible.builtin.set_fact:
-        disk_use_percent: "{{ ((_mounts[0].block_used / _mounts[0].block_total) * 100) | int }}"
+        disk_use_percent: >-
+          {{
+            disk_df.stdout_lines[1].split()[4]
+            | regex_replace('%', '')
+            | int
+          }}
       when: _test_disk_use_percent | length == 0
 
     - name: Bucket disk use into switch tier
