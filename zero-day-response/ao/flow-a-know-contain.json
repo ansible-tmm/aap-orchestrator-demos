@@ -1,0 +1,586 @@
+{
+ "name": "Zero-Day Response - PHP2Shell: KNOW + CONTAIN",
+ "schema_version": "2.0.0",
+ "description": "Know (evidence, classification, look-back, AI explanation) then Contain (AI extracts controls from the recorded advisory, policy gate, test, two named approvals, production verify, board update). AI reads; owners decide; AAP acts.",
+ "triggers": [
+  {
+   "id": "trigger_manual",
+   "name": "Zero-day advisory received",
+   "type": "manual_trigger",
+   "position": {
+    "x": 0,
+    "y": 300
+   },
+   "parameters": {
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "incident_id": {
+       "type": "string",
+       "default": "SIR-PHP2SHELL-001",
+       "description": "Security incident / case id"
+      },
+      "advisory": {
+       "type": "string",
+       "default": "RHSB-2026-013"
+      },
+      "cves": {
+       "type": "string",
+       "default": "CVE-2026-109618, CVE-2026-109619"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "nodes": [
+  {
+   "id": "know_scan",
+   "name": "KNOW \u00b7 Evidence scan",
+   "type": "aap_job_template",
+   "position": {
+    "x": 420,
+    "y": 140
+   },
+   "parameters": {
+    "job_template_name": "p2s-know-scan",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}"
+    }
+   },
+   "description": "Every PHP asset: version, SAPI, live settings, exposure, fix stream"
+  },
+  {
+   "id": "know_lookback",
+   "name": "KNOW \u00b7 Were we hit?",
+   "type": "aap_job_template",
+   "position": {
+    "x": 420,
+    "y": 460
+   },
+   "parameters": {
+    "job_template_name": "p2s-know-lookback",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}"
+    }
+   },
+   "description": "Log look-back for PHP2Shell signals (multipart + upload progress, memory errors)"
+  },
+  {
+   "id": "know_join",
+   "name": "Evidence complete",
+   "type": "converge",
+   "position": {
+    "x": 840,
+    "y": 300
+   },
+   "parameters": {
+    "strategy": "all"
+   }
+  },
+  {
+   "id": "know_brief",
+   "name": "AI \u00b7 Explain for humans",
+   "type": "agentic",
+   "position": {
+    "x": 1260,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "You are the incident analyst for ${trigger.incident_id}: PHP2Shell (${trigger.cves}), advisory ${trigger.advisory}.\n\nThe classification below was produced by REVIEWED, DETERMINISTIC automation and is shown on screen next to your text. Do not change any priority, action or fix status. Your job is to explain it for the CISO and for service owners.\n\nClassification (priority / service / SAPI / exposure / action / installed / fixed in):\n${know_scan.artifacts.p2s_table}\n\nLog look-back (\"were we already hit?\"): ${know_lookback.artifacts.p2s_lookback_text}\n\nRules:\n- Use only the facts above. If something is not in the evidence, say it is unknown.\n- In \"unknowns\", write each unknown asset exactly as: \"<service>: no evidence collected; listed exposure <exposure from the table>\". Add nothing else to \"unknowns\".\n- Do NOT state version numbers, package names or advisory ids; the table is authoritative for those.\n- Nothing has been changed yet: describe actions as planned (to contain, to isolate), never as done.\n- Never describe any asset as \"safe\" or \"protected\". Unreachable assets are UNKNOWN, not clear.\n- A look-back hit is a signal for forensic triage, not proof of compromise.\n- Describe a look-back hit only as what the evidence shows (for example: one probe-shaped request logged, sent to forensic triage). Never write that an exploit, attack or compromise was detected, confirmed or happened.\n- Triage and every other action are planned, not started: never write that anything is in progress or already done.\n- Write the look-back hit as \"sent to forensic triage\". Never write \"under triage\", \"being triaged\" or \"initiated\".\n- Be brief and concrete; name services, not hostnames.\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"are_we_affected\":{\"minLength\":1,\"type\":\"string\"},\"exec_summary\":{\"description\":\"<= 60 words for the CISO\",\"minLength\":1,\"type\":\"string\"},\"forensic_triage\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"unknowns\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"were_we_hit\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"exec_summary\",\"are_we_affected\",\"were_we_hit\",\"unknowns\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   },
+   "description": "Explains the deterministic classification; cannot change it"
+  },
+  {
+   "id": "check_know_brief",
+   "name": "CHECK \u00b7 Brief",
+   "type": "aap_job_template",
+   "position": {
+    "x": 1680,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${know_brief.result.content}",
+     "p2s_ai_schema": "know_brief"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  },
+  {
+   "id": "need_escalate",
+   "name": "Unknown assets?",
+   "type": "condition",
+   "position": {
+    "x": 2100,
+    "y": 620
+   },
+   "parameters": {
+    "condition": "${know_scan.artifacts.p2s_need_escalate} == \"true\""
+   }
+  },
+  {
+   "id": "escalate_ic",
+   "name": "OWNER \u00b7 Incident cmdr",
+   "type": "approval",
+   "position": {
+    "x": 2520,
+    "y": 620
+   },
+   "parameters": {
+    "prompt": "INCIDENT COMMANDER - unknown assets - ${trigger.incident_id}\n\nNo evidence could be collected from: ${know_scan.artifacts.p2s_unknown_summary}\nUnknown is not clear.\n\nAPPROVE = open a network-isolation request and assign an owner.\nREJECT = record as accepted risk (requires a named owner on the case).",
+    "approver_users": [
+     "admin"
+    ],
+    "decision_window": 86400,
+    "fallback_decision": "reject"
+   }
+  },
+  {
+   "id": "isolation_request",
+   "name": "AI \u00b7 Isolation request",
+   "type": "agentic",
+   "position": {
+    "x": 2940,
+    "y": 620
+   },
+   "parameters": {
+    "prompt": "Draft a network-isolation request for the network team for these unknown assets in ${trigger.incident_id} (PHP2Shell): ${know_scan.artifacts.p2s_unknown_summary}. State why (no evidence could be collected; give the inventory exposure exactly as listed), the requested action (block inbound HTTP/HTTPS at the perimeter until an owner verifies the asset), the approver (${escalate_ic.decided_by}) and the review deadline (72 hours). The body is at most 120 words. It is a draft; do not claim anything was sent or isolated. Use only the facts above. End the body with: \"Isolation stays in place until an owner verifies the asset.\"\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"body\":{\"minLength\":1,\"type\":\"string\"},\"title\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"title\",\"body\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   }
+  },
+  {
+   "id": "check_isolation_request",
+   "name": "CHECK \u00b7 Isolation draft",
+   "type": "aap_job_template",
+   "position": {
+    "x": 3360,
+    "y": 620
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${isolation_request.result.content}",
+     "p2s_ai_schema": "isolation_request"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  },
+  {
+   "id": "need_contain",
+   "name": "Anything to contain?",
+   "type": "condition",
+   "position": {
+    "x": 2100,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${know_scan.artifacts.p2s_need_contain} == \"true\""
+   }
+  },
+  {
+   "id": "contain_extract",
+   "name": "AI \u00b7 Read the advisory",
+   "type": "agentic",
+   "position": {
+    "x": 2520,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "Extract the interim mitigation for PHP2Shell using ONLY the recorded advisory text between the BEGIN and END markers at the end of this prompt: verbatim mitigation sections of Red Hat bulletin RHSB-2026-013 and of the php.net notice. Do not use any other knowledge; if the documents do not say it, do not include it.\n\nIn-scope stacks: RHEL 10 php-fpm services and a php:8.4 Apache (mod_php) container. Business context: payments-portal, customer-api and partner-portal accept invoice uploads (max 2 MB). marketing-site does not accept uploads.\n\nReturn:\n- settings: php.ini-level settings for which the documents give a LITERAL value (for example 0, -1, 32M), each with a citation (document + section heading) and a verbatim quote of at most 25 words. Choose values appropriate for services that accept uploads where the advisory distinguishes. A directive the documents describe only as a condition or relationship (for example \"below post_max_size\") must NOT appear in settings: state that relationship in requires instead. Never write a sentence in a value. List each setting once, with the single value for the upload services. Include only directives that exist in PHP 8.3 and PHP 8.4, the in-scope versions: if a section of the documents applies only to other PHP versions or other products, leave its settings out of settings and mention them in cautions.\n- requires: prerequisites the automation must enforce or verify for these settings to be valid (as stated in the documents).\n- residual_risk_quote: the advisory's own verbatim sentence on whether configuration changes substitute for patching.\n- cautions: business-impact warnings stated in the documents.\n\n----- BEGIN RECORDED ADVISORY (sha256 5e976af9a5b70ca79ade5367f0d40b1c56e84e515b507d71af0464bf18203db4) -----\nRECORDED ADVISORY EXCERPT for PHP2Shell (CVE-2026-109618 / CVE-2026-109619). Verbatim spans, nothing paraphrased.\nSpan 1: RHSB-2026-013.snapshot.txt (sha256 856f806b38edc18145cd0f59bf1911159514d0c0a05ff329475cf946ebb6dbdd), from heading 'Mitigation' up to 'Acknowledgements'.\nSpan 2: php.net-2026-10-21.snapshot.txt (sha256 bafcd8831586056fa65c0dbec0758b4d58d47123f0215b6f3b9122328e0c04c8), the paragraph beginning 'If you cannot update immediately'.\n\n===== SPAN 1: Red Hat Security Bulletin RHSB-2026-013 =====\nMitigation\n\nOverall Guidance\n\nConfiguration changes can prevent the vulnerable paths from being reached, but they may disrupt workloads and are not a substitute for patching. Disabling session upload progress fully protects against CVE-2026-115560, and removes exposure to CVE-2026-109619 on the php package shipped with Red Hat Enterprise Linux 7, but on other products it blocks only the confirmed session paths. The memory limit and request size changes remove the attacker-controllable failure for CVE-2026-109618 but do not eliminate it, because an underlying allocation failure can still reach the affected code. Patching is the only comprehensive solution that both fixes the vulnerabilities and maintains full functionality.\n\nThe PHP project publishes additional application-level hardening guidance in its upstream advisories, linked in the References section below.\n\nProduct-Specific Mitigation Steps\n\nApply all settings below using php_admin_value in the PHP-FPM pool or Apache HTTP Server configuration so that applications cannot override them. Settings must take effect before request parsing begins, so ini_set() and PHP-FPM .user.ini files are not suitable.\n\nRestart every worker after any change. A reload is not sufficient, because existing workers may retain affected state from earlier requests.\n\nsystemctl restart httpd      # mod_php, the default on RHEL 7\nsystemctl restart php-fpm    # PHP-FPM, the default on RHEL 8 and later\n\nIn containerized deployments, replace the running container or pod.\n\nDisable Session Upload Progress\n\nAddresses CVE-2026-109619 and CVE-2026-115560. This is the single most effective change and the only one required on Red Hat Enterprise Linux 7.\n\nWarning: Applications using PHP's native session upload-progress reporting will no longer receive progress data. Applications that report upload progress in the browser are unaffected.\n\nsession.upload_progress.enabled = 0\n\nThis directive is commented out in the shipped /etc/php.ini and defaults to enabled, so the line must be added and set to 0. Uncommenting the shipped line leaves the feature enabled.\n\nAudit for .htaccess, virtual host php_value, and .user.ini settings that could re-enable it per directory. Using php_admin_value prevents these overrides. Verify through a temporary phpinfo() page rather than php -i, which reports the command-line configuration.\n\nCVE-2026-115560 affects only applications that set session.serialize_handler to php_binary or php_serialize in configuration and then switch it to php at runtime with ini_set() before calling session_start(). Applications that never change the serialize handler at runtime are not exposed to that flaw. This setting remains recommended regardless, as it also addresses CVE-2026-109619.\n\nKeep this setting in place until the updates are applied. For CVE-2026-115560 alone, upstream expects a fix in the next routine PHP release.\n\nRemove the Controllable Memory Limit\n\nAddresses CVE-2026-109618. Not required on Red Hat Enterprise Linux 7, which is not affected by this flaw.\n\nWarning: This removes PHP's own memory ceiling. Do not apply it without an external availability boundary in place, or a single runaway request can exhaust system memory.\n\nmemory_limit = -1\n\nVerify that no pool, directory, or application setting reimposes a finite limit. Impose the availability boundary with a container or cgroup limit instead, preferably with a policy that terminates only the affected worker.\n\nWarning: Do not use RLIMIT_AS or RLIMIT_DATA for this purpose. They produce exactly the allocation failure that reaches the affected code and will make the problem worse.\n\nLimit Request Size\n\nAddresses CVE-2026-109618.\n\nWarning: Applications accepting large uploads or large form posts will break if the limit is set below what they require. Review current values before applying.\n\npost_max_size = 8M     # applications that do not require file uploads\npost_max_size = 32M    # applications that require file uploads\n\nKeep upload_max_filesize below post_max_size. Consider enforcing further limits at the web server or proxy for decoded request size, input field count, multipart part count, header count, and nesting depth. These must also apply to requests without a usable Content-Length header.\n\nAdditional Steps for PHP 8.5\n\nAddresses the confirmed fatal error backtrace path for CVE-2026-109619. The setting does not exist on earlier PHP versions. Of the products listed above, this applies to Red Hat Hardened Images.\n\nWarning: Fatal error backtraces will no longer be recorded, which may hinder application debugging.\n\nfatal_error_backtraces = 0\n\n===== SPAN 2: php.net security notice (21 Oct 2026) =====\nIf you cannot update immediately: while only an update is a complete solution, the following measures reduce exposure to specific attack paths but do not make an installation safe.\n\n----- END RECORDED ADVISORY -----\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"cautions\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"requires\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"residual_risk_quote\":{\"minLength\":1,\"type\":\"string\"},\"settings\":{\"items\":{\"properties\":{\"citation\":{\"minLength\":1,\"type\":\"string\"},\"quote\":{\"type\":\"string\"},\"setting\":{\"minLength\":1,\"type\":\"string\"},\"value\":{\"description\":\"literal php.ini value only, e.g. 0, -1, 32M\",\"minLength\":1,\"pattern\":\"^-?[0-9]+[KMGkmg]?$\",\"type\":\"string\"}},\"required\":[\"setting\",\"value\",\"citation\"],\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"settings\",\"requires\",\"residual_risk_quote\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   },
+   "description": "Reads only the recorded advisory embedded in its prompt (sha256 in the run record)"
+  },
+  {
+   "id": "check_contain_extract",
+   "name": "CHECK \u00b7 Extracted spec",
+   "type": "aap_job_template",
+   "position": {
+    "x": 2940,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${contain_extract.result.content}",
+     "p2s_ai_schema": "contain_extract"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  },
+  {
+   "id": "contain_gate",
+   "name": "GATE \u00b7 Policy check",
+   "type": "aap_job_template",
+   "position": {
+    "x": 3360,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-contain-spec-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_spec": "${check_contain_extract.artifacts.p2s_ai}"
+    }
+   },
+   "description": "Rejects unreviewed settings, values or missing citations"
+  },
+  {
+   "id": "spec_ok",
+   "name": "Within policy?",
+   "type": "condition",
+   "position": {
+    "x": 3780,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${contain_gate.artifacts.p2s_spec_ok} == \"true\""
+   }
+  },
+  {
+   "id": "spec_review",
+   "name": "OWNER \u00b7 Engineer review",
+   "type": "approval",
+   "position": {
+    "x": 4200,
+    "y": 620
+   },
+   "parameters": {
+    "prompt": "The AI-extracted spec is outside the reviewed envelope: ${contain_gate.artifacts.p2s_spec_violations}\nNothing has been applied. Update the reviewed role through a pull request, then re-run.\nAPPROVE = acknowledge and assign; REJECT = discard the extraction.",
+    "approver_users": [
+     "admin"
+    ],
+    "decision_window": 86400,
+    "fallback_decision": "reject"
+   }
+  },
+  {
+   "id": "role_pr_draft",
+   "name": "AI \u00b7 Draft role PR",
+   "type": "agentic",
+   "position": {
+    "x": 4620,
+    "y": 620
+   },
+   "parameters": {
+    "prompt": "The extracted mitigation spec for ${trigger.incident_id} contains items outside the reviewed control role: ${contain_gate.artifacts.p2s_spec_violations}. Full spec: ${check_contain_extract.artifacts.p2s_ai}. Draft a pull request description for the automation team: what to add to the role's allowed parameter envelope, the advisory citation for each item, the verification check that must be added, and the test that must pass before merge. Do not write the code; the PR is reviewed and merged by humans.\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"body\":{\"minLength\":1,\"type\":\"string\"},\"checks_to_add\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"title\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"title\",\"body\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   }
+  },
+  {
+   "id": "check_role_pr_draft",
+   "name": "CHECK \u00b7 PR draft",
+   "type": "aap_job_template",
+   "position": {
+    "x": 5040,
+    "y": 620
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${role_pr_draft.result.content}",
+     "p2s_ai_schema": "role_pr_draft"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  },
+  {
+   "id": "contain_test",
+   "name": "TEST \u00b7 Contain + verify",
+   "type": "aap_job_template",
+   "position": {
+    "x": 4200,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-contain-controls",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_scope": "test",
+     "p2s_spec": "${check_contain_extract.artifacts.p2s_ai}"
+    }
+   },
+   "description": "Effective settings, cgroup boundary, restart, edge 403, business upload test",
+   "settings": {
+    "continue_on_failure": true
+   }
+  },
+  {
+   "id": "test_ok",
+   "name": "Test verified?",
+   "type": "condition",
+   "position": {
+    "x": 4620,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${contain_test.artifacts.p2s_verify_all_ok_str} == \"true\""
+   }
+  },
+  {
+   "id": "approve_security",
+   "name": "OWNER \u00b7 Security",
+   "type": "approval",
+   "position": {
+    "x": 5040,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "CONTAIN - PHP2Shell - ${trigger.incident_id}\n\n${check_know_brief.artifacts.p2s_ai.exec_summary}\n\nApply interim controls to: ${know_scan.artifacts.p2s_action_services_text}\nControls (AI-extracted from the recorded advisories, inside the reviewed envelope): ${contain_gate.artifacts.p2s_spec_settings}\nPrerequisites enforced by automation: php_admin_value scope, cgroup memory boundary, worker restart (not reload).\nPending services from scan: ${know_scan.artifacts.p2s_pending_services}\nIsolation for pending services removes HTTP access from other hosts.\nTested commit: ${contain_test.artifacts.p2s_commit}\nTest environment: every verification check passed - ${contain_test.job_url}\n\nResidual risk, quoted from the recorded advisory: \"${check_contain_extract.artifacts.p2s_ai.residual_risk_quote}\"\n\nAPPROVE = apply and verify in production, one host at a time.\nREJECT = no change; the exposure stays open on the incident.",
+    "approver_users": [
+     "admin"
+    ],
+    "decision_window": 86400,
+    "fallback_decision": "reject"
+   }
+  },
+  {
+   "id": "approve_service",
+   "name": "OWNER \u00b7 Payments service",
+   "type": "approval",
+   "position": {
+    "x": 5460,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "SERVICE OWNER DECISION - payments-portal (team-payments) - ${trigger.incident_id}\n\npayments-portal runs PHP under mod_php and is internet-facing: the highest-risk configuration for PHP2Shell.\nTo contain it, the edge will reject multipart uploads. Invoice upload on payments-portal will be UNAVAILABLE until the fixed image (php 8.4.27) is deployed.\n\nException window: 72 hours from approval. At expiry the incident commander must re-approve or escalate.\n\nAPPROVE = accept the upload outage as the price of containment.\nREJECT = keep uploads; the residual risk is recorded against payments-portal.",
+    "approver_users": [
+     "admin"
+    ],
+    "decision_window": 86400,
+    "fallback_decision": "reject"
+   }
+  },
+  {
+   "id": "contain_prod",
+   "name": "PROD \u00b7 Contain + verify",
+   "type": "aap_job_template",
+   "position": {
+    "x": 5880,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-contain-controls",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_scope": "prod",
+     "p2s_targets": "${know_scan.artifacts.p2s_action_targets}",
+     "p2s_assets": "${know_scan.artifacts.p2s_assets}",
+     "p2s_spec": "${check_contain_extract.artifacts.p2s_ai}"
+    }
+   },
+   "description": "Per-host evidence: CONTROL VERIFIED (not 'safe')",
+   "settings": {
+    "continue_on_failure": true
+   }
+  },
+  {
+   "id": "prod_ok",
+   "name": "Verified everywhere?",
+   "type": "condition",
+   "position": {
+    "x": 6300,
+    "y": 300
+   },
+   "parameters": {
+    "condition": "${contain_prod.artifacts.p2s_verify_all_ok_str} == \"true\""
+   }
+  },
+  {
+   "id": "prove_case_a",
+   "name": "PROVE \u00b7 Record to case",
+   "type": "aap_job_template",
+   "position": {
+    "x": 7560,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-prove-case-record",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}",
+     "p2s_case_kind": "contain_update",
+     "p2s_case_entry": "${check_board_update.artifacts.p2s_ai}"
+    }
+   },
+   "description": "Lab: AAP job artifact. In production: posts to the SOAR/ITSM case. Refuses an empty draft."
+  },
+  {
+   "id": "board_update",
+   "name": "AI \u00b7 Board update",
+   "type": "agentic",
+   "position": {
+    "x": 6720,
+    "y": 300
+   },
+   "parameters": {
+    "prompt": "Write the CONTAIN status update for the CISO and board for ${trigger.incident_id} (PHP2Shell).\n\nProduction verification (JSON): ${contain_prod.artifacts.p2s_verify}\nUnknown assets (no evidence collected): ${know_scan.artifacts.p2s_unknown_summary}\nServices with no fix available: ${know_scan.artifacts.p2s_pending_services}\nLog look-back: ${know_lookback.artifacts.p2s_lookback_text}\nResidual risk (verbatim sentence from Red Hat bulletin RHSB-2026-013): \"${check_contain_extract.artifacts.p2s_ai.residual_risk_quote}\"\nApproved by security owner: ${approve_security.decided_by} at ${approve_security.decided_at}\nService owner decision: ${approve_service.decision} by ${approve_service.decided_by} at ${approve_service.decided_at}\n\nRules: report only what the verification shows. \"Control verified\" is not \"safe\" - say so. List open items explicitly (vendor appliance waiting for a fix, unknown assets, forensic triage). Name the next decision point. Use only dates and times stated above; never invent a date, deadline or schedule. Do not restate approvals or their times; the workflow keeps the approval record. Forensic triage is recommended, not started: never write that it is in progress or underway. Attribute statements to their source: \"Red Hat\" for RHSB-2026-013, \"PHP\" for php.net; use \"vendor\" only for the AcmeCMS appliance vendor.\n\nReturn only one JSON object that matches this JSON schema, with no other text before or after it:\n{\"properties\":{\"headline\":{\"minLength\":1,\"type\":\"string\"},\"next_decision\":{\"minLength\":1,\"type\":\"string\"},\"not_claimed\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"open_items\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"verified\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"}},\"required\":[\"headline\",\"verified\",\"not_claimed\",\"open_items\",\"next_decision\"],\"type\":\"object\"}",
+    "credential_id": "YOUR_AO_MODEL_CREDENTIAL_ID",
+    "tool_selection_strategy": "NONE"
+   },
+   "description": "Drafts the status update for human sign-off"
+  },
+  {
+   "id": "check_board_update",
+   "name": "CHECK \u00b7 Board update",
+   "type": "aap_job_template",
+   "position": {
+    "x": 7140,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-ai-output-check",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_ai_raw": "${board_update.result.content}",
+     "p2s_ai_schema": "board_update"
+    }
+   },
+   "description": "Parses and validates the AI answer against its reviewed schema; fails visibly on an empty or malformed answer"
+  }
+ ],
+ "edges": [
+  {
+   "from": "trigger_manual",
+   "to": "know_scan"
+  },
+  {
+   "from": "trigger_manual",
+   "to": "know_lookback"
+  },
+  {
+   "from": "know_scan",
+   "to": "know_join"
+  },
+  {
+   "from": "know_lookback",
+   "to": "know_join"
+  },
+  {
+   "from": "know_join",
+   "to": "know_brief"
+  },
+  {
+   "from": "check_know_brief",
+   "to": "need_escalate"
+  },
+  {
+   "from": "need_escalate",
+   "to": "escalate_ic",
+   "from_port": "true"
+  },
+  {
+   "from": "escalate_ic",
+   "to": "isolation_request",
+   "from_port": "approved"
+  },
+  {
+   "from": "check_know_brief",
+   "to": "need_contain"
+  },
+  {
+   "from": "need_contain",
+   "to": "contain_extract",
+   "from_port": "true"
+  },
+  {
+   "from": "check_contain_extract",
+   "to": "contain_gate"
+  },
+  {
+   "from": "contain_gate",
+   "to": "spec_ok"
+  },
+  {
+   "from": "spec_ok",
+   "to": "contain_test",
+   "from_port": "true"
+  },
+  {
+   "from": "spec_ok",
+   "to": "spec_review",
+   "from_port": "false"
+  },
+  {
+   "from": "spec_review",
+   "to": "role_pr_draft",
+   "from_port": "approved"
+  },
+  {
+   "from": "contain_test",
+   "to": "test_ok"
+  },
+  {
+   "from": "test_ok",
+   "to": "approve_security",
+   "from_port": "true"
+  },
+  {
+   "from": "approve_security",
+   "to": "approve_service",
+   "from_port": "approved"
+  },
+  {
+   "from": "approve_service",
+   "to": "contain_prod",
+   "from_port": "approved"
+  },
+  {
+   "from": "contain_prod",
+   "to": "prod_ok"
+  },
+  {
+   "from": "prod_ok",
+   "to": "board_update",
+   "from_port": "true"
+  },
+  {
+   "from": "check_board_update",
+   "to": "prove_case_a"
+  },
+  {
+   "from": "know_brief",
+   "to": "check_know_brief"
+  },
+  {
+   "from": "isolation_request",
+   "to": "check_isolation_request"
+  },
+  {
+   "from": "contain_extract",
+   "to": "check_contain_extract"
+  },
+  {
+   "from": "role_pr_draft",
+   "to": "check_role_pr_draft"
+  },
+  {
+   "from": "board_update",
+   "to": "check_board_update"
+  }
+ ]
+}

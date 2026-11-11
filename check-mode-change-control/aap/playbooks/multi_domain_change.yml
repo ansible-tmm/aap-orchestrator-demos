@@ -1,5 +1,5 @@
 ---
-# Multi-domain platform change — runs in check mode first (via the "Multi-Domain Change - Check"
+# Multi-domain platform change - runs in check mode first (via the "Multi-Domain Change - Check"
 # job template, job_type: check), then for real (via the "Multi-Domain Change - Apply" job
 # template, job_type: run). In check mode nothing is modified; every task still reports
 # what WOULD change, and the impact is published via set_stats for the automation
@@ -8,7 +8,7 @@
 # Domains are inventory groups: every group a host belongs to gets its own task
 # block, and the impact is reported per host per domain. One VM can be a member
 # of all three demo groups (web, db, loadbalancer) to produce a full multi-domain
-# impact report from a single machine — add more VMs to new groups later without
+# impact report from a single machine - add more VMs to new groups later without
 # changing this playbook.
 - name: Multi-domain platform change
   hosts: web:db:loadbalancer
@@ -22,7 +22,7 @@
       changed_when: false
 
     # ---- Web domain tasks ----------------------------------------------------
-    - name: Web domain — ensure baseline package is present
+    - name: Web domain - ensure baseline package is present
       ansible.builtin.package:
         name: "{{ baseline_package | default('chrony') }}"
         state: present
@@ -30,7 +30,7 @@
       when: "'web' in _domains"
 
     # ---- Database domain tasks ------------------------------------------------
-    - name: DB domain — set kernel panic timeout in sysctl config
+    - name: DB domain - set kernel panic timeout in sysctl config
       ansible.builtin.lineinfile:
         path: /etc/sysctl.d/99-change-control.conf
         line: kernel.panic = 10
@@ -42,7 +42,7 @@
       when: "'db' in _domains"
 
     # ---- Load balancer domain tasks --------------------------------------------
-    - name: Load balancer domain — ensure time sync service is running
+    - name: Load balancer domain - ensure time sync service is running
       ansible.builtin.service:
         name: chronyd
         state: started
@@ -69,13 +69,13 @@
              (['enable and start chronyd (service not currently running/enabled)']
               if _lb_service is changed else []) }}
         _unchanged_tasks: >-
-          {{ ([_pkg ~ ' already installed — verified compliant']
+          {{ ([_pkg ~ ' already installed - verified compliant']
               if _web_pkg is not changed else [])
              if _domain == 'web' else
-             (['kernel.panic = 10 already set in /etc/sysctl.d/99-change-control.conf — verified compliant']
+             (['kernel.panic = 10 already set in /etc/sysctl.d/99-change-control.conf - verified compliant']
               if _db_config is not changed else [])
              if _domain == 'db' else
-             (['chronyd already enabled and running — verified compliant']
+             (['chronyd already enabled and running - verified compliant']
               if _lb_service is not changed else []) }}
         _entry:
           domain: "{{ _domain }}"
@@ -119,4 +119,6 @@
     - name: Reload sysctl
       ansible.builtin.command:
         cmd: sysctl --system
+      # Keep check mode honest: do not apply sysctl when this is a dry run.
+      when: not ansible_check_mode
       changed_when: true

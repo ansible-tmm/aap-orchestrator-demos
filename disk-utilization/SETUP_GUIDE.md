@@ -43,8 +43,8 @@ For the **expand** path, attach an IAM instance profile with `ec2:ModifyVolume`,
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or `disk-utilization/` subtree) from Git.
-2. **Inventory** — create a host matching `disk-utilization/inventory/hosts.yml`:
+1. **Project** - sync this repo (or `disk-utilization/` subtree) from Git.
+2. **Inventory** - create a host matching `disk-utilization/inventory/hosts.yml`:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -61,7 +61,7 @@ For the **expand** path, attach an IAM instance profile with `ec2:ModifyVolume`,
 | `disk_expand_gb` | `5` | GiB to add on expand path |
 | `aws_region` | `us-east-1` | Region for EBS API calls |
 
-`ec2_instance_id` is optional — the expand playbook auto-discovers the instance via EC2 metadata or AWS API IP lookup.
+`ec2_instance_id` is optional - the expand playbook auto-discovers the instance via EC2 metadata or AWS API IP lookup.
 
 ### 3. Register Job Templates
 
@@ -80,9 +80,9 @@ Create six job templates from `disk-utilization/playbooks/`:
 
 - SSH Machine credential on Linux playbooks (115, 116, 118, 119 host play, 120)
 - AWS credential on the expand template (119) if not using an instance profile
-- No SSH needed on notify (117) — runs on localhost
+- No SSH needed on notify (117) - runs on localhost
 
-**Notify template extra vars** — set on JT 117 or pass from AO:
+**Notify template extra vars** - set on JT 117 or pass from AO:
 
 | Variable | Purpose |
 |----------|---------|
@@ -125,16 +125,16 @@ Both use the same check job and publish `disk_use_percent` plus `disk_tier`.
 
 1. `job_template_id` on each AAP job step (if your Controller IDs differ from nostromo)
 2. `credential_id` on each step
-3. `test_disk_use_percent` on the check step — exported default is `50` (routes to Continue); change or remove for live disk checks
+3. `test_disk_use_percent` on the check step - exported default is `50` (routes to Continue); change or remove for live disk checks
 
 ### 6. Configure the Switch Step
 
 | Switch port | Condition | Remediate | Notify title |
 |-------------|-----------|-----------|--------------|
-| `<80%` | `disk_use_percent < 80` | Continue — no action | Disk Utilization OK (green) |
-| `80-95%` | `>= 80 and <= 95` | Cleanup dnf cache + old logs | Warning — Disk Cleanup (orange) |
-| `>95%` | `disk_use_percent > 95` | Expand EBS + grow filesystem | Critical — Disk Expanded (purple) |
-| `default` | missing or non-numeric artifact | Fallback — manual review | Unsupported Disk Tier (red) |
+| `<80%` | `disk_use_percent < 80` | Continue - no action | Disk Utilization OK (green) |
+| `80-95%` | `>= 80 and <= 95` | Cleanup dnf cache + old logs | Warning - Disk Cleanup (orange) |
+| `>95%` | `disk_use_percent > 95` | Expand EBS + grow filesystem | Critical - Disk Expanded (purple) |
+| `default` | missing or non-numeric artifact | Fallback - manual review | Unsupported Disk Tier (red) |
 
 After a check run, confirm **Input → Schema** on the Switch step shows `disk_use_percent` as `number`, not `string`.
 

@@ -10,13 +10,13 @@ See the impact before you commit: run the multi-domain change in check mode, get
 | ServiceNow instance | Developer instance or your own, with change_request access |
 | 3 RHEL 9.x hosts | In AAP inventory groups `web`, `db`, `loadbalancer` |
 
-No MCP server is needed — ServiceNow interactions go through job templates over the REST API.
+No MCP server is needed - ServiceNow interactions go through job templates over the REST API.
 
 ## 1. AAP Setup
 
 ### Inventory
 
-Domains are inventory groups, and **one VM is enough** — make it a member of all three groups. (With three VMs, put each in one group.)
+Domains are inventory groups, and **one VM is enough** - make it a member of all three groups. (With three VMs, put each in one group.)
 
 | Host | Groups |
 |------|--------|
@@ -69,7 +69,7 @@ Same as above, but **Job type: Run**.
 |---------|-------|
 | Playbook | `test/simulate_change_process.yml` |
 | Credential | ServiceNow custom credential type (plus automation orchestrator env vars below) |
-| Extra vars | `scenario_list` — `standard`, `high_risk`, or a comma-separated list |
+| Extra vars | `scenario_list` - YAML list such as `[standard]` / `[high_risk]`, or a comma-separated string (`standard,high_risk`). Defaults to `[standard]` |
 
 Add the automation orchestrator service account to the simulation credential (or a second one):
 
@@ -94,23 +94,23 @@ Import `ao/check-mode-change-control.json` (use `playbooks/sync_ao_workflows.yml
 
 After import, update each step:
 
-1. **Both Task agents** — set the model credential (`YOUR_AO_MODEL_CREDENTIAL_ID`)
-2. **All AAP job steps** (`Run Change in Check Mode`, `Push Impact Work Note to Change`, `Run Change for Real`, `Push Close-Out and Close Change`, `Push Rejection Work Note`) — set the AAP integration credential (`YOUR_AO_AAP_CREDENTIAL_ID`); confirm job template names match your AAP
-3. Use `${}` automation orchestrator syntax — NOT `{{ }}` Jinja2 syntax
+1. **Both Task agents** - set the model credential (`YOUR_AO_MODEL_CREDENTIAL_ID`)
+2. **All AAP job steps** (`Run Change in Check Mode`, `Push Impact Work Note to Change`, `Run Change for Real`, `Push Close-Out and Close Change`, `Push Rejection Work Note`) - set the AAP integration credential (`YOUR_AO_AAP_CREDENTIAL_ID`); confirm job template names match your AAP
+3. Use `${}` automation orchestrator syntax - NOT `{{ }}` Jinja2 syntax
 
 ## 4. Validate Integrations
 
 Before the demo, confirm each integration:
 
-- **AAP integration** — launch `Multi-Domain Change - Check` manually from the automation orchestrator or validate the AAP connection in the integration settings
-- **ServiceNow REST** — run `Update SNOW Change` once with a test change number and a short work note
-- **Webhook** — the `change-request` webhook path exists in the workflow trigger
+- **AAP integration** - launch `Multi-Domain Change - Check` manually from the automation orchestrator or validate the AAP connection in the integration settings
+- **ServiceNow REST** - run `Update SNOW Change` once with a test change number and a short work note
+- **Webhook** - the `change-request` webhook path exists in the workflow trigger
 
 ## 5. Test
 
 ### Seed drift (repeat before each demo run)
 
-The demo VM starts compliant, and a compliant VM makes the impact report say "0 changes" —
+The demo VM starts compliant, and a compliant VM makes the impact report say "0 changes"  - 
 nothing for the operator to decide. Remove the sysctl config so the check-mode run has a real
 change to report (this is what the change "fixes"). Run an ad-hoc command in AAP
 (inventory **Demo Inventory**, credential **CI/CD Demo SSH Key**, limit **demo-vm**):
@@ -129,10 +129,10 @@ Run the simulation job template (`Simulate - Change Process Initiation`) with `s
 
 Expected flow:
 
-1. `Multi-Domain Change - Check` runs — job completes with changed tasks reported, **nothing modified** on the hosts
+1. `Multi-Domain Change - Check` runs - job completes with changed tasks reported, **nothing modified** on the hosts
 2. The AI impact analyst writes the decision-grade impact report: **Will change** (current state → desired state), **No change needed** (verified compliant items), blast radius, and a recommendation
 3. `Update SNOW Change` attaches the report to the change request as a work note
-4. The workflow pauses at **Approve Change Execution** — the operator approves or rejects looking at the report
+4. The workflow pauses at **Approve Change Execution** - the operator approves or rejects looking at the report
 5. Approve → `Multi-Domain Change - Apply` runs for real → AI close-out analyst compares prediction vs. reality → `Update SNOW Change` pushes the close-out and sets the change request to Closed
 6. Reject → a rejection work note is pushed to the change request, hosts untouched
 

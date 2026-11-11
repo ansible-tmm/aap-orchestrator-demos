@@ -1,0 +1,44 @@
+---
+# Decision 5: rebases need installed vendor-erratum evidence and the API's fixed NVR.
+- name: Read Red Hat fixed package evidence for both CVEs
+  ansible.builtin.uri:
+    url: "{{ p2s_rh_api }}/{{ item }}.json"
+    timeout: 60
+    return_content: true
+  loop: "{{ p2s_cves }}"
+  register: _rhel_fix_api
+  retries: 4
+  delay: 10
+  until: _rhel_fix_api.status | default(-1) == 200
+  delegate_to: localhost
+  become: false
+
+- name: Each CVE must independently name a fixed package for this product
+  ansible.builtin.assert:
+    that: (item.json.affected_release | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10') | selectattr('package', 'match', '^php-0:') | list | length) > 0
+  loop: "{{ _rhel_fix_api.results }}"
+  loop_control: {label: "{{ item.item }}"}
+
+- name: Fixed NVRs for the host product
+  ansible.builtin.set_fact:
+    _rhel_api_nvrs: "{{ _rhel_fix_api.results | map(attribute='json') | map(attribute='affected_release') | flatten | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10') | selectattr('package', 'match', '^php-0:') | map(attribute='package') | map('regex_replace', '^php-0:', '') | list }}"
+
+- name: Require a fixed package for both CVEs and one common target build
+  ansible.builtin.assert:
+    that:
+      - _rhel_api_nvrs | length >= p2s_cves | length
+      - _rhel_api_nvrs | unique | length == 1
+    fail_msg: "Fixed RHEL 10 PHP build was not established for both CVEs by the Red Hat API"
+
+- name: Derive one advisory and install target from the API entries
+  ansible.builtin.set_fact:
+    _rhel_api_target: "{{ _rhel_api_nvrs | first }}"
+    _rhel_api_advisories: "{{ _rhel_fix_api.results | map(attribute='json') | map(attribute='affected_release') | flatten | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10') | selectattr('package', 'match', '^php-0:') | map(attribute='advisory') | unique | list }}"
+
+- name: Require one common advisory for both CVEs
+  ansible.builtin.assert:
+    that: _rhel_api_advisories | length == 1
+
+- ansible.builtin.set_fact:
+    _rhel_api_advisory: "{{ _rhel_api_advisories | first }}"
+

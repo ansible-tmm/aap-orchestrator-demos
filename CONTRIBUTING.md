@@ -2,7 +2,7 @@
 
 Thanks for helping grow the automation orchestrator demo marketplace.
 
-**Full guide (recommended):** [Contribute a demo](https://ansible-tmm.github.io/aap-orchestrator-demos/contribute/) on the GitHub Pages site — fork setup, GitHub Pages preview, minimum files, and how to open a PR.
+**Full guide (recommended):** [Contribute a demo](https://ansible-tmm.github.io/aap-orchestrator-demos/contribute/) on the GitHub Pages site - fork setup, GitHub Pages preview, minimum files, and how to open a PR.
 
 ## Short path
 

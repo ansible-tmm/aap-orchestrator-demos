@@ -1,0 +1,30 @@
+---
+- name: Load reviewed AI schemas
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/files/ai_schemas.json"
+    name: _p2s_ai_schemas
+- name: Refuse an unknown AI schema
+  ansible.builtin.assert:
+    that: p2s_ai_schema in _p2s_ai_schemas
+    fail_msg: "AI output rejected ({{ p2s_ai_schema }}): unsupported schema id"
+- name: Parse and validate the original AI input
+  ansible.builtin.set_fact:
+    _p2s_ai_verdict: "{{ p2s_ai_raw | p2s_ai_output(_p2s_ai_schemas[p2s_ai_schema]) }}"
+- name: Refuse invalid AI output
+  ansible.builtin.fail:
+    msg: "AI output rejected ({{ p2s_ai_schema }}): {{ _p2s_ai_verdict.errors | join('; ') }}"
+  when: not _p2s_ai_verdict.ok
+- name: Explain unavailable project revision
+  ansible.builtin.debug:
+    msg: p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP
+  when: awx_project_revision is not defined and tower_project_revision is not defined
+- name: Publish validated AI output
+  ansible.builtin.set_stats:
+    data:
+      p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      p2s_ai: "{{ _p2s_ai_verdict.value }}"
+      p2s_ai_schema: "{{ p2s_ai_schema }}"
+      p2s_ai_sha256: "{{ _p2s_ai_verdict.sha256 }}"
+- name: Record AI output acceptance
+  ansible.builtin.debug:
+    msg: "AI output accepted ({{ p2s_ai_schema }}, sha256 {{ _p2s_ai_verdict.sha256[:12] }})"

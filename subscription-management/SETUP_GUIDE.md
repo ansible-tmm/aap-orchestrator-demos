@@ -6,7 +6,7 @@
 |-----------|---------|------------------|
 | AAP 2.7 with AO | Controller + automation orchestrator | `aws-aap-containerized` repo or existing AAP install |
 | Demo VM | RHEL 9 EC2 target host for `subscription-manager` check and remediation playbooks | EC2 t3.small in `us-east-1` (or your region) |
-| RHSM registration credentials | Register/renew paths call `subscription-manager register` / `attach` — needs an activation key + org ID (or username/password) | Red Hat activation key from the Hybrid Cloud Console, or account credentials |
+| RHSM registration credentials | Register/renew paths call `subscription-manager register` / `attach` - needs an activation key + org ID (or username/password) | Red Hat activation key from the Hybrid Cloud Console, or account credentials |
 | Mattermost | Per-status subscription notifications | Container on bastion (or reuse an existing Mattermost instance) |
 
 ## Step-by-Step Setup
@@ -41,8 +41,8 @@ The check playbook runs `subscription-manager identity`, `subscription-manager s
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or `subscription-management/` subtree) from Git.
-2. **Inventory** — create a host for the demo VM:
+1. **Project** - sync this repo (or `subscription-management/` subtree) from Git.
+2. **Inventory** - create a host for the demo VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
@@ -58,7 +58,7 @@ The check playbook runs `subscription-manager identity`, `subscription-manager s
 | `rhsm_org_id` | `demo-org` | Org ID used during registration | `register_system.yml` |
 | `dry_run` | `false` | Reported flag in the Mattermost notification | `notify_chatroom.yml` |
 
-The register and renew playbooks honor Ansible **check mode** (`ansible_check_mode`) — in check mode they only preview the `subscription-manager` commands instead of running them, which is useful for safe demos.
+The register and renew playbooks honor Ansible **check mode** (`ansible_check_mode`) - in check mode they only preview the `subscription-manager` commands instead of running them, which is useful for safe demos.
 
 ### 3. Register Job Templates
 
@@ -76,10 +76,10 @@ Create six job templates from `subscription-management/playbooks/`. The **Name**
 **Credentials:**
 
 - SSH Machine credential on the Linux playbooks (`Subscription - Check Status`, `Log Compliant`, `Notify Expiring`, `Renew`, `Register`). These become root via `become: true`.
-- RHSM registration data for the `Subscription - Register` template — supply `rhsm_activation_key` and `rhsm_org_id` (as extra vars, a survey, or a custom credential type). For the `Subscription - Renew` template the host must already have an entitlement available for `subscription-manager attach --auto`.
-- No SSH needed on `Subscription - Notify Chatroom` — it runs on localhost with `connection: local`.
+- RHSM registration data for the `Subscription - Register` template - supply `rhsm_activation_key` and `rhsm_org_id` (as extra vars, a survey, or a custom credential type). For the `Subscription - Renew` template the host must already have an entitlement available for `subscription-manager attach --auto`.
+- No SSH needed on `Subscription - Notify Chatroom` - it runs on localhost with `connection: local`.
 
-**Notify template extra vars** — set on `Subscription - Notify Chatroom` or pass from AO:
+**Notify template extra vars** - set on `Subscription - Notify Chatroom` or pass from AO:
 
 | Variable | Purpose |
 |----------|---------|
@@ -116,9 +116,9 @@ Import the workflow JSON into automation orchestrator:
 
 **After import, update environment-specific values:**
 
-1. `job_template_name` on each node already matches the names in Step 3 — confirm they resolve against your Controller.
-2. `credential_id` — the exported JSON carries no credential IDs; assign the SSH Machine credential (and any RHSM/Mattermost credentials) to each node for your Controller.
-3. `organization_name` is `Default` on every node — change if you import into a different organization.
+1. `job_template_name` on each node already matches the names in Step 3 - confirm they resolve against your Controller.
+2. `credential_id` - the exported JSON carries no credential IDs; assign the SSH Machine credential (and any RHSM/Mattermost credentials) to each node for your Controller.
+3. `organization_name` is `Default` on every node - change if you import into a different organization.
 
 ### 6. Configure the Switch Node
 
@@ -148,10 +148,10 @@ On the **Check Subscription** node in AO, set `extra_vars`:
 
 Remove `test_subscription_status` (or leave it empty) for a real check. In that mode:
 
-- `unregistered` — `subscription-manager identity` returns non-zero.
-- `expired` — days-remaining computes to `< 0`.
-- `expiring` — days-remaining `<= expiry_warn_days` (default `30`).
-- `registered` — otherwise.
+- `unregistered` - `subscription-manager identity` returns non-zero.
+- `expired` - days-remaining computes to `< 0`.
+- `expiring` - days-remaining `<= expiry_warn_days` (default `30`).
+- `registered` - otherwise.
 
 ```bash
 # Inspect live status on the demo VM

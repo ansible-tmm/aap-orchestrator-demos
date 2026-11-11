@@ -1,0 +1,22 @@
+---
+- import_playbook: p2s_inventory.yml
+
+- name: Remove interim controls where the fix is verified
+  hosts: "{{ ((p2s_targets | default(['_none_'])) if (p2s_targets | default([])) is not string else (p2s_targets | from_json)) | join(',') }}"
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  tasks:
+    - ansible.builtin.include_role: {name: p2s_response, tasks_from: controls_remove}
+  post_tasks:
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      run_once: true

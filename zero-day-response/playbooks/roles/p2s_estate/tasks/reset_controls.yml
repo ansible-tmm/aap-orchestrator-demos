@@ -1,0 +1,12 @@
+---
+# Reset: strip any interim controls / isolation left from a previous run.
+- ansible.builtin.file: {path: "{{ item }}", state: absent}
+  loop: [/etc/php.d/99-php2shell-mitigation.ini, /etc/systemd/system/php-fpm.service.d/p2s-memory.conf, /etc/p2s]
+- ansible.builtin.blockinfile: {path: /etc/php-fpm.d/www.conf, marker: "; {mark} PHP2Shell interim controls", state: absent}
+  failed_when: false
+- name: Check whether php-fpm is installed before reset restart
+  ansible.builtin.stat: {path: /usr/sbin/php-fpm}
+  register: _reset_fpm
+- name: Restart FPM after removing interim controls
+  ansible.builtin.systemd: {name: php-fpm, state: restarted, daemon_reload: true}
+  when: _reset_fpm.stat.exists

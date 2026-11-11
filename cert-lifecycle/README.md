@@ -1,10 +1,10 @@
 # Intelligent Cert Lifecycle (101)
 
-AI-driven certificate renewal — an automation orchestrator workflow where an AI agent picks the correct AAP job template, an operator approves, and Ansible renews and validates TLS.
+AI-driven certificate renewal - an automation orchestrator workflow where an AI agent picks the correct AAP job template, an operator approves, and Ansible renews and validates TLS.
 
 ## What this demo shows
 
-Two certificates expire on production services at the same time. Splunk fires alerts to automation orchestrator. An AI agent analyzes each certificate, discovers available AAP job templates, and selects the correct renewal strategy — PEM for nginx, Java keystore for the API server — without hardcoded routing.
+Two certificates expire on production services at the same time. Splunk fires alerts to automation orchestrator. An AI agent analyzes each certificate, discovers available AAP job templates, and selects the correct renewal strategy - PEM for nginx, Java keystore for the API server - without hardcoded routing.
 
 ## Workflow
 

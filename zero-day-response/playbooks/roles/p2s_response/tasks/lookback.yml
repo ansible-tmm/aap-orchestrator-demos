@@ -1,0 +1,37 @@
+---
+# "Were we already hit?" Look back through web/edge/app logs for PHP2Shell-shaped activity (Wiz/Sansec signals).
+- name: Search logs for exploitation signals (last 7 days)
+  ansible.builtin.shell: |
+    set -o pipefail
+    since="$(date -d '7 days ago' '+%Y-%m-%d')"
+    {
+      [ -f /var/log/httpd/access_log ] && grep -hE 'POST .*(PHP_SESSION_UPLOAD_PROGRESS|multipart)' /var/log/httpd/access_log* | sed 's/^/httpd: /'
+      [ -f /var/log/httpd/error_log ] && grep -hE 'Allowed memory size|zend_mm_heap corrupted' /var/log/httpd/error_log* /var/log/php-fpm/*.log 2>/dev/null | sed 's/^/php: /'
+      command -v podman >/dev/null && for c in php-app acmecms; do podman logs --since "$since" "$c" 2>&1 | grep -E 'PHP_SESSION_UPLOAD_PROGRESS|Allowed memory size|zend_mm_heap' | sed "s/^/$c: /"; done
+      journalctl -u haproxy --since "$since" --no-pager 2>/dev/null | grep -E 'POST .*upload' | grep -E ' 403 | 500 ' | sed 's/^/edge: /'
+    } | grep -v 'p2s-verify' | tail -20 || true
+  args: {executable: /bin/bash}
+  register: _lb
+  changed_when: false
+
+- name: Look-back record
+  ansible.builtin.set_fact:
+    p2s_lookback:
+      host: "{{ inventory_hostname }}"
+      service: "{{ p2s_service }}"
+      hits: "{{ _lb.stdout_lines | length }}"
+      demo_seed: "{{ _lb.stdout is search('p2s-demo-seed') }}"
+      sample: "{{ _lb.stdout_lines[:3] }}"
+      disposition: "{{ 'forensic_triage' if (_lb.stdout_lines | length) > 0 else 'no_signals' }}"
+
+- name: Publish look-back findings
+  run_once: true
+  ansible.builtin.set_stats:
+    data:
+      p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      p2s_lookback: "{{ ansible_play_hosts | map('extract', hostvars, 'p2s_lookback') | list }}"
+      p2s_lookback_text: >-
+        {%- set hits = ansible_play_hosts | map('extract', hostvars, 'p2s_lookback') | selectattr('disposition', 'eq', 'forensic_triage') | list -%}
+        {%- if hits | length == 0 -%}no signals on any reachable asset in the last 7 days
+        {%- else -%}{{ hits | map(attribute='service') | zip(hits | map(attribute='hits')) | map('join', ': ') | map('regex_replace', '$', ' probe-shaped request(s) logged, forensic triage') | join('; ') }}; all other reachable assets: no signals in the last 7 days{%- endif -%}
+      p2s_lookback_triage_hosts: "{{ ansible_play_hosts | map('extract', hostvars, 'p2s_lookback') | selectattr('disposition', 'eq', 'forensic_triage') | map(attribute='host') | list }}"

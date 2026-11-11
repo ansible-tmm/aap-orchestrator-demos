@@ -1,6 +1,6 @@
 # Patch Management 101: Patch Severity Routing
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 ## What this demo shows
 

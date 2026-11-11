@@ -1,0 +1,22 @@
+---
+- import_playbook: p2s_inventory.yml
+
+- name: Were we already hit? (log look-back)
+  hosts: php2shell:!lane_unknown
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  tasks:
+    - ansible.builtin.include_role: {name: p2s_response, tasks_from: lookback}
+  post_tasks:
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      run_once: true

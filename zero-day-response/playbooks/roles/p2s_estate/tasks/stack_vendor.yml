@@ -1,0 +1,28 @@
+---
+- name: Install podman
+  ansible.builtin.dnf: {name: podman, state: present}
+
+- name: Vendor build and quadlet directories
+  ansible.builtin.file: {path: "{{ item }}", state: directory, mode: '0755'}
+  loop: [/opt/acmecms-build, /etc/containers/systemd]
+
+- name: Vendor build context
+  ansible.builtin.copy: {src: "{{ item.src }}", dest: "/opt/acmecms-build/{{ item.dest }}"}
+  loop:
+    - {src: vendor/Containerfile, dest: Containerfile}
+    - {src: app/, dest: app/}
+
+- name: Build AcmeCMS appliance bundling pinned upstream PHP 8.1 EOL
+  containers.podman.podman_image:
+    name: "{{ p2s_vendor_image }}"
+    path: /opt/acmecms-build
+    build: {format: oci}
+
+- name: Run vendor appliance
+  ansible.builtin.template:
+    src: acmecms.container.j2
+    dest: /etc/containers/systemd/acmecms.container
+  vars: {p2s_isolated: false}
+
+- name: Start vendor appliance
+  ansible.builtin.systemd: {name: acmecms, state: restarted, daemon_reload: true}

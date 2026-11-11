@@ -1,5 +1,5 @@
 ---
-# Change process initiation — simulates what a change process does in production:
+# Change process initiation - simulates what a change process does in production:
 # 1. Creates a change request in ServiceNow (via the REST API)
 # 2. Fires the automation orchestrator webhook to kick off the check-mode
 #    change control workflow with the new change request number
@@ -47,10 +47,18 @@
         change_type: "normal"
         expected_recommendation: "needs_review"
 
+    # Default to standard when the JT is launched with no extra vars.
+    scenario_list: "{{ scenario_list | default(['standard']) }}"
+
   tasks:
     - name: Build scenario list
       ansible.builtin.set_fact:
-        active_scenarios: "{{ scenario_list if scenario_list is sequence and scenario_list is not string else [scenario_list] }}"
+        active_scenarios: >-
+          {{
+            scenario_list
+            if scenario_list is sequence and scenario_list is not string
+            else (scenario_list.split(',') | map('trim') | list if scenario_list is string else [scenario_list])
+          }}
 
     - name: Show scenarios to run
       ansible.builtin.debug:

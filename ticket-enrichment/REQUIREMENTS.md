@@ -47,20 +47,20 @@ ssh -i "$TICKET_DEMO_SSH_KEY" ec2-user@"$TICKET_DEMO_VM_IP" 'hostname'
 
 ### 2. Configure ServiceNow
 
-1. **ServiceNow instance** — use a developer instance or existing environment.
-2. **MCP integration** — configure ServiceNow MCP in automation orchestrator so the Task agents can query and update incidents.
-3. **Test incident** — create a test incident to use during demos. The webhook payload only needs `incident_number`.
+1. **ServiceNow instance** - use a developer instance or existing environment.
+2. **MCP integration** - configure ServiceNow MCP in automation orchestrator so the Task agents can query and update incidents.
+3. **Test incident** - create a test incident to use during demos. The webhook payload only needs `incident_number`.
 
 ### 3. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or `ticket-enrichment/` subtree) from Git.
-2. **Inventory** — create a host for the demo VM:
+1. **Project** - sync this repo (or `ticket-enrichment/` subtree) from Git.
+2. **Inventory** - create a host for the demo VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
 | `ticket-demo-vm` | VM public IP | `ec2-user`, SSH key credential |
 
-3. **ServiceNow credentials** — store as extra vars or a custom credential type:
+3. **ServiceNow credentials** - store as extra vars or a custom credential type:
 
 | Variable | Purpose |
 |----------|---------|
@@ -81,9 +81,9 @@ Create three job templates from `ticket-enrichment/playbooks/`:
 **Credentials:**
 
 - SSH Machine credential on remediation playbooks (disk cleanup, process cleanup)
-- No SSH needed on Update Ticket — runs on localhost against the SNOW API
+- No SSH needed on Update Ticket - runs on localhost against the SNOW API
 
-**Update Ticket extra vars** — pass from AO or set on the job template:
+**Update Ticket extra vars** - pass from AO or set on the job template:
 
 | Variable | Purpose |
 |----------|---------|
@@ -97,7 +97,7 @@ Enable **Prompt on launch → Extra Variables** on the Update Ticket template so
 ### 5. Configure AI Credential
 
 1. Create an AI credential in automation orchestrator for your chosen model provider.
-2. Tested with `claude-sonnet-4-6` — any supported model works on both Task agents.
+2. Tested with `claude-sonnet-4-6` - any supported model works on both Task agents.
 3. Configure ServiceNow MCP and AAP MCP tool connections on the **AI Triage Agent** step.
 4. Configure ServiceNow MCP tool connections on the **Enrich and Assign** step.
 
@@ -111,9 +111,9 @@ Import the workflow JSON into automation orchestrator:
 
 **After import, update environment-specific values:**
 
-1. `credential_id` on each step — replace `REPLACE_WITH_AAP_CREDENTIAL_ID` and `REPLACE_WITH_AI_CREDENTIAL_ID`
-2. `integration_id` on AAP job steps — replace `REPLACE_WITH_INTEGRATION_ID`
-3. ServiceNow credentials in extra vars — replace `YOUR_SNOW_*` placeholders
+1. `credential_id` on each step - replace `REPLACE_WITH_AAP_CREDENTIAL_ID` and `REPLACE_WITH_AI_CREDENTIAL_ID`
+2. `integration_id` on AAP job steps - replace `REPLACE_WITH_INTEGRATION_ID`
+3. ServiceNow credentials in extra vars - replace `YOUR_SNOW_*` placeholders
 4. Re-select MCP tools on both Task agents (tool UUIDs are environment-specific)
 
 ### 7. Configure the Webhook
@@ -138,7 +138,7 @@ Example test payload:
 | Needs Approval | `route == 'needs_approval'` | Approval gate → Dynamic AAP job → Update SNOW (resolved) |
 | Inform Only | `route == 'inform_only'` | Enrich and Assign agent → Update SNOW |
 
-The switch routes on `${triage_agent.result.content.route}` — this is configured in the imported workflow JSON.
+The switch routes on `${triage_agent.result.content.route}` - this is configured in the imported workflow JSON.
 
 ## Dynamic Job Template
 

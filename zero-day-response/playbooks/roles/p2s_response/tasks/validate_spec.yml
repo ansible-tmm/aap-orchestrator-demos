@@ -1,0 +1,14 @@
+---
+# Defense in depth: the reviewed role re-applies the same normalisation and refuses anything outside the envelope.
+- ansible.builtin.include_tasks: normalise_spec.yml
+
+- name: Refuse a spec outside the reviewed envelope (every host validates for itself)
+  ansible.builtin.assert:
+    that: _violations | length == 0
+    fail_msg: "Spec outside the reviewed envelope, needs engineer review: {{ _violations }}"
+    quiet: true
+
+- name: Normalised spec (effective = extracted + derived)
+  ansible.builtin.set_fact:
+    _spec: "{{ _spec_effective }}"
+    _ini: "{{ dict(_spec_effective.settings | map(attribute='setting') | zip(_spec_effective.settings | map(attribute='value') | map('string'))) }}"

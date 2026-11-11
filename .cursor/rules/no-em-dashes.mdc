@@ -1,0 +1,34 @@
+---
+description: Never use em dashes in documentation or site copy
+globs: "**/*.{md,mdc,yml,html}"
+alwaysApply: true
+---
+
+# No em dashes
+
+Do **not** use the Unicode em dash (U+2014). Prefer a hyphen with spaces (` - `), a colon, parentheses, or a new sentence.
+
+## Applies to
+
+- Markdown docs (`README.md`, `REQUIREMENTS.md`, `SETUP_GUIDE.md`, `DEMO_SCRIPT.md`, root guides)
+- Catalog and detail copy (`_data/demos.yml`, `_data/demo_pages.yml`, `_data/demo_playbooks.yml`, `_data/ao_glossary.yml`)
+- Contribute / Pages HTML prose
+- Cursor rules (`.cursor/rules/*.mdc`) and assistant guides (`AGENTS.md`, `CLAUDE.md`)
+
+## Prefer instead
+
+| Bad pattern | Good alternatives |
+|---|---|
+| clause [em dash] clause | `clause - clause` |
+| Title [em dash] subtitle | `Title: subtitle` or `Title - subtitle` |
+| aside [em dash] note | `aside (note)` or a new sentence |
+
+## Examples
+
+**Incorrect:** `Approve when prompted` then an em dash then `watch OpenFlake.`  
+**Correct:** `Approve when prompted - then watch OpenFlake.`
+
+**Incorrect:** `Demo walkthrough` then an em dash then `happy path`  
+**Correct:** `Demo walkthrough - happy path`
+
+When editing existing files, replace any em dashes you touch. Do not introduce new ones.

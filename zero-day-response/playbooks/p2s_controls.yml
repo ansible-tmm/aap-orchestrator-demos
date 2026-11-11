@@ -1,0 +1,64 @@
+---
+# CONTAIN: apply the reviewed control role with the (AI-extracted, envelope-validated) spec, then verify.
+# p2s_scope=test -> lane_test only. p2s_scope=prod -> hosts in p2s_targets, action per host from p2s_assets.
+- import_playbook: p2s_inventory.yml
+
+- name: Interim controls ({{ p2s_scope | default('test') }})
+  hosts: "{{ 'lane_test' if (p2s_scope | default('test')) == 'test' else (((p2s_targets | default(['_none_'])) if (p2s_targets | default([])) is not string else (p2s_targets | from_json)) | join(',')) }}"
+  gather_facts: false
+  become: true
+  ignore_unreachable: true
+  serial: "{{ 1 if (p2s_scope | default('test')) == 'prod' else '100%' }}"
+  vars:
+    p2s_scope: test
+    _assets: "{{ p2s_assets | from_json if (p2s_assets | default([])) is string else (p2s_assets | default([])) }}"
+    _asset_map: "{{ dict(_assets | map(attribute='host') | zip(_assets | map(attribute='action'))) }}"
+    p2s_action: "{{ 'test_env' if p2s_scope == 'test' else _asset_map[inventory_hostname] | default('contain_config') }}"
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  tasks:
+    - block:
+        - name: Reachability before any action or verification
+          ansible.builtin.ping:
+          register: _reach
+        - ansible.builtin.fail: {msg: "unreachable"}
+          when: _reach is unreachable
+        - ansible.builtin.include_role: {name: p2s_response, tasks_from: controls_apply}
+      rescue:
+        - ansible.builtin.set_fact:
+            p2s_verify:
+              host: "{{ inventory_hostname }}"
+              control_verified: false
+              checks: [{check: "control application or measurement failed", ok: false}]
+
+- name: Publish complete controls result after all serial batches
+  hosts: localhost
+  gather_facts: false
+  vars:
+    p2s_scope: test
+    _targets: "{{ (groups['lane_test'] if p2s_scope == 'test' else (p2s_targets | from_json if p2s_targets is string else p2s_targets)) | unique | list }}"
+  tasks:
+    - name: Start result list
+      ansible.builtin.set_fact: {_results: []}
+    - name: Include every intended target, missing evidence fails closed
+      ansible.builtin.set_fact:
+        _results: "{{ _results + [hostvars[item].p2s_verify | default({'host': item, 'control_verified': false, 'reason': 'no result collected'})] }}"
+      loop: "{{ _targets }}"
+    - ansible.builtin.set_fact:
+        _all_ok: "{{ _results | length > 0 and (_results | rejectattr('control_verified') | list | length == 0) }}"
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_verify_scope: "{{ p2s_scope }}"
+          p2s_verify: "{{ _results }}"
+          p2s_verify_all_ok: "{{ _all_ok | bool }}"
+          p2s_verify_all_ok_str: "{{ _all_ok | string | lower }}"
+    - ansible.builtin.fail:
+        msg: "Containment verification failed on one or more intended targets"
+      when: not (_all_ok | bool)

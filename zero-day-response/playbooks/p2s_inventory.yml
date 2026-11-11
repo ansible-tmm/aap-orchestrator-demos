@@ -1,0 +1,80 @@
+---
+# APD's AWS source provides tags, private_ip_address, ec2-user and purpose_* groups.
+- name: Build the demo inventory contract exclusively from EC2 tags
+  hosts: purpose_php2shell
+  gather_facts: false
+  tasks:
+    - name: Require the CMDB metadata tags
+      ansible.builtin.assert:
+        that:
+          - tags is mapping
+          - "['p2s-service', 'p2s-owner', 'p2s-criticality', 'p2s-exposure', 'p2s-stack', 'p2s-lane'] | difference(tags.keys() | list) | length == 0"
+
+    - name: Copy the service metadata without computed evidence
+      ansible.builtin.set_fact:
+        p2s_service: "{{ tags['p2s-service'] }}"
+        p2s_owner: "{{ tags['p2s-owner'] }}"
+        p2s_criticality: "{{ tags['p2s-criticality'] }}"
+        p2s_exposure: "{{ tags['p2s-exposure'] }}"
+        p2s_stack: "{{ tags['p2s-stack'] }}"
+        p2s_lane: "{{ tags['p2s-lane'] }}"
+
+    - name: Copy the optional FPM port only where its tag exists
+      ansible.builtin.set_fact:
+        p2s_fpm_http_port: "{{ tags['p2s-fpm-http-port'] | int }}"
+      when: "'p2s-fpm-http-port' in tags"
+
+    - name: Copy the optional labelled look-back seed only where its tag exists
+      ansible.builtin.set_fact:
+        p2s_seed_lookback_evidence: "{{ tags['p2s-seed-lookback-evidence'] | bool }}"
+      when: "'p2s-seed-lookback-evidence' in tags"
+
+    - name: Copy the optional baseline PHP target only where its tag exists
+      ansible.builtin.set_fact:
+        p2s_php_target: "{{ tags['p2s-php-target'] }}"
+      when: "'p2s-php-target' in tags"
+
+    - name: Build the estate group
+      ansible.builtin.group_by:
+        key: php2shell
+
+    - name: Build the lane group
+      ansible.builtin.group_by:
+        key: "lane_{{ p2s_lane }}"
+
+- name: Add the external unreachable record and publish the inventory contract
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load only the whitelisted external CMDB record
+      ansible.builtin.include_vars:
+        file: inventory/external-cmdb.yml
+        name: _p2s_external_cmdb
+
+    - name: Add the external unknown asset
+      ansible.builtin.add_host:
+        name: legacy-cms01
+        groups: [php2shell, lane_unknown]
+        ansible_host: "{{ _p2s_external_cmdb.ansible_host }}"
+        p2s_service: "{{ _p2s_external_cmdb.p2s_service | default(omit) }}"
+        p2s_owner: "{{ _p2s_external_cmdb.p2s_owner | default(omit) }}"
+        p2s_criticality: "{{ _p2s_external_cmdb.p2s_criticality | default(omit) }}"
+        p2s_exposure: "{{ _p2s_external_cmdb.p2s_exposure | default(omit) }}"
+        p2s_stack: "{{ _p2s_external_cmdb.p2s_stack | default(omit) }}"
+        p2s_lane: "{{ _p2s_external_cmdb.p2s_lane | default(omit) }}"
+        p2s_fpm_http_port: "{{ _p2s_external_cmdb.p2s_fpm_http_port | default(omit) }}"
+        p2s_seed_lookback_evidence: "{{ _p2s_external_cmdb.p2s_seed_lookback_evidence | default(omit) }}"
+        p2s_php_target: "{{ _p2s_external_cmdb.p2s_php_target | default(omit) }}"
+
+    - name: Show the complete demo inventory contract
+      ansible.builtin.debug:
+        msg: >-
+          {%- set ns = namespace(groups={}, hosts={}) -%}
+          {%- for group in ['php2shell', 'lane_test', 'lane_critical', 'lane_patchable', 'lane_clear', 'lane_vendor_pending', 'lane_unknown'] -%}
+          {%- set _ = ns.groups.update({group: groups[group] | default([])}) -%}
+          {%- endfor -%}
+          {%- for host in groups['php2shell'] | default([]) -%}
+          {%- set _ = ns.hosts.update({host: hostvars[host] | dict2items | selectattr('key', 'match', '^p2s_') | items2dict}) -%}
+          {%- endfor -%}
+          {{ {'groups': ns.groups, 'hosts': ns.hosts} }}
+      run_once: true

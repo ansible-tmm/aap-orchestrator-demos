@@ -1,0 +1,15 @@
+---
+- name: Check subscription status
+  ansible.builtin.command: subscription-manager status
+  register: _subs
+  changed_when: false
+  failed_when: false
+
+- name: Register system
+  community.general.redhat_subscription:
+    state: present
+    username: "{{ rhn_username }}"
+    password: "{{ rhn_password }}"
+    force_register: true
+  when: _subs.rc != 0
+  no_log: true

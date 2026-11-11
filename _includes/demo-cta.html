@@ -1,6 +1,8 @@
 {% comment %}
-  Demo page actions — GitHub doc link and workflow JSON download.
+  Demo page actions - GitHub doc link and workflow JSON download.
   Usage: {% include demo-cta.html demo=demo %}
+  Demos with more than one workflow can set workflow_json_label (names the primary JSON)
+  and workflow_json_more: a list of { path, label } entries, each rendered as another download button.
 {% endcomment %}
 {% assign d = include.demo %}
 {% assign gh_base = "https://github.com/" | append: site.repository | append: "/blob/main/" %}
@@ -16,9 +18,19 @@
   <a href="{{ gh_base }}{{ d.setup_guide }}" class="btn btn-secondary" target="_blank" rel="noopener">Setup guide</a>
 {% endif %}
 {% if d.status == "active" and d.workflow_json %}
-  {% assign json_filename = d.workflow_json | split: '/' | last %}
+  {% assign json_entries = "" | split: "" %}
+  {% assign json_primary = d.workflow_json | append: "|" | append: d.workflow_json_label | split: "|" %}
+  {% assign json_entries = json_entries | push: json_primary %}
+  {% for extra in d.workflow_json_more %}
+    {% assign json_extra = extra.path | append: "|" | append: extra.label | split: "|" %}
+    {% assign json_entries = json_entries | push: json_extra %}
+  {% endfor %}
+  {% for entry in json_entries %}
+  {% assign json_path = entry[0] %}
+  {% assign json_label = entry[1] %}
+  {% assign json_filename = json_path | split: '/' | last %}
   <a
-    href="{{ raw_base }}{{ d.workflow_json }}"
+    href="{{ raw_base }}{{ json_path }}"
     class="btn btn-secondary btn-download"
     data-download-json
     data-filename="{{ json_filename }}"
@@ -27,6 +39,7 @@
     <svg class="btn-download__icon" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.586l2.293-2.293a1 1 0 0 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V4a1 1 0 0 1 1-1zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
     </svg>
-    Download JSON
+    Download JSON{% if json_label and json_label != "" %}: {{ json_label }}{% endif %}
   </a>
+  {% endfor %}
 {% endif %}

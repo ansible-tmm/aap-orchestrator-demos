@@ -1,0 +1,196 @@
+---
+# Independent evidence reads. Deliberately does not include p2s_response.
+- import_playbook: p2s_inventory.yml
+
+- name: Independently establish vendor fix evidence before measuring hosts
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Independent vendor fixed-package records for both CVEs
+      ansible.builtin.uri:
+        url: "https://access.redhat.com/hydra/rest/securitydata/cve/{{ item }}.json"
+        return_content: true
+        timeout: 60
+      loop: [CVE-2026-109618, CVE-2026-109619]
+      register: _ind_rh_queries
+      retries: 4
+      delay: 10
+      until: _ind_rh_queries.status | default(-1) == 200
+    - name: Independent API entries for the RHEL 10 PHP package
+      ansible.builtin.set_fact:
+        _ind_api_entries: "{{ _ind_rh_queries.results | map(attribute='json') | map(attribute='affected_release') | flatten | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10') | selectattr('package', 'match', '^php-0:') | list }}"
+    - name: Independent RHEL advisory must be established for both CVEs
+      ansible.builtin.assert:
+        that:
+          - (item.json.affected_release | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10') | selectattr('package', 'match', '^php-0:') | list | length) > 0
+          - _ind_api_entries | map(attribute='advisory') | unique | length == 1
+      loop: "{{ _ind_rh_queries.results }}"
+      loop_control: {label: "{{ item.item }}"}
+    - ansible.builtin.set_fact:
+        _ind_api_advisory: "{{ (_ind_api_entries | first).advisory }}"
+
+- name: Independently read live estate state and benign business transactions
+  hosts: "{{ ((p2s_targets | from_json if p2s_targets is string else p2s_targets) | join(',')) if p2s_targets is defined else 'php2shell:!lane_unknown' }}"
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Record SELinux status without changing it
+      ansible.builtin.command: getenforce
+      register: _ind_selinux
+      changed_when: false
+    - name: Effective FPM settings from this host's loopback
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ p2s_fpm_http_port | default(80) }}/__p2s/status.php?p2s-verify=1"
+        return_content: true
+      register: _ind_fpm
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Effective mod_php settings from this host's backend
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1
+        return_content: true
+      register: _ind_ctr
+      failed_when: false
+      when: p2s_stack in ['container-mod-php', 'mixed']
+    - name: Effective vendor settings from this host's loopback
+      ansible.builtin.uri:
+        url: http://127.0.0.1/__p2s/status.php?p2s-verify=1
+        return_content: true
+      register: _ind_vendor
+      failed_when: false
+      when: p2s_stack == 'vendor-bundled-php'
+    - name: Benign invoice through this host's public HTTP service
+      ansible.builtin.shell: >-
+        printf 'invoice' | curl -A p2s-verify --noproxy '*' -sS -m10
+        -w '\nP2S_HTTP_STATUS:%{http_code}\n'
+        -F 'invoice=@-;filename=invoice.txt;type=text/plain'
+        -F 'PHP_SESSION_UPLOAD_PROGRESS=p2s-verify'
+        http://127.0.0.1/upload.php?p2s-verify=1
+      register: _ind_upload
+      changed_when: false
+      failed_when: false
+    - name: Benign invoice through mixed host's FPM service
+      ansible.builtin.shell: >-
+        printf 'invoice' | curl -A p2s-verify --noproxy '*' -sS -m10
+        -w '\nP2S_HTTP_STATUS:%{http_code}\n'
+        -F 'invoice=@-;filename=invoice.txt;type=text/plain'
+        -F 'PHP_SESSION_UPLOAD_PROGRESS=p2s-verify'
+        http://127.0.0.1:{{ p2s_fpm_http_port }}/upload.php?p2s-verify=1
+      register: _ind_fpm_upload
+      changed_when: false
+      failed_when: false
+      when: p2s_stack == 'mixed'
+    - name: Read PHP packages, advisory changelog and FPM service state
+      ansible.builtin.shell: |
+        rpm -qa 'php*' --qf '%{NAME}-%{VERSION}-%{RELEASE}\n' | sort
+        echo '-- changelog CVEs --'
+        rpm -q --changelog php-common | grep -oE 'CVE-2026-1096(18|19)' | sort -u
+        echo '-- service --'
+        systemctl show php-fpm -p MainPID -p ExecMainStartTimestamp -p MemoryMax
+      register: _ind_packages
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Independent installed php-common NVR
+      ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-common
+      register: _ind_common_nvr
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Independent dnf version
+      ansible.builtin.command: dnf --version
+      register: _ind_dnf_version
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Independent installed RHSA query
+      ansible.builtin.command:
+        argv: "{{ ['dnf', 'advisory', 'list', '--installed', '--advisory-id', hostvars['localhost']._ind_api_advisory] if (_ind_dnf_version.stdout is search('(?m)^(dnf5 version\\s+)?5[.]')) else ['dnf', 'updateinfo', 'list', '--installed', '--advisory', hostvars['localhost']._ind_api_advisory] }}"
+      register: _ind_advisory
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Read running mod_php image, memory boundary and rendered quadlet
+      ansible.builtin.shell: |
+        podman inspect php-app --format '{{ '{{' }}.ImageName{{ '}}' }} memory={{ '{{' }}.HostConfig.Memory{{ '}}' }}'
+        cat /etc/containers/systemd/php-app.container
+      register: _ind_image
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['container-mod-php', 'mixed']
+    - name: Read pinned AcmeCMS image, upstream PHP version, base digest and port binding
+      ansible.builtin.shell: |
+        podman inspect acmecms --format '{{ '{{' }}.ImageName{{ '}}' }} ports={{ '{{' }}json .HostConfig.PortBindings{{ '}}' }}'
+        podman exec acmecms php --version
+        podman image inspect docker.io/library/php:8.1.34-apache@sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268 --format '{{ '{{' }}json .RepoDigests{{ '}}' }}'
+        podman history localhost/acmecms:5.2 --no-trunc
+        cat /etc/containers/systemd/acmecms.container
+      register: _ind_vendor_image
+      changed_when: false
+      failed_when: false
+      when: p2s_stack == 'vendor-bundled-php'
+    - name: Read interim control files, FPM pool block and edge multipart block
+      ansible.builtin.shell: |
+        for p in /etc/php.d/99-php2shell-mitigation.ini /etc/systemd/system/php-fpm.service.d/p2s-memory.conf /etc/p2s; do
+          if test -e "$p"; then echo "PRESENT $p"; else echo "ABSENT $p"; fi
+        done
+        grep -A8 -B1 'PHP2Shell interim controls' /etc/php-fpm.d/www.conf 2>/dev/null || true
+        grep -A6 -B1 'PHP2Shell interim control' /etc/haproxy/haproxy.cfg 2>/dev/null || true
+      register: _ind_controls
+      changed_when: false
+    - name: Count labelled demo seed lines
+      ansible.builtin.shell: grep -c '\[p2s-demo-seed\]' /var/log/httpd/access_log
+      register: _ind_seed
+      changed_when: false
+      failed_when: false
+      when: p2s_seed_lookback_evidence | default(false) | bool
+    - name: C3 independent vendor HTTP reachability from the test host
+      ansible.builtin.command:
+        argv: [curl, -m5, --noproxy, '*', "http://{{ hostvars[inventory_hostname].private_ip_address }}/?p2s-verify=1"]
+      delegate_to: "{{ groups['lane_test'] | first }}"
+      register: _ind_vendor_external
+      changed_when: false
+      failed_when: false
+      when: p2s_stack == 'vendor-bundled-php'
+    - name: Preserve raw independent observations per host
+      ansible.builtin.set_fact:
+        p2s_independent:
+          host: "{{ inventory_hostname }}"
+          stack: "{{ p2s_stack }}"
+          selinux: "{{ _ind_selinux }}"
+          fpm: "{{ _ind_fpm | default({}) }}"
+          container: "{{ _ind_ctr | default({}) }}"
+          vendor: "{{ _ind_vendor | default({}) }}"
+          upload: "{{ _ind_upload }}"
+          fpm_upload: "{{ _ind_fpm_upload | default({}) }}"
+          packages: "{{ _ind_packages | default({}) }}"
+          common_nvr: "{{ _ind_common_nvr | default({}) }}"
+          dnf_version: "{{ _ind_dnf_version | default({}) }}"
+          installed_advisory: "{{ _ind_advisory | default({}) }}"
+          image: "{{ _ind_image | default({}) }}"
+          vendor_image: "{{ _ind_vendor_image | default({}) }}"
+          controls: "{{ _ind_controls }}"
+          seed: "{{ _ind_seed | default({}) }}"
+          vendor_external: "{{ _ind_vendor_external | default({}) }}"
+
+- name: Publish independent observations once
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _targets: "{{ (p2s_targets | from_json if p2s_targets is string else p2s_targets) if p2s_targets is defined else (groups['php2shell'] | difference(groups['lane_unknown'])) }}"
+  tasks:
+    - name: Every intended host must have an independent observation
+      ansible.builtin.assert:
+        that: hostvars[item].p2s_independent is defined
+      loop: "{{ _targets | unique }}"
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither AAP project revision variable was supplied"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+    - ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_independent_rh_queries: "{{ _ind_rh_queries.results }}"
+          p2s_independent: "{{ _targets | unique | map('extract', hostvars, 'p2s_independent') | list }}"

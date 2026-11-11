@@ -8,18 +8,18 @@
 | ServiceNow instance | Yes | Change request access + credentials for the REST API |
 | Multi-domain inventory | Yes | At least 3 RHEL hosts across inventory groups `web`, `db`, `loadbalancer` |
 
-No MCP server is required — all ServiceNow interactions go through AAP job templates using the REST API, and the AI agents only scan job artifacts.
+No MCP server is required - all ServiceNow interactions go through AAP job templates using the REST API, and the AI agents only scan job artifacts.
 
 ## Hosts
 
-Domains are inventory groups: every group a host belongs to gets its own task block, and impact is reported per host per domain. **One VM is enough** — make it a member of all three demo groups:
+Domains are inventory groups: every group a host belongs to gets its own task block, and impact is reported per host per domain. **One VM is enough** - make it a member of all three demo groups:
 
 | Option | Inventory setup | Impact report shows |
 |--------|-----------------|---------------------|
 | Single VM (minimum) | web1 in groups `web`, `db`, `loadbalancer` | One host across three domains |
 | Three VMs (full picture) | web1 in `web`, db1 in `db`, lb1 in `loadbalancer` | One host per domain |
 
-Add hosts to new groups to extend the report — the playbook needs no changes.
+Add hosts to new groups to extend the report - the playbook needs no changes.
 
 ## AAP Setup
 
@@ -56,7 +56,7 @@ Replace these before importing, or after import via the automation orchestrator 
 
 The `Simulate - Change Process Initiation` job template additionally reads these from the environment (same custom credential type or a second one):
 
-- `AO_BASE_URL`, `AO_CLIENT_ID`, `AO_CLIENT_SECRET` — automation orchestrator service account for token + webhook
+- `AO_BASE_URL`, `AO_CLIENT_ID`, `AO_CLIENT_SECRET` - automation orchestrator service account for token + webhook
 
 ## Webhook
 
@@ -70,15 +70,15 @@ The workflow triggers on POST `http://<AO_HOST>/api/v1/webhooks/change-request` 
 }
 ```
 
-`summary` and `risk` are optional — the simulation playbook sends them so the AI impact analyst has the change intent; without them the analyst works from the check-mode artifacts alone. The simulation playbook creates the change request and fires this webhook itself, so no manual curl is needed.
+`summary` and `risk` are optional - the simulation playbook sends them so the AI impact analyst has the change intent; without them the analyst works from the check-mode artifacts alone. The simulation playbook creates the change request and fires this webhook itself, so no manual curl is needed.
 
 ## Workflow Inputs
 
 | Input | Type | Description |
 |-------|------|-------------|
 | `number` | string | ServiceNow change request number (e.g. CHG0030001) |
-| `summary` | string | Optional — change short description for the AI analyst |
-| `risk` | string | Optional — risk as filed on the change request |
+| `summary` | string | Optional - change short description for the AI analyst |
+| `risk` | string | Optional - risk as filed on the change request |
 
 ## Extra Vars
 

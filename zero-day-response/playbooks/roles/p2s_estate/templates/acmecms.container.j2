@@ -1,0 +1,10 @@
+[Unit]
+Description=AcmeCMS 5.2 (vendor appliance, bundled PHP)
+[Container]
+ContainerName=acmecms
+Image={{ p2s_vendor_image | default('localhost/acmecms:5.2') }}
+PublishPort={{ '127.0.0.1:80:80' if p2s_isolated | default(false) else '80:80' }}
+[Service]
+Restart=always
+[Install]
+WantedBy=multi-user.target default.target

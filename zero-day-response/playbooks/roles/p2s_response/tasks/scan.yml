@@ -1,0 +1,81 @@
+---
+# KNOW: collect evidence from the live host. No exploit traffic.
+- name: Reachability before evidence collection
+  ansible.builtin.ping:
+  register: _reach
+- name: Package / runtime facts (RHEL php-fpm)
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+  block:
+    - ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-fpm
+      register: _fpm_nvr
+      changed_when: false
+      failed_when: false
+    - ansible.builtin.shell: rpm -q --changelog php-common | grep -oE 'CVE-2026-1096(18|19)' | sort -u
+      register: _fpm_cl
+      changed_when: false
+      failed_when: false
+    - ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ p2s_fpm_http_port | default(80) }}/__p2s/status.php?p2s-verify=1"
+        return_content: true
+      register: _fpm_status
+      failed_when: false
+    - ansible.builtin.shell: >-
+        grep -rlsE 'php_(admin_)?(value|flag).*(upload_progress|post_max_size|memory_limit)|upload_progress'
+        /var/www/html --include=.htaccess --include=.user.ini || true
+      register: _fpm_overrides
+      changed_when: false
+
+- name: Container runtime facts (mod_php behind edge)
+  when: p2s_stack in ['container-mod-php', 'mixed']
+  block:
+    - ansible.builtin.command: podman inspect php-app --format '{{ '{{' }}.ImageName{{ '}}' }}'
+      register: _ctr_image
+      changed_when: false
+      failed_when: false
+    - ansible.builtin.uri: {url: "http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1", return_content: true}
+      register: _ctr_status
+      failed_when: false
+    - ansible.builtin.command: grep -c 'PHP2Shell interim control' /etc/haproxy/haproxy.cfg
+      register: _edge_ctl
+      changed_when: false
+      failed_when: false
+
+- name: Vendor appliance facts (bundled PHP)
+  when: p2s_stack == 'vendor-bundled-php'
+  block:
+    - ansible.builtin.command: podman inspect acmecms --format '{{ '{{' }}.ImageName{{ '}}' }}'
+      register: _ven_image
+      changed_when: false
+      failed_when: false
+    - ansible.builtin.uri: {url: "http://127.0.0.1:80/__p2s/status.php?p2s-verify=1", return_content: true}
+      register: _ven_status
+      failed_when: false
+
+- name: Normalise asset record
+  when: not (_reach.unreachable | default(false))
+  vars:
+    _st: "{{ (_ctr_status if p2s_stack == 'container-mod-php' else (_ven_status if p2s_stack == 'vendor-bundled-php' else _fpm_status)).json | default({}) }}"
+  ansible.builtin.set_fact:
+    p2s_asset:
+      host: "{{ inventory_hostname }}"
+      reachable: true
+      service: "{{ p2s_service }}"
+      owner: "{{ p2s_owner }}"
+      criticality: "{{ p2s_criticality }}"
+      exposure: "{{ p2s_exposure }}"
+      stack: "{{ p2s_stack }}"
+      lane_label: "{{ p2s_lane }}"
+      php_version: "{{ _st.php_version | default('unknown') }}"
+      ctr_php_version: "{{ (_ctr_status.json | default({})).php_version | default('unknown') if p2s_stack == 'mixed' else '' }}"
+      sapi: "{{ _st.sapi | default('unknown') }}"
+      live_ini: "{{ _st.ini | default({}) }}"
+      package: >-
+        {{ ('php-fpm ' ~ _fpm_nvr.stdout) if p2s_stack in ['rhel-php-fpm'] else
+           (_ctr_image.stdout | default('') if p2s_stack == 'container-mod-php' else
+           ((_ven_image.stdout | default('unknown image')) ~ ' (AcmeCMS 5.2, bundled upstream PHP ' ~ (_st.php_version | default('unknown')) ~ ')'
+             if p2s_stack == 'vendor-bundled-php' else
+           ('php-fpm ' ~ (_fpm_nvr.stdout | default('')) ~ ' + ' ~ (_ctr_image.stdout | default('')))) ) }}
+      changelog_cves: "{{ (_fpm_cl.stdout_lines | default([])) if p2s_stack != 'vendor-bundled-php' else [] }}"
+      rpm_nvr: "{{ _fpm_nvr.stdout | default('') if p2s_stack in ['rhel-php-fpm', 'mixed'] else '' }}"
+      overrides_found: "{{ _fpm_overrides.stdout_lines | default([]) }}"
+      edge_control_present: "{{ (_edge_ctl.stdout | default('0') | int) > 0 }}"

@@ -1,5 +1,5 @@
 ---
-# Update ServiceNow Change Request — the single SNOW write path for the
+# Update ServiceNow Change Request - the single SNOW write path for the
 # check mode change control workflow. Every SNOW interaction (impact report
 # work note, closure updates, rejection note) goes through this job template,
 # launched by the automation orchestrator with the work note text as an
@@ -10,10 +10,10 @@
 #   SNOW_INSTANCE_URL, SNOW_USERNAME, SNOW_PASSWORD
 #
 # Extra vars from the workflow:
-#   change_number — ServiceNow change request number (e.g. CHG0030001)
-#   work_notes    — the work note body (AI-generated report, closure summary,
+#   change_number - ServiceNow change request number (e.g. CHG0030001)
+#   work_notes    - the work note body (AI-generated report, closure summary,
 #                   or the static rejection note)
-#   snow_state    — optional target state for the change request
+#   snow_state    - optional target state for the change request
 #                   (3 = Closed; omit to leave the state unchanged)
 - name: Change Control | Update ServiceNow Change Request
   hosts: localhost
@@ -48,9 +48,7 @@
 
     - name: Build update payload
       ansible.builtin.set_fact:
-        snow_payload:
-          work_notes: "{{ work_notes | default('') }}"
-          state: "{{ snow_state | default(omit) }}"
+        snow_payload: "{{ {'work_notes': work_notes | default('')} | combine({'state': snow_state} if snow_state is defined and snow_state | length > 0 else {}) }}"
 
     - name: Update change request in ServiceNow
       ansible.builtin.uri:

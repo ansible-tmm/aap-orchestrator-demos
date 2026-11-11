@@ -1,0 +1,31 @@
+---
+# EC2 Name tags and CMDB metadata for the six PHP2Shell demo hosts.
+# Only these metadata and per-host extras become p2s_* inventory variables.
+nodes:
+  - name: p2s-test-web01
+    role: test
+    instance_type: t3.medium
+    fpm_http_port: 8008
+    meta: {service: payments-portal-test, owner: team-payments, criticality: low, exposure: internal, stack: mixed}
+  - name: p2s-pay-web01
+    role: critical
+    instance_type: t3.medium
+    meta: {service: payments-portal, owner: team-payments, criticality: crown-jewel, exposure: internet, stack: container-mod-php}
+  - name: p2s-app-web01
+    role: patchable
+    instance_type: t3.small
+    seed_lookback_evidence: true
+    meta: {service: customer-api, owner: team-digital, criticality: high, exposure: internet, stack: rhel-php-fpm}
+  - name: p2s-app-web02
+    role: patchable
+    instance_type: t3.small
+    meta: {service: partner-portal, owner: team-digital, criticality: medium, exposure: internal, stack: rhel-php-fpm}
+  - name: p2s-app-web03
+    role: clear
+    instance_type: t3.small
+    php_target: fixed
+    meta: {service: marketing-site, owner: team-marketing, criticality: medium, exposure: internet, stack: rhel-php-fpm}
+  - name: p2s-vendor-app01
+    role: vendor_pending
+    instance_type: t3.medium
+    meta: {service: acme-cms, owner: team-marketing, criticality: medium, exposure: internal, stack: vendor-bundled-php}

@@ -1,4 +1,4 @@
-# AI assistant guide — aap-orchestrator-demos
+# AI assistant guide - aap-orchestrator-demos
 
 Context for Claude, Cursor, and other AI coding tools working in this repository.
 
@@ -8,10 +8,10 @@ The GitHub Pages site (`index.html` + `_data/demos.yml`) has two card sections:
 
 | Section | Grid | Purpose |
 |---|---|---|
-| **Featured** | 3 columns (`card-grid--featured`) | Hero demos — largest visual presence |
+| **Featured** | 3 columns (`card-grid--featured`) | Hero demos - largest visual presence |
 | **All demos** | Auto-fill, smaller cards | Full catalog |
 
-Within **All demos**, cards render **active** demos first (in `demos.yml` order), then **coming soon**.
+Within **All demos**, cards render **active** demos first, then **coming soon**. Within each status group, **TMM Created** cards sort before **AI Generated** (still preserving `demos.yml` order inside each origin group).
 
 ## Featured card limit: exactly 3
 
@@ -29,7 +29,7 @@ The Featured section uses a **3-column grid**. Only **three** demos may have `fe
 
 ### Not featured (example)
 
-**Disk Utilization & Remediation** (`disk-utilization`) is active but not featured — it leads the **All demos** grid.
+**Disk Utilization & Remediation** (`disk-utilization`) is active but not featured - it leads the **All demos** grid.
 
 ## Where to edit
 
@@ -43,7 +43,8 @@ The Featured section uses a **3-column grid**. Only **three** demos may have `fe
 
 ## Related rules
 
-- `.cursor/rules/demo-featured-cards.mdc` — featured limit and marketplace layout
-- `.cursor/rules/demo-site-copy.mdc` — CTA labels and playbook tables
-- `.cursor/rules/demo-youtube-video.mdc` — optional `youtube_url` and Demo video section
-- `.cursor/rules/automation-orchestrator-naming.mdc` — automation orchestrator naming
+- `.cursor/rules/demo-featured-cards.mdc` - featured limit and marketplace layout
+- `.cursor/rules/demo-site-copy.mdc` - CTA labels and playbook tables
+- `.cursor/rules/demo-youtube-video.mdc` - optional `youtube_url` and Demo video section
+- `.cursor/rules/automation-orchestrator-naming.mdc` - automation orchestrator naming
+- `.cursor/rules/no-em-dashes.mdc` - never use em dashes (U+2014) in docs or site copy

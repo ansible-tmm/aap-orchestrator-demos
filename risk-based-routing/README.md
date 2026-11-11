@@ -1,6 +1,6 @@
 # Certificate Rotation 201: Risk-Based Routing
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 This demo extends 101 with:
 

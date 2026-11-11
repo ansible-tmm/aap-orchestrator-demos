@@ -1,4 +1,4 @@
-# Demo marketplace catalog — one entry per demo.
+# Demo marketplace catalog - one entry per demo.
 # Featured: exactly 3 demos (featured: true). See CLAUDE.md and .cursor/rules/demo-featured-cards.mdc.
 # youtube_url: optional walkthrough on the detail page (Demo video section after Playbooks). See .cursor/rules/demo-youtube-video.mdc.
 
@@ -99,6 +99,7 @@
   status: active
   featured: false
   uses_ai: true
+  tmm_created: true
   tags:
     - Check Mode
     - Approval
@@ -119,7 +120,7 @@
   workflow_json: check-mode-change-control/ao/check-mode-change-control.json
   workflow_mermaid: |
     flowchart LR
-      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Change Process Initiation", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Change in Check Mode", pos: "b", h: 96, constraint: "on" }
+      A@{ img: "__ASSET__/assets/icons/glossary/webhook-trigger.svg", label: "Change Process Initiation", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Run Change in Check Mode", pos: "b", h: 96, constraint: "on" }
       B --> C@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Impact Analyst", pos: "b", h: 96, constraint: "on" }
       C --> D@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Push Impact Work Note", pos: "b", h: 96, constraint: "on" }
       D --> E@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve Change Execution", pos: "b", h: 96, constraint: "on" }
@@ -129,6 +130,50 @@
       E -->|Rejected| I@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Push Rejection Work Note", pos: "b", h: 96, constraint: "on" }
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G,H,I noBorder
+- slug: cicd-pipeline
+  title: Automating CI/CD pipelines with Lightwell
+  subtitle: Dev test, approval, prod deploy with rollback
+  category: patching
+  status: active
+  featured: false
+  uses_ai: true
+  tmm_created: true
+  tags:
+    - Webhook
+    - Approval
+    - Conditional
+    - Task agent
+  thumbnail:
+    gradient: "linear-gradient(135deg, #1a2a3a 0%, #0a1520 50%, #2a1a1a 100%)"
+    icon: "🚀"
+  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes the OpenFlake change - or rolls back from snapshot.
+  stats:
+    workflows: 1
+    playbooks: 9
+    setup_minutes: 45
+  url: /demos/cicd-pipeline/
+  github_path: cicd-pipeline/
+  github_doc: cicd-pipeline/README.md
+  setup_guide: cicd-pipeline/REQUIREMENTS.md
+  workflow_json: cicd-pipeline/ao/cicd-pipeline.json
+  youtube_url: https://youtu.be/4iZCS4atxHQ?si=9RjaXJFP1L-NoVXM
+  arcade_embed: https://demo.arcade.software/VOEd9Xf8aRVQ4OdDIasz?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
+  arcade_title: Automating CI/CD pipelines with Lightwell + Red Hat Ansible
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/glossary/webhook-trigger.svg", label: "CI Pipeline Succeeded", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Deploy Dev + Test", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Dev Tests Passed?", pos: "b", h: 96, constraint: "on" }
+      C -->|true| D@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Approve Prod Deploy", pos: "b", h: 96, constraint: "on" }
+      C -->|false| E@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Dev Failure Note", pos: "b", h: 96, constraint: "on" }
+      D -->|approved| F@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Drain Load Balancer", pos: "b", h: 96, constraint: "on" }
+      F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Deploy Prod + Smoke", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/glossary/conditional-node.svg", label: "Prod Smoke Passed?", pos: "b", h: 96, constraint: "on" }
+      H -->|true| I@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Close Note", pos: "b", h: 96, constraint: "on" }
+      H -->|false| J@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI Rollback Note", pos: "b", h: 96, constraint: "on" }
+      I --> K@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Close OpenFlake CHG", pos: "b", h: 96, constraint: "on" }
+      J --> L@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Rollback Snapshot", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H,I,J,K,L noBorder
 
 - slug: cert-lifecycle
   title: Intelligent Cert Lifecycle
@@ -221,7 +266,7 @@
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0d1824 50%, #2a1a3a 100%)"
     icon: "🎫"
     video: /assets/previews/ticket-enrichment.mp4
-  blurb: ServiceNow webhook triggers AI triage that routes incidents three ways — auto-remediate, approval-gated remediation, or enrich-and-assign — with dynamic AAP job templates and SNOW ticket updates on every path.
+  blurb: ServiceNow webhook triggers AI triage that routes incidents three ways - auto-remediate, approval-gated remediation, or enrich-and-assign - with dynamic AAP job templates and SNOW ticket updates on every path.
   stats:
     workflows: 1
     playbooks: 3
@@ -232,7 +277,7 @@
   setup_guide: ticket-enrichment/REQUIREMENTS.md
   workflow_json: ticket-enrichment/ao/ticket-enrichment.json
   arcade_embed: https://interact.redhat.com/share/j5xLvTSv2GAkw6szxron?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
-  arcade_title: Automation Orchestrator — Ticket Enrichment
+  arcade_title: Automation Orchestrator - Ticket Enrichment
   youtube_url: https://youtu.be/bT4rqJWmigU?si=AXEugP3GyShIAWao
   workflow_mermaid: |
     flowchart LR
@@ -264,7 +309,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a2a3a 0%, #1a1a24 100%)"
     icon: "⚖️"
-  blurb: Route certificate renewals by AI-assessed risk level — low, medium, and high paths get different treatment.
+  blurb: Route certificate renewals by AI-assessed risk level - low, medium, and high paths get different treatment.
   stats:
     workflows: 1
     playbooks: 5
@@ -339,7 +384,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a4a 0%, #0d1528 100%)"
     icon: "⏳"
-  blurb: Switch on cert_status from days remaining — skip, plan, renew, or emergency — no AI required.
+  blurb: Switch on cert_status from days remaining - skip, plan, renew, or emergency - no AI required.
   stats:
     workflows: 1
     playbooks: 7
@@ -378,7 +423,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a3a1a 0%, #0d200d 100%)"
     icon: "🩺"
-  blurb: Check httpd state, switch on service_state — log OK, start, restart, or install in one workflow.
+  blurb: Check httpd state, switch on service_state - log OK, start, restart, or install in one workflow.
   stats:
     workflows: 1
     playbooks: 6
@@ -405,7 +450,7 @@
 
 - slug: multi-os-cloud-patching
   title: Multi-OS Cloud Patching
-  subtitle: Playbook orchestration — RHEL and Windows on AWS
+  subtitle: Playbook orchestration - RHEL and Windows on AWS
   category: patching
   status: active
   featured: false
@@ -450,7 +495,7 @@
 
 - slug: patch-management
   title: Patch Severity Routing
-  subtitle: Switch routing — one scan, four remediation strategies
+  subtitle: Switch routing - one scan, four remediation strategies
   category: patching
   status: active
   ai_generated: true
@@ -461,7 +506,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #3a2a1a 0%, #1a1008 100%)"
     icon: "🩹"
-  blurb: Assess patch severity, switch on highest_severity — patch now, schedule, batch, or report compliant.
+  blurb: Assess patch severity, switch on highest_severity - patch now, schedule, batch, or report compliant.
   stats:
     workflows: 1
     playbooks: 6
@@ -500,7 +545,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a3a4a 0%, #101820 100%)"
     icon: "👤"
-  blurb: Survey or webhook sets request_type — provision new hire, contractor, role change, or termination.
+  blurb: Survey or webhook sets request_type - provision new hire, contractor, role change, or termination.
   stats:
     workflows: 1
     playbooks: 6
@@ -538,7 +583,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a2a1a 0%, #141008 100%)"
     icon: "💾"
-  blurb: Switch on backup_result — verify success, retry partial, escalate failed, or log skipped.
+  blurb: Switch on backup_result - verify success, retry partial, escalate failed, or log skipped.
   stats:
     workflows: 1
     playbooks: 6
@@ -576,7 +621,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #4a1a1a 0%, #200808 100%)"
     icon: "📋"
-  blurb: Check RHEL subscription status — registered, expiring, expired, or unregistered — each gets a different path.
+  blurb: Check RHEL subscription status - registered, expiring, expired, or unregistered - each gets a different path.
   stats:
     workflows: 1
     playbooks: 6
@@ -614,7 +659,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a1a3a 0%, #080818 100%)"
     icon: "🐧"
-  blurb: Scan kernel compliance — compliant, reboot required, drift, or EOL — switch to the right response.
+  blurb: Scan kernel compliance - compliant, reboot required, drift, or EOL - switch to the right response.
   stats:
     workflows: 1
     playbooks: 6
@@ -750,3 +795,44 @@
       F --> G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Notify Operators", pos: "b", h: 96, constraint: "on" }
       classDef noBorder fill:transparent,stroke:transparent
       class A,B,C,D,E,F,G noBorder
+
+- slug: zero-day-response
+  title: Zero-Day Response
+  subtitle: KNOW, CONTAIN, FIX, PROVE - PHP2Shell on RHEL and AWS
+  category: patching
+  status: active
+  featured: false
+  uses_ai: true
+  tmm_created: true
+  tags:
+    - Task agent
+    - Approval
+    - Conditional
+    - AWS
+  thumbnail:
+    gradient: "linear-gradient(135deg, #4a1a1a 0%, #1a0d0d 50%, #2a1a3a 100%)"
+    icon: "🚨"
+  blurb: A zero-day lands before the fix. Evidence and look-back in parallel, AI reads the vendor advisory, a policy gate and test host prove the interim controls, owners approve, and the fix is applied only where it exists. Two workflows, 12 playbooks and a six-instance AWS estate.
+  stats:
+    workflows: 2
+    playbooks: 12
+    setup_minutes: 25
+  url: /demos/zero-day-response/
+  github_path: zero-day-response/
+  github_doc: zero-day-response/README.md
+  workflow_json: zero-day-response/ao/flow-a-know-contain.json
+  workflow_json_label: KNOW + CONTAIN
+  workflow_json_more:
+    - path: zero-day-response/ao/flow-b-fix-prove.json
+      label: FIX + PROVE
+  workflow_mermaid: |
+    flowchart LR
+      A@{ img: "__ASSET__/assets/icons/manual-trigger.png", label: "Advisory received", pos: "b", h: 96, constraint: "on" } --> B@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "KNOW: Evidence + look-back", pos: "b", h: 96, constraint: "on" }
+      B --> C@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Explain for humans", pos: "b", h: 96, constraint: "on" }
+      C --> D@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Read the advisory", pos: "b", h: 96, constraint: "on" }
+      D --> E@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "Policy gate + test", pos: "b", h: 96, constraint: "on" }
+      E --> F@{ img: "__ASSET__/assets/icons/approval-node.png", label: "Security + service owner", pos: "b", h: 96, constraint: "on" }
+      F -->|Approved| G@{ img: "__ASSET__/assets/icons/launch-aap-job-template.png", label: "PROD: Contain + verify", pos: "b", h: 96, constraint: "on" }
+      G --> H@{ img: "__ASSET__/assets/icons/task-agent.png", label: "AI: Board update", pos: "b", h: 96, constraint: "on" }
+      classDef noBorder fill:transparent,stroke:transparent
+      class A,B,C,D,E,F,G,H noBorder

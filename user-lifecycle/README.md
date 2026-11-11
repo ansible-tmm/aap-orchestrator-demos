@@ -1,6 +1,6 @@
 # User Lifecycle 101: Request Type Routing
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
@@ -13,7 +13,7 @@ Switch on `request_type` from an AO survey, webhook, or ticket integration. Each
 | `role_change` | Update groups and sudo only |
 | `termination` | Lock account, archive home, revoke keys |
 
-Switch routing is not only for technical metrics — human input maps cleanly to string values.
+Switch routing is not only for technical metrics - human input maps cleanly to string values.
 
 ## Workflow
 

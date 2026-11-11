@@ -1,0 +1,40 @@
+---
+- name: Establish authoritative RHEL fix target
+  ansible.builtin.include_tasks: rhel_fix_target.yml
+
+- name: Installed php-common NVR
+  ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-common
+  register: _rhel_common_nvr
+  changed_when: false
+
+- name: Select the installed dnf interface
+  ansible.builtin.command: dnf --version
+  register: _rhel_dnf_version
+  changed_when: false
+
+- name: Query installed erratum with the matching dnf interface
+  ansible.builtin.command:
+    argv: "{{ ['dnf', 'advisory', 'list', '--installed', '--advisory-id', _rhel_api_advisory] if (_rhel_dnf_version.stdout is search('(?m)^(dnf5 version\\s+)?5[.]')) else ['dnf', 'updateinfo', 'list', '--installed', '--advisory', _rhel_api_advisory] }}"
+  register: _rhel_advisory
+  changed_when: false
+  failed_when: false
+
+- name: Installed NVR must meet every API fixed package
+  ansible.builtin.assert:
+    that: _rhel_common_nvr.stdout is version(item, '>=')
+    fail_msg: "Installed php-common is below the Red Hat fixed build"
+  loop: "{{ _rhel_api_nvrs }}"
+
+- name: Refuse a fix without the installed vendor erratum
+  ansible.builtin.assert:
+    that:
+      - _rhel_advisory.rc == 0
+      - _rhel_advisory.stdout is search('(?m)^\\s*(i\\s+)?' ~ (_rhel_api_advisory | regex_escape) ~ '(\\s|$)')
+    fail_msg: "{{ _rhel_api_advisory }} is not reported installed; retain controls and inspect repository metadata"
+
+- name: Publish the measured vendor fix evidence in the job log
+  ansible.builtin.debug:
+    msg:
+      installed_php_common: "{{ _rhel_common_nvr.stdout }}"
+      red_hat_api_fixed: "{{ _rhel_api_nvrs | unique }}"
+      installed_advisory: "{{ _rhel_advisory.stdout_lines }}"

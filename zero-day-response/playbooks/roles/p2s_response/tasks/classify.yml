@@ -1,0 +1,62 @@
+---
+# Deterministic classification (reviewed code). AI explains/ranks this output; it never decides it.
+- name: Red Hat fix status per CVE (Security Data API)
+  ansible.builtin.uri: {url: "{{ p2s_rh_api }}/{{ item }}.json", return_content: true, timeout: 60}
+  loop: "{{ p2s_cves }}"
+  register: _rh
+  retries: 4
+  delay: 10
+  until: _rh.status | default(-1) == 200
+
+- name: Build fix lookup
+  ansible.builtin.set_fact:
+    _rh_fixed: "{{ _rh.results | map(attribute='json') | map(attribute='affected_release') | flatten }}"
+    _rh_states: "{{ _rh.results | map(attribute='json') | map(attribute='package_state') | flatten }}"
+
+- name: Classify assets
+  ansible.builtin.set_fact:
+    p2s_assets: "{{ lookup('ansible.builtin.template', 'classify.j2') | from_json }}"
+
+- name: Build readable action services and patch target evidence
+  ansible.builtin.set_fact:
+    _action_services: []
+    _patch_assets: "{{ p2s_assets | selectattr('action', 'in', ['contain_edge_and_config', 'contain_config', 'isolate']) | selectattr('fix_status', 'eq', 'available') | list }}"
+
+- name: Describe actions in the deterministic priority order
+  ansible.builtin.set_fact:
+    _action_services: "{{ _action_services + [item.service ~ ' (' ~ {'contain_edge_and_config': 'edge + config', 'contain_config': 'config', 'isolate': 'isolate'}[item.action] ~ ')'] }}"
+  loop: "{{ p2s_assets | selectattr('action', 'in', ['contain_edge_and_config', 'contain_config', 'isolate']) | list }}"
+  loop_control: {label: "{{ item.service }}"}
+
+- name: Publish to AO (artifacts)
+  ansible.builtin.set_stats:
+    data:
+      p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      p2s_assets: "{{ p2s_assets }}"
+      p2s_summary:
+        total: "{{ p2s_assets | length }}"
+        p1_critical: "{{ p2s_assets | selectattr('priority', 'eq', 'P1') | list | length }}"
+        affected: "{{ p2s_assets | selectattr('affected', 'eq', true) | list | length }}"
+        fix_pending: "{{ p2s_assets | selectattr('fix_status', 'eq', 'pending') | list | length }}"
+        unknown: "{{ p2s_assets | selectattr('priority', 'eq', 'unknown') | list | length }}"
+        clear: "{{ p2s_assets | selectattr('priority', 'eq', 'clear') | list | length }}"
+        contain_targets: "{{ p2s_assets | selectattr('action', 'in', ['contain_edge_and_config', 'contain_config']) | map(attribute='host') | list }}"
+        isolate_targets: "{{ p2s_assets | selectattr('action', 'eq', 'isolate') | map(attribute='host') | list }}"
+        escalate_targets: "{{ p2s_assets | selectattr('action', 'eq', 'escalate') | map(attribute='host') | list }}"
+        scanned_at: "{{ now(utc=true).isoformat() }}"
+      p2s_action_services_text: "{{ _action_services | join(', ') }}"
+      p2s_patch_targets: "{{ _patch_assets | map(attribute='host') | list }}"
+      p2s_patch_targets_text: "{{ _patch_assets | map(attribute='service') | join(', ') }}"
+      p2s_action_targets: "{{ p2s_assets | selectattr('action', 'in', ['contain_edge_and_config', 'contain_config', 'isolate']) | map(attribute='host') | list }}"
+      p2s_need_contain: "{{ ((p2s_assets | selectattr('action', 'in', ['contain_edge_and_config', 'contain_config', 'isolate']) | list | length) > 0) | string | lower }}"
+      p2s_need_escalate: "{{ ((p2s_assets | selectattr('action', 'eq', 'escalate') | list | length) > 0) | string | lower }}"
+      p2s_pending_services: "{{ p2s_assets | selectattr('fix_status', 'eq', 'pending') | map(attribute='service') | zip(p2s_assets | selectattr('fix_status', 'eq', 'pending') | map(attribute='fix_ref')) | map('join', ': ') | join('; ') }}"
+      p2s_fix_ref: "{{ p2s_assets | selectattr('fix_status', 'eq', 'pending') | map(attribute='fix_ref') | join('; ') }}"
+      p2s_unknown_summary: "{{ p2s_assets | selectattr('action', 'eq', 'escalate') | map(attribute='host') | zip(p2s_assets | selectattr('action', 'eq', 'escalate') | map(attribute='exposure')) | map('join', ': exposure=') | join('; ') }}"
+      p2s_unknown_hosts: "{{ p2s_assets | selectattr('action', 'eq', 'escalate') | map(attribute='host') | list }}"
+      p2s_table: "{{ lookup('ansible.builtin.template', 'table.j2') }}"
+      p2s_rh_fix_snapshot: "{{ _rh_fixed | selectattr('product_name', 'in', ['Red Hat Enterprise Linux 10', 'Red Hat Enterprise Linux 9']) | list }}"
+
+- name: Classification (reviewed, deterministic; AI explains it and cannot change it)
+  ansible.builtin.debug:
+    msg: "{{ lookup('ansible.builtin.template', 'table.j2').split('\n') | map('trim') | select | list }}"

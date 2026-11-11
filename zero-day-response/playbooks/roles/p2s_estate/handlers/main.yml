@@ -1,0 +1,9 @@
+---
+- name: restart httpd
+  ansible.builtin.systemd: {name: httpd, state: restarted}
+- name: restart php-fpm
+  ansible.builtin.systemd: {name: php-fpm, state: restarted}
+- name: reload haproxy
+  ansible.builtin.systemd: {name: haproxy, state: reloaded}
+- name: restart php-app
+  ansible.builtin.systemd: {name: php-app, state: restarted, daemon_reload: true}
