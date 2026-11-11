@@ -1,0 +1,21 @@
+# Quadlet unit managed by AAP (php2shell demo)
+[Unit]
+Description={{ p2s_service }} ({{ p2s_container_image }})
+
+[Container]
+ContainerName=php-app
+Image={{ p2s_container_image }}
+PublishPort=127.0.0.1:8080:80
+Volume=/srv/p2s-app:/var/www/html:Z
+{% if p2s_controls_applied | default(false) | bool %}
+Volume=/etc/p2s/zz-php2shell.ini:/usr/local/etc/php/conf.d/zz-php2shell.ini:Z,ro
+Volume=/etc/p2s/php2shell-admin.conf:/etc/apache2/conf-enabled/zz-php2shell-admin.conf:Z,ro
+PodmanArgs=--memory={{ p2s_cgroup_memory }}
+{% endif %}
+Environment=P2S_SERVICE={{ p2s_service }}
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target

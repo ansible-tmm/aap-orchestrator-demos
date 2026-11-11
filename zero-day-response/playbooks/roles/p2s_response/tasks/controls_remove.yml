@@ -1,0 +1,62 @@
+---
+# Stand-down: remove interim controls ONLY where the fix is verified running.
+- name: Confirm fix is running before removing controls
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ '8080' if p2s_stack == 'container-mod-php' else (p2s_fpm_http_port | default(80)) }}/__p2s/status.php?p2s-verify=1"
+    return_content: true
+  register: _rt
+
+- name: Refuse to remove controls on an unfixed host
+  ansible.builtin.assert:
+    that: _rt.json.php_version is version(p2s_upstream_fixed[_rt.json.php_version.split('.')[:2] | join('.')] | default('99'), '>=')
+    fail_msg: "{{ inventory_hostname }} is not running a fixed build - controls stay"
+
+- name: Read mixed host container before removing any controls
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1
+    return_content: true
+  register: _standdown_ctr
+  when: p2s_stack == 'mixed'
+
+- name: Refuse mixed stand-down unless the container is fixed too
+  ansible.builtin.assert:
+    that: _standdown_ctr.json.php_version is version(p2s_upstream_fixed['8.4'], '>=')
+    fail_msg: "Mixed host container is not fixed - controls stay"
+  when: p2s_stack == 'mixed'
+
+- name: RHEL php - verify installed advisory and API fixed NVR
+  ansible.builtin.include_tasks: verify_rhel_fix.yml
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: RHEL php - record informational changelog CVEs
+  ansible.builtin.shell: rpm -q --changelog php-common | grep -oE 'CVE-2026-1096(18|19)' | sort -u
+  register: _cl
+  changed_when: false
+  failed_when: false
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: Remove FPM controls
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+  block:
+    - ansible.builtin.file: {path: "{{ item }}", state: absent}
+      loop: [/etc/php.d/99-php2shell-mitigation.ini, /etc/systemd/system/php-fpm.service.d/p2s-memory.conf]
+    - ansible.builtin.blockinfile: {path: /etc/php-fpm.d/www.conf, marker: "; {mark} PHP2Shell interim controls", state: absent}
+    - ansible.builtin.systemd: {name: php-fpm, state: restarted, daemon_reload: true}
+
+- name: Remove container/edge controls
+  when: p2s_stack in ['container-mod-php', 'mixed']
+  block:
+    - ansible.builtin.file: {path: /etc/p2s, state: absent}
+    - ansible.builtin.lineinfile: {path: /etc/containers/systemd/php-app.container, regexp: '^(Volume=/etc/p2s|PodmanArgs=--memory)', state: absent}
+    - ansible.builtin.template: {src: ../../p2s_estate/templates/haproxy.cfg.j2, dest: /etc/haproxy/haproxy.cfg, validate: 'haproxy -c -f %s'}
+      vars: {p2s_edge_multipart_block: false}
+    - ansible.builtin.shell: systemctl daemon-reload && systemctl restart php-app && systemctl reload haproxy
+
+- ansible.builtin.set_fact:
+    p2s_standdown: {host: "{{ inventory_hostname }}", controls_removed: true, running: "{{ _rt.json.php_version }}"}
+
+- run_once: true
+  ansible.builtin.set_stats:
+    data:
+      p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+      p2s_standdown: "{{ ansible_play_hosts | map('extract', hostvars, 'p2s_standdown') | list }}"

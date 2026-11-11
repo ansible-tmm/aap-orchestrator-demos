@@ -33,6 +33,7 @@ exclude:
   - kernel-compliance/
   - novel-incident-remediation/
   - cicd-pipeline/
+  - zero-day-response/
   - collections/
   - shared/
   - README.md

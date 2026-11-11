@@ -1,0 +1,54 @@
+{#- Deterministic PHP2Shell classification. Inputs: per-host p2s_asset facts + Red Hat Security Data API. -#}
+{%- set ns = namespace(out=[]) -%}
+{%- set rh10 = (_rh_fixed | selectattr('product_name', 'eq', 'Red Hat Enterprise Linux 10')
+                | selectattr('package', 'match', '^php-0:') | first | default({})) -%}
+{%- set rh10_nvr = (rh10.package | default('')) | regex_replace('^php-0:', '') -%}
+{%- for h in groups['php2shell'] | unique -%}
+  {%- set hv = hostvars[h] -%}
+  {%- if hv.p2s_asset is not defined or not (hv.p2s_asset.reachable | default(false)) -%}
+    {%- set r = {'host': h, 'reachable': false, 'service': hv.p2s_service | default('unknown'), 'owner': hv.p2s_owner | default('unassigned'),
+                 'criticality': hv.p2s_criticality | default('unknown'), 'exposure': hv.p2s_exposure | default('unknown'),
+                 'stack': hv.p2s_stack | default('unknown'), 'affected': none, 'fix_status': 'unknown', 'fix_ref': '',
+                 'priority': 'unknown', 'action': 'escalate',
+                 'reason': 'No evidence collected (unreachable or credential failure). Unknown is not clear.'} -%}
+  {%- else -%}
+    {%- set a = hv.p2s_asset -%}
+    {%- set both = (a.changelog_cves | select('in', p2s_cves) | list | length) == (p2s_cves | length) -%}
+    {%- if a.stack in ['rhel-php-fpm', 'mixed'] -%}
+      {%- set fixed = (both or (rh10_nvr != '' and a.rpm_nvr | length > 0 and a.rpm_nvr is version(rh10_nvr, '>='))) and (a.stack != 'mixed' or (a.ctr_php_version | default('unknown') != 'unknown' and a.ctr_php_version is version(p2s_upstream_fixed['8.4'], '>='))) -%}
+      {%- set fix_status = 'available' if rh10_nvr else 'unknown' -%}{%- set fix_ref = ((rh10.advisory ~ ' (php ' ~ rh10_nvr ~ ')') if rh10_nvr else 'No RHEL 10 fixed entry in API') ~ (' + upstream PHP ' ~ p2s_upstream_fixed['8.4'] ~ ' (image php:' ~ p2s_upstream_fixed['8.4'] ~ '-apache)' if a.stack == 'mixed' else '') -%}
+    {%- elif a.stack == 'container-mod-php' -%}
+      {%- set br = a.php_version.split('.')[:2] | join('.') -%}
+      {%- set fx = p2s_upstream_fixed[br] | default('') -%}
+      {%- set fixed = fx != '' and a.php_version is version(fx, '>=') -%}
+      {%- set fix_status = 'available' if fx else 'pending' -%}{%- set fix_ref = 'upstream PHP ' ~ fx ~ ' (image php:' ~ fx ~ '-apache)' if fx else '' -%}
+    {%- elif a.stack == 'vendor-bundled-php' -%}
+      {%- set br = a.php_version.split('.')[:2] | join('.') -%}
+      {%- set fx = p2s_upstream_fixed[br] | default('') -%}
+      {%- set fixed = fx != '' and a.php_version is version(fx, '>=') -%}
+      {%- set fix_status = 'available' if br in p2s_upstream_fixed else 'pending' -%}
+      {%- set fix_ref = 'php.net: PHP 8.1 is end of life; source backports only, no release. AcmeCMS has not shipped a rebuilt appliance (simulated vendor)' if br == '8.1' else ('upstream PHP ' ~ fx if fx else 'No fixed upstream release; vendor rebuild pending (simulated vendor)') -%}
+    {%- else -%}
+      {%- set fixed = false -%}{%- set fix_status = 'unknown' -%}{%- set fix_ref = '' -%}
+    {%- endif -%}
+    {%- set affected = not fixed -%}
+    {%- if not affected -%}
+      {%- set pri = 'clear' -%}{%- set act = 'none' -%}{%- set why = 'Fixed build present (' ~ (a.rpm_nvr or a.php_version) ~ ').' -%}
+    {%- elif a.lane_label == 'test' -%}
+      {%- set pri = 'test' -%}{%- set act = 'test_env' -%}{%- set why = 'Test environment mirroring production stacks.' -%}
+    {%- elif a.sapi == 'apache2handler' and a.exposure == 'internet' -%}
+      {%- set pri = 'P1' -%}{%- set act = 'contain_edge_and_config' -%}
+      {%- set why = 'mod_php (attack fires before app code) and internet-facing; matches configuration with confirmed honeypot shells.' -%}
+    {%- elif fix_status == 'pending' -%}
+      {%- set pri = 'P2' if a.exposure == 'internet' else 'P3' -%}{%- set act = 'isolate' -%}
+      {%- set why = 'Affected and no fix available for this stream; config mitigations alone are not considered sufficient.' -%}
+    {%- else -%}
+      {%- set pri = 'P2' if a.exposure == 'internet' else 'P3' -%}{%- set act = 'contain_config' -%}
+      {%- set why = 'Affected; ' ~ a.sapi ~ ' (harder to exploit per Red Hat) ' ~ ('internet-facing' if a.exposure == 'internet' else 'internal') ~ '; fix available.' -%}
+    {%- endif -%}
+    {%- set r = a | combine({'affected': affected, 'fix_status': ('n/a' if not affected else fix_status), 'fix_ref': fix_ref,
+                             'priority': pri, 'action': act, 'reason': why}) -%}
+  {%- endif -%}
+  {%- set ns.out = ns.out + [r] -%}
+{%- endfor -%}
+{{ ns.out | sort(attribute='priority') | to_json }}

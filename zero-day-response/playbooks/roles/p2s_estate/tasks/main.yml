@@ -1,0 +1,37 @@
+---
+- name: Register with Red Hat (needed for real RHSA content)
+  ansible.builtin.include_tasks: register.yml
+  when: rhn_username | default('') | length > 0
+
+- name: Common packages
+  ansible.builtin.dnf:
+    name: [firewalld, policycoreutils-python-utils, curl, jq]
+    state: present
+
+- name: Start firewall before immediate rules are managed
+  ansible.builtin.systemd: {name: firewalld, state: started, enabled: true}
+
+- name: Reset interim controls from previous runs
+  ansible.builtin.include_tasks: reset_controls.yml
+
+- name: Firewall - allow HTTP
+  ansible.posix.firewalld: {service: http, permanent: true, immediate: true, state: enabled}
+
+- name: RHEL php-fpm stack
+  ansible.builtin.include_tasks: stack_fpm.yml
+  when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+- name: Container mod_php stack behind HAProxy edge
+  ansible.builtin.include_tasks: stack_container.yml
+  when: p2s_stack in ['container-mod-php', 'mixed']
+
+- name: Vendor appliance with bundled PHP
+  ansible.builtin.include_tasks: stack_vendor.yml
+  when: p2s_stack == 'vendor-bundled-php'
+
+- name: Recreate pristine demo lab logs before adding the labelled seed
+  ansible.builtin.include_tasks: reset_logs.yml
+
+- name: Seed demo look-back evidence (labelled demo data)
+  ansible.builtin.include_tasks: seed_lookback.yml
+  when: p2s_seed_lookback_evidence | bool

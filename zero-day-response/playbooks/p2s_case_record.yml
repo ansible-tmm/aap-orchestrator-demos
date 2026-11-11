@@ -1,0 +1,50 @@
+---
+# PROVE: record an AI-drafted, human-facing update on the incident case, at the moment it is produced.
+# Lab: the record is this job's artifact (AAP + AO run record). In production this step posts to the SOAR/ITSM case.
+# It also refuses an empty draft, so an AI result that never arrived can't pass silently.
+- name: Record to case
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _required:
+      contain_update: [headline, verified, not_claimed, open_items, next_decision]
+      fix_status: [fixed, still_contained, unknown, next_step]
+    _text_fields: {contain_update: [headline, next_decision], fix_status: [next_step]}
+    _list_fields: {contain_update: [verified, not_claimed, open_items], fix_status: [fixed, still_contained, unknown]}
+  tasks:
+    - name: Parse the drafted entry
+      ansible.builtin.set_fact:
+        _entry: "{{ (p2s_case_entry | from_json) if (p2s_case_entry | default('') is string and p2s_case_entry | default('') | length > 0) else (p2s_case_entry | default({})) }}"
+
+    - name: Refuse an empty or incomplete draft (e.g. the agent result never arrived)
+      ansible.builtin.assert:
+        that:
+          - p2s_case_kind in _required
+          - _entry is mapping
+          - _required[p2s_case_kind] | difference(_entry.keys() | list) | length == 0
+          - _text_fields[p2s_case_kind] | map('extract', _entry) | select('string') | map('trim') | select | list | length
+            == _text_fields[p2s_case_kind] | length
+        fail_msg: "Case entry missing or incomplete for {{ p2s_case_kind }}; nothing recorded. Re-run the drafting step."
+        quiet: true
+
+    - name: Refuse list fields that are not lists of strings (no nulls, no nesting)
+      ansible.builtin.assert:
+        that:
+          - _entry[item] is sequence
+          - _entry[item] is not string
+          - _entry[item] is not mapping
+          - _entry[item] | reject('string') | list | length == 0
+        fail_msg: "Case entry field {{ item }} is not a list of strings; nothing recorded. Re-run the drafting step."
+        quiet: true
+      loop: "{{ _list_fields[p2s_case_kind] }}"
+
+    - name: Publish the case record
+      ansible.builtin.set_stats:
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_case_record:
+            incident: "{{ p2s_incident | default('unknown') }}"
+            kind: "{{ p2s_case_kind }}"
+            recorded_at: "{{ now(utc=true).isoformat() }}"
+            drafted_by: "AI agent (draft for human sign-off)"
+            entry: "{{ _entry }}"

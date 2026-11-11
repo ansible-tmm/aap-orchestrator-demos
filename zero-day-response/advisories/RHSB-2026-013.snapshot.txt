@@ -1,0 +1,236 @@
+SOURCE: https://access.redhat.com/security/vulnerabilities/RHSB-2026-013
+RETRIEVED: 2026-10-28T05:39:29Z
+NOTE: text snapshot for AI extraction; the agent receives this file, never the live web.
+
+
+
+RHSB-2026-013 Request handling memory corruption - php (CVE-2026-109618, CVE-2026-109619, CVE-2026-115560) - "php2shell" | Red Hat Customer Portal
+
+Skip to main content
+
+0
+
+Get notified when this content is updated.
+Follow
+
+Please wait...
+
+Executive Summary
+
+Important memory corruption flaws were found in PHP's request handling. These issues have been assigned CVE-2026-109618 and CVE-2026-109619. Red Hat is expediting the release of fixes. Some updates are already available, with additional updates in progress.
+
+An unauthenticated remote attacker can trigger memory corruption during PHP request processing, potentially achieving arbitrary code execution. CVE-2026-109618 arises when a memory allocation fails during request parsing: PHP does not roll back incomplete state, and subsequent cleanup operates on uninitialized memory. CVE-2026-109619 occurs when a fatal error interrupts cleanup, leaving stale pointers to freed request memory that are reused by a later operation.
+
+Reliable exploitation requires precise heap manipulation and timing. On Red Hat Enterprise Linux 8 and later, the default deployment uses PHP-FPM rather than mod_php. PHP-FPM workers exit on early initialization failures before reaching the corrupted structures, making remote code execution difficult in practice. Environments running mod_php with default configuration are at higher risk.
+
+Systems that do not have PHP installed, or that do not expose PHP to untrusted HTTP requests, are not affected by these flaws.
+
+On October 23, 2026, the PHP project published an informational advisory for a third issue, CVE-2026-115560, in the same session upload progress feature. PHP describes it as an unlikely remote code execution vector that requires an uncommon combination of configuration and application code, and is addressing it in a routine release rather than an emergency one. The mitigation described below fully protects against this issue. Red Hat is assessing product impact and this bulletin will be updated.
+
+The investigation is ongoing and this bulletin will be updated as new information emerges. Log in with your Red Hat account, then click the "Follow" button below to be notified of changes to this bulletin.
+
+Affected Products
+
+The following Red Hat product versions are directly affected:
+
+Red Hat Enterprise Linux 10
+
+Red Hat Enterprise Linux 9
+
+Red Hat Enterprise Linux 8
+
+Red Hat Enterprise Linux 7
+
+Only affected by CVE-2026-109619. In a default configuration, the version of PHP in use is vulnerable
+
+The vulnerable code required to exploit CVE-2026-109618 is not present
+
+Red Hat OpenShift Dev Spaces 3 (Moderate severity: the operator and operands do not use PHP; attack vectors are limited to developers building a PHP service in the default Universal Developer Image with an exposed endpoint)
+
+Further, any Red Hat product which is supported on Red Hat Enterprise Linux (including RHEL CoreOS) is also potentially impacted. This includes
+
+Product containers that are based on the RHEL or UBI container images.  These images are updated regularly, and container health indicating whether a fix to this flaw is available can be seen in the Container Health Index, part of the Red Hat Container Catalog.  In addition, any customer containers should be rebuilt when the base images are updated.
+
+Products that pull packages from the RHEL channel (this includes layered products such as Red Hat OpenShift Container Platform, Red Hat OpenStack Platform, Red Hat Virtualization, and others).  Please ensure that the underlying RHEL php package is current in these product environments.
+
+Mitigation
+
+Overall Guidance
+
+Configuration changes can prevent the vulnerable paths from being reached, but they may disrupt workloads and are not a substitute for patching. Disabling session upload progress fully protects against CVE-2026-115560, and removes exposure to CVE-2026-109619 on the php package shipped with Red Hat Enterprise Linux 7, but on other products it blocks only the confirmed session paths. The memory limit and request size changes remove the attacker-controllable failure for CVE-2026-109618 but do not eliminate it, because an underlying allocation failure can still reach the affected code. Patching is the only comprehensive solution that both fixes the vulnerabilities and maintains full functionality.
+
+The PHP project publishes additional application-level hardening guidance in its upstream advisories, linked in the References section below.
+
+Product-Specific Mitigation Steps
+
+Apply all settings below using php_admin_value in the PHP-FPM pool or Apache HTTP Server configuration so that applications cannot override them. Settings must take effect before request parsing begins, so ini_set() and PHP-FPM .user.ini files are not suitable.
+
+Restart every worker after any change. A reload is not sufficient, because existing workers may retain affected state from earlier requests.
+
+systemctl restart httpd      # mod_php, the default on RHEL 7
+systemctl restart php-fpm    # PHP-FPM, the default on RHEL 8 and later
+
+In containerized deployments, replace the running container or pod.
+
+Disable Session Upload Progress
+
+Addresses CVE-2026-109619 and CVE-2026-115560. This is the single most effective change and the only one required on Red Hat Enterprise Linux 7.
+
+Warning: Applications using PHP's native session upload-progress reporting will no longer receive progress data. Applications that report upload progress in the browser are unaffected.
+
+session.upload_progress.enabled = 0
+
+This directive is commented out in the shipped /etc/php.ini and defaults to enabled, so the line must be added and set to 0. Uncommenting the shipped line leaves the feature enabled.
+
+Audit for .htaccess, virtual host php_value, and .user.ini settings that could re-enable it per directory. Using php_admin_value prevents these overrides. Verify through a temporary phpinfo() page rather than php -i, which reports the command-line configuration.
+
+CVE-2026-115560 affects only applications that set session.serialize_handler to php_binary or php_serialize in configuration and then switch it to php at runtime with ini_set() before calling session_start(). Applications that never change the serialize handler at runtime are not exposed to that flaw. This setting remains recommended regardless, as it also addresses CVE-2026-109619.
+
+Keep this setting in place until the updates are applied. For CVE-2026-115560 alone, upstream expects a fix in the next routine PHP release.
+
+Remove the Controllable Memory Limit
+
+Addresses CVE-2026-109618. Not required on Red Hat Enterprise Linux 7, which is not affected by this flaw.
+
+Warning: This removes PHP's own memory ceiling. Do not apply it without an external availability boundary in place, or a single runaway request can exhaust system memory.
+
+memory_limit = -1
+
+Verify that no pool, directory, or application setting reimposes a finite limit. Impose the availability boundary with a container or cgroup limit instead, preferably with a policy that terminates only the affected worker.
+
+Warning: Do not use RLIMIT_AS or RLIMIT_DATA for this purpose. They produce exactly the allocation failure that reaches the affected code and will make the problem worse.
+
+Limit Request Size
+
+Addresses CVE-2026-109618.
+
+Warning: Applications accepting large uploads or large form posts will break if the limit is set below what they require. Review current values before applying.
+
+post_max_size = 8M     # applications that do not require file uploads
+post_max_size = 32M    # applications that require file uploads
+
+Keep upload_max_filesize below post_max_size. Consider enforcing further limits at the web server or proxy for decoded request size, input field count, multipart part count, header count, and nesting depth. These must also apply to requests without a usable Content-Length header.
+
+Additional Steps for PHP 8.5
+
+Addresses the confirmed fatal error backtrace path for CVE-2026-109619. The setting does not exist on earlier PHP versions. Of the products listed above, this applies to Red Hat Hardened Images.
+
+Warning: Fatal error backtraces will no longer be recorded, which may hinder application debugging.
+
+fatal_error_backtraces = 0
+
+Acknowledgements
+
+Red Hat would like to thank OpenAI, Wiz, calif.io, and the upstream PHP project for their exemplary coordination in discovering and disclosing these vulnerabilities, helping protect the broader open source ecosystem.
+
+References
+
+PHP upstream advisory for CVE-2026-109618
+
+PHP upstream advisory for CVE-2026-109619
+
+PHP informational advisory for CVE-2026-115560
+
+OpenAI blog
+
+calif.io blog
+
+Wiz blog
+
+How to use GPG to verify signed content from Product Security
+
+Was this information helpful? Your feedback is valuable!
+
+Feedback cancelled
+
+Get notified when this content is updated
+Follow
+
+Please wait...
+
+Comments
+
+LinkedIn
+
+YouTube
+
+Facebook
+
+X, formerly Twitter
+
+Quick Links
+
+Downloads
+
+Subscriptions
+
+Support Cases
+
+Customer Service
+
+Product Documentation
+
+Help
+
+Contact Us
+
+Customer Portal FAQ
+
+Log-in Assistance
+
+Site Info
+
+Trust Red Hat
+
+Browser Support Policy
+
+Accessibility
+
+Awards and Recognition
+
+Colophon
+
+Related Sites
+
+redhat.com
+
+developers.redhat.com
+
+connect.redhat.com
+
+cloud.redhat.com
+
+Red Hat legal and privacy
+links
+
+About Red Hat
+
+Jobs
+
+Events
+
+Locations
+
+Contact Red Hat
+
+Red Hat Blog
+
+Inclusion at Red Hat
+
+Cool Stuff Store
+
+Red Hat Summit
+
+© 2026 Red Hat
+
+Red Hat legal and
+privacy links
+
+Privacy statement
+
+Terms of use
+
+All policies and guidelines
+
+Digital accessibility
+

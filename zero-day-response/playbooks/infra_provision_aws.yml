@@ -1,0 +1,354 @@
+---
+# Runs only through the seeded p2s-estate-provision JT with AWS + machine credentials.
+# The SDK is provided by APD's EE. No AWS mutation runs on the operator's Mac.
+- name: Provision or remove the isolated PHP2Shell EC2 estate
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - node-config/nodes-aws.yml
+  vars:
+    role_action: provision
+    _p2s_aws_script: |
+      import json, sys, traceback
+      try:
+          import json, sys, time
+          import boto3
+          from botocore.exceptions import ClientError
+    
+          cfg = json.load(sys.stdin)
+          action = cfg['action']
+          assert action in ('provision', 'deprovision')
+          ec2 = boto3.client('ec2', region_name='us-east-1')
+          owned = [{'Name': 'tag:p2s-demo', 'Values': ['true']}]
+          live_states = ['pending', 'running', 'stopping', 'stopped']
+          base = {'p2s-demo': 'true', 'managed-by': 'aap-product-demos', 'purpose': 'php2shell'}
+          out = {'action': action, 'region': 'us-east-1', 'created': [], 'deleted': []}
+    
+          def tags(name, more=None):
+              return [{'Key': k, 'Value': str(v)} for k, v in dict(base, Name=name, **(more or {})).items()]
+    
+          def spec(kind, name, more=None):
+              return [{'ResourceType': kind, 'Tags': tags(name, more)}]
+    
+          def pages(op, key, **kwargs):
+              return [x for p in ec2.get_paginator(op).paginate(**kwargs) for x in p[key]]
+    
+          def instances():
+              return [i for r in pages('describe_instances', 'Reservations', Filters=owned + [
+                  {'Name': 'instance-state-name', 'Values': live_states}]) for i in r['Instances']]
+    
+          def wait_gone(op, key, filters):
+              for attempt in range(120):
+                  if not pages(op, key, Filters=filters):
+                      return
+                  time.sleep(5)
+              raise RuntimeError('resource deletion did not finish: ' + op)
+    
+          def record_create(resource_id):
+              out['created'].append(resource_id)
+              return resource_id
+    
+          def record_delete(resource_id):
+              out['deleted'].append(resource_id)
+    
+          if action == 'provision':
+              nodes = cfg['nodes']
+              assert len(nodes) == 6 and len({n['name'] for n in nodes}) == 6
+              assert all(n['instance_type'] in ('t3.small', 't3.medium') for n in nodes)
+              current = instances()
+              assert len(current) <= 6, 'instance budget exceeded'
+              desired = {n['name']: n for n in nodes}
+              names = [next((t['Value'] for t in i.get('Tags', []) if t['Key'] == 'Name'), '') for i in current]
+              assert len(names) == len(set(names)) and set(names) <= set(desired), 'unexpected owned instances'
+              assert len(current) + len(set(desired) - set(names)) <= 6
+              images = pages('describe_images', 'Images', Owners=['309956199498'], Filters=[
+                  {'Name': 'name', 'Values': ['RHEL-10*HVM-*Hourly*']},
+                  {'Name': 'architecture', 'Values': ['x86_64']},
+                  {'Name': 'state', 'Values': ['available']}])
+              image = max(images, key=lambda x: x['CreationDate'])
+              out['ami'] = {'id': image['ImageId'], 'name': image['Name']}
+              vpcs = ec2.describe_vpcs(Filters=owned)['Vpcs']
+              assert len(vpcs) <= 1
+              if vpcs:
+                  vpc = vpcs[0]
+                  assert vpc['CidrBlock'] == '10.78.0.0/16'
+              else:
+                  vpc = ec2.create_vpc(CidrBlock='10.78.0.0/16', TagSpecifications=spec('vpc', 'p2s-demo-vpc'))['Vpc']
+                  record_create(vpc['VpcId'])
+              vid = vpc['VpcId']
+              ec2.get_waiter('vpc_available').wait(VpcIds=[vid])
+              ec2.modify_vpc_attribute(VpcId=vid, EnableDnsSupport={'Value': True})
+              ec2.modify_vpc_attribute(VpcId=vid, EnableDnsHostnames={'Value': True})
+              vf = [{'Name': 'vpc-id', 'Values': [vid]}]
+              # AWS creates a main route table, default ACL and default SG with the VPC.
+              # Tag these owned defaults too so teardown and independent evidence include them.
+              defaults = [('RouteTables', 'describe_route_tables', 'RouteTableId', 'main-route'),
+                          ('NetworkAcls', 'describe_network_acls', 'NetworkAclId', 'default-acl'),
+                          ('SecurityGroups', 'describe_security_groups', 'GroupId', 'default-sg')]
+              for key, method, idkey, name in defaults:
+                  for obj in getattr(ec2, method)(Filters=vf)[key]:
+                      if not any(t['Key'] == 'p2s-demo' for t in obj.get('Tags', [])):
+                          ec2.create_tags(Resources=[obj[idkey]], Tags=tags('p2s-demo-' + name))
+                          record_create(obj[idkey])
+              # The implicit default AZ may not offer either required t3 type (us-east-1e).
+              required_types = {n['instance_type'] for n in nodes}
+              offerings = pages('describe_instance_type_offerings', 'InstanceTypeOfferings',
+                  LocationType='availability-zone', Filters=[
+                      {'Name': 'instance-type', 'Values': sorted(required_types)}])
+              supported_zones = set.intersection(*[
+                  {o['Location'] for o in offerings if o['InstanceType'] == instance_type}
+                  for instance_type in required_types])
+              assert supported_zones, 'no availability zone offers all required instance types'
+              subs = ec2.describe_subnets(Filters=owned + vf)['Subnets']
+              assert len(subs) <= 1
+              if subs:
+                  sub = subs[0]
+                  assert sub['CidrBlock'] == '10.78.1.0/24'
+                  assert sub['AvailabilityZone'] in supported_zones, 'existing subnet lacks required t3 offerings'
+              else:
+                  sub = ec2.create_subnet(VpcId=vid, CidrBlock='10.78.1.0/24',
+                      AvailabilityZone=sorted(supported_zones)[0],
+                      TagSpecifications=spec('subnet', 'p2s-demo-public'))['Subnet']
+                  record_create(sub['SubnetId'])
+              sid = sub['SubnetId']
+              ec2.modify_subnet_attribute(SubnetId=sid, MapPublicIpOnLaunch={'Value': True})
+              igws = ec2.describe_internet_gateways(Filters=owned)['InternetGateways']
+              assert len(igws) <= 1
+              if igws:
+                  igw = igws[0]
+              else:
+                  igw = ec2.create_internet_gateway(TagSpecifications=spec('internet-gateway', 'p2s-demo-igw'))['InternetGateway']
+                  record_create(igw['InternetGatewayId'])
+              gid = igw['InternetGatewayId']
+              if not igw['Attachments']:
+                  ec2.attach_internet_gateway(InternetGatewayId=gid, VpcId=vid)
+              else:
+                  assert all(a['VpcId'] == vid for a in igw['Attachments'])
+              tables = ec2.describe_route_tables(Filters=owned + vf)['RouteTables']
+              table = next(t for t in tables if any(a.get('Main') for a in t['Associations']))
+              tid = table['RouteTableId']
+              route = next((r for r in table['Routes'] if r.get('DestinationCidrBlock') == '0.0.0.0/0'), None)
+              if route:
+                  assert route.get('GatewayId') == gid
+              else:
+                  ec2.create_route(RouteTableId=tid, DestinationCidrBlock='0.0.0.0/0', GatewayId=gid)
+              groups = ec2.describe_security_groups(Filters=owned + vf)['SecurityGroups']
+              group = next((g for g in groups if g['GroupName'] == 'p2s-demo-estate'), None)
+              if group is None:
+                  sgid = ec2.create_security_group(GroupName='p2s-demo-estate',
+                      Description='SSH key access; demo web services confined to the VPC', VpcId=vid,
+                      TagSpecifications=spec('security-group', 'p2s-demo-estate'))['GroupId']
+                  record_create(sgid)
+                  group = ec2.describe_security_groups(GroupIds=[sgid])['SecurityGroups'][0]
+              sgid = group['GroupId']
+              rules = [{'IpProtocol': 'tcp', 'FromPort': p, 'ToPort': p,
+                        'IpRanges': [{'CidrIp': '0.0.0.0/0' if p == 22 else '10.78.0.0/16'}]}
+                       for p in (22, 80, 8008, 8080)]
+              # Validate existing ingress before changing it: an unsafe existing rule is a hard failure.
+              for rule in group['IpPermissions']:
+                  assert rule['IpProtocol'] == 'tcp' and rule.get('FromPort') == rule.get('ToPort')
+                  port = rule['FromPort']
+                  assert port in (22, 80, 8008, 8080)
+                  assert not rule.get('Ipv6Ranges') and not rule.get('UserIdGroupPairs') and not rule.get('PrefixListIds')
+                  assert all(r['CidrIp'] == ('0.0.0.0/0' if port == 22 else '10.78.0.0/16') for r in rule['IpRanges'])
+              for rule in rules:
+                  try:
+                      ec2.authorize_security_group_ingress(GroupId=sgid, IpPermissions=[rule])
+                  except ClientError as ex:
+                      if ex.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+                          raise
+              keys = ec2.describe_key_pairs(Filters=owned)['KeyPairs']
+              assert len(keys) <= 1
+              if keys:
+                  assert keys[0]['KeyName'] == 'p2s-demo-key'
+              else:
+                  key = ec2.import_key_pair(KeyName='p2s-demo-key', PublicKeyMaterial=cfg['public_key'].encode(),
+                      TagSpecifications=spec('key-pair', 'p2s-demo-key'))
+                  record_create(key['KeyPairId'])
+              for n in nodes:
+                  if n['name'] in names:
+                      inst = current[names.index(n['name'])]
+                      assert inst['InstanceType'] == n['instance_type']
+                      continue
+                  metadata = {'apd': 'true', 'p2s-lane': n['role']}
+                  metadata.update({'p2s-' + k: str(v) for k, v in n['meta'].items()})
+                  for extra in ('fpm_http_port', 'seed_lookback_evidence', 'php_target'):
+                      if extra in n:
+                          value = n[extra]
+                          metadata['p2s-' + extra.replace('_', '-')] = str(value).lower() if isinstance(value, bool) else str(value)
+                  ts = tags(n['name'], metadata)
+                  result = ec2.run_instances(ImageId=image['ImageId'], InstanceType=n['instance_type'], MinCount=1, MaxCount=1,
+                      KeyName='p2s-demo-key', MetadataOptions={'HttpTokens': 'required'},
+                      NetworkInterfaces=[{'DeviceIndex': 0, 'SubnetId': sid, 'Groups': [sgid],
+                                          'AssociatePublicIpAddress': True, 'DeleteOnTermination': True}],
+                      BlockDeviceMappings=[{'DeviceName': image['RootDeviceName'], 'Ebs': {
+                          'VolumeSize': 20, 'VolumeType': 'gp3', 'DeleteOnTermination': True, 'Encrypted': True}}],
+                      TagSpecifications=[{'ResourceType': t, 'Tags': ts} for t in ('instance', 'volume', 'network-interface')])
+                  record_create(result['Instances'][0]['InstanceId'])
+              expected_ids = [i['InstanceId'] for i in current] + [
+                  rid for rid in out['created'] if rid.startswith('i-')]
+              assert len(expected_ids) == 6
+              stopped = [i['InstanceId'] for i in current if i['State']['Name'] in ('stopped', 'stopping')]
+              if stopped:
+                  ec2.get_waiter('instance_stopped').wait(InstanceIds=stopped)
+                  ec2.start_instances(InstanceIds=stopped)
+              ec2.get_waiter('instance_running').wait(InstanceIds=expected_ids)
+              for attempt in range(30):
+                  estate = instances()
+                  if len(estate) == 6:
+                      break
+                  time.sleep(2)
+              assert len(estate) == 6
+              new_ids = set(out['created'])
+              for inst in estate:
+                  if inst['InstanceId'] in new_ids:
+                      out['created'].extend(v['Ebs']['VolumeId'] for v in inst.get('BlockDeviceMappings', []) if 'Ebs' in v)
+                      out['created'].extend(n['NetworkInterfaceId'] for n in inst.get('NetworkInterfaces', []))
+              out['instances'] = [{k: i.get(k) for k in ('InstanceId', 'InstanceType', 'ImageId', 'PrivateIpAddress',
+                                   'PublicIpAddress', 'Tags', 'BlockDeviceMappings', 'NetworkInterfaces')} for i in estate]
+              out['security_groups'] = ec2.describe_security_groups(Filters=owned + vf)['SecurityGroups']
+              out['vpc_id'] = vid
+          else:
+              estate = instances()
+              ids = [i['InstanceId'] for i in estate]
+              if ids:
+                  ec2.terminate_instances(InstanceIds=ids)
+                  ec2.get_waiter('instance_terminated').wait(InstanceIds=ids)
+                  out['deleted'].extend(ids)
+                  for inst in estate:
+                      out['deleted'].extend(v['Ebs']['VolumeId'] for v in inst.get('BlockDeviceMappings', []) if 'Ebs' in v)
+                      out['deleted'].extend(n['NetworkInterfaceId'] for n in inst.get('NetworkInterfaces', []))
+              # Wait for automatic ENI/volume deletion before deleting their networks.
+              wait_gone('describe_network_interfaces', 'NetworkInterfaces', owned)
+              volumes = pages('describe_volumes', 'Volumes', Filters=owned)
+              for vol in volumes:
+                  if vol['State'] == 'available':
+                      ec2.delete_volume(VolumeId=vol['VolumeId'])
+                      record_delete(vol['VolumeId'])
+              wait_gone('describe_volumes', 'Volumes', owned)
+              for key in ec2.describe_key_pairs(Filters=owned)['KeyPairs']:
+                  ec2.delete_key_pair(KeyPairId=key['KeyPairId'])
+                  record_delete(key['KeyPairId'])
+              for vpc in ec2.describe_vpcs(Filters=owned)['Vpcs']:
+                  vid = vpc['VpcId']
+                  vf = [{'Name': 'vpc-id', 'Values': [vid]}]
+                  for group in ec2.describe_security_groups(Filters=owned + vf)['SecurityGroups']:
+                      if group['GroupName'] != 'default':
+                          ec2.delete_security_group(GroupId=group['GroupId'])
+                          record_delete(group['GroupId'])
+                  for sub in ec2.describe_subnets(Filters=owned + vf)['Subnets']:
+                      ec2.delete_subnet(SubnetId=sub['SubnetId'])
+                      record_delete(sub['SubnetId'])
+                  for table in ec2.describe_route_tables(Filters=owned + vf)['RouteTables']:
+                      if not any(a.get('Main') for a in table['Associations']):
+                          for assoc in table['Associations']:
+                              ec2.disassociate_route_table(AssociationId=assoc['RouteTableAssociationId'])
+                          ec2.delete_route_table(RouteTableId=table['RouteTableId'])
+                          record_delete(table['RouteTableId'])
+                      else:
+                          record_delete(table['RouteTableId'])
+                  for acl in ec2.describe_network_acls(Filters=owned + vf)['NetworkAcls']:
+                      record_delete(acl['NetworkAclId'])
+                  default = ec2.describe_security_groups(Filters=owned + vf)['SecurityGroups']
+                  for group in default:
+                      record_delete(group['GroupId'])
+                  for igw in ec2.describe_internet_gateways(Filters=owned)['InternetGateways']:
+                      for attachment in igw['Attachments']:
+                          assert attachment['VpcId'] == vid
+                          ec2.detach_internet_gateway(InternetGatewayId=igw['InternetGatewayId'], VpcId=vid)
+                      ec2.delete_internet_gateway(InternetGatewayId=igw['InternetGatewayId'])
+                      record_delete(igw['InternetGatewayId'])
+                  ec2.delete_vpc(VpcId=vid)
+                  record_delete(vid)
+              # A prior interrupted create may have left an unattached owned gateway.
+              for igw in ec2.describe_internet_gateways(Filters=owned)['InternetGateways']:
+                  assert not igw['Attachments']
+                  ec2.delete_internet_gateway(InternetGatewayId=igw['InternetGatewayId'])
+                  record_delete(igw['InternetGatewayId'])
+              assert not instances()
+              for op, key in [('describe_volumes', 'Volumes'), ('describe_network_interfaces', 'NetworkInterfaces'),
+                              ('describe_security_groups', 'SecurityGroups'), ('describe_subnets', 'Subnets'),
+                              ('describe_route_tables', 'RouteTables'), ('describe_network_acls', 'NetworkAcls'),
+                              ('describe_internet_gateways', 'InternetGateways'), ('describe_vpcs', 'Vpcs')]:
+                  wait_gone(op, key, owned)
+              assert not ec2.describe_key_pairs(Filters=owned)['KeyPairs']
+              out['remaining'] = []
+          print(json.dumps(out, default=str))
+      except Exception as exc:
+          # Expose only safe diagnostics; provider error messages can contain credentials.
+          failure = {'error_type': type(exc).__name__,
+                     'line': traceback.extract_tb(exc.__traceback__)[-1].lineno}
+          if isinstance(exc, AssertionError):
+              failure['assertion'] = str(exc)
+          if getattr(exc, 'response', {}).get('Error', {}).get('Code'):
+              failure['provider_code'] = exc.response['Error']['Code']
+          print(json.dumps(failure))
+          sys.exit(1)
+  tasks:
+    - name: Validate the requested estate action
+      ansible.builtin.assert:
+        that: role_action in ['provision', 'deprovision']
+
+    - name: Resolve the injected machine private key path
+      ansible.builtin.set_fact:
+        _p2s_key_file: >-
+          {{ ansible_ssh_private_key_file
+             | default(lookup('env', 'ANSIBLE_PRIVATE_KEY_FILE'), true)
+             | default('/runner/artifacts/' ~ (lookup('env', 'JOB_ID')
+                 | default(lookup('env', 'AWX_JOB_ID'), true)
+                 | default(lookup('env', 'TOWER_JOB_ID'), true)) ~ '/ssh_key_data', true) }}
+      when: role_action == 'provision'
+      no_log: true
+
+    - name: Check whether the injected private key file exists in this EE
+      ansible.builtin.stat:
+        path: "{{ _p2s_key_file }}"
+      register: _p2s_key_stat
+      when: role_action == 'provision'
+      no_log: true
+
+    - name: Derive the SSH public key from an available credential file
+      ansible.builtin.set_fact:
+        _p2s_public_key: "{{ lookup('pipe', 'ssh-keygen -y -f ' ~ (_p2s_key_file | quote)) | trim }}"
+      when:
+        - role_action == 'provision'
+        - _p2s_key_stat.stat.exists | default(false)
+      no_log: true
+
+    - name: Use the forwarded machine ssh-agent when its file is outside the EE
+      ansible.builtin.set_fact:
+        _p2s_public_key: "{{ lookup('pipe', 'ssh-add -L 2>/dev/null | head -1') | trim }}"
+      when:
+        - role_action == 'provision'
+        - _p2s_public_key | default('') | trim | length == 0
+      no_log: true
+
+    - name: Require the injected machine key
+      ansible.builtin.assert:
+        that: _p2s_public_key | default('') | length > 0
+        fail_msg: APD Machine Credential must supply its SSH key.
+      when: role_action == 'provision'
+      no_log: true
+
+    - name: Manage only the tagged estate in us-east-1
+      ansible.builtin.command:
+        argv: ["{{ ansible_playbook_python }}", -c, "{{ _p2s_aws_script }}"]
+        stdin: "{{ {'action': role_action, 'nodes': nodes, 'public_key': _p2s_public_key | default('')} | to_json }}"
+      register: _p2s_aws_result
+      failed_when: false
+      changed_when: >-
+        _p2s_aws_result.rc == 0 and
+        (((_p2s_aws_result.stdout | from_json).created | length > 0) or
+         ((_p2s_aws_result.stdout | from_json).deleted | length > 0))
+      no_log: true
+
+    - name: Require successful estate lifecycle operations
+      ansible.builtin.assert:
+        that: _p2s_aws_result.rc == 0
+        fail_msg: "Estate lifecycle failed (safe JSON): {{ _p2s_aws_result.stdout }}"
+
+    - name: Publish the resource ledger and independent inventory evidence
+      ansible.builtin.set_stats:
+        data:
+          p2s_aws: "{{ _p2s_aws_result.stdout | from_json }}"

@@ -1,0 +1,209 @@
+{
+ "board_update": {
+  "properties": {
+   "headline": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "next_decision": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "not_claimed": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "open_items": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "verified": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   }
+  },
+  "required": [
+   "headline",
+   "verified",
+   "not_claimed",
+   "open_items",
+   "next_decision"
+  ],
+  "type": "object"
+ },
+ "close_draft": {
+  "properties": {
+   "case_can_close": {
+    "type": "boolean"
+   },
+   "fixed": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "next_step": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "still_contained": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "unknown": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   }
+  },
+  "required": [
+   "fixed",
+   "still_contained",
+   "unknown",
+   "case_can_close",
+   "next_step"
+  ],
+  "type": "object"
+ },
+ "contain_extract": {
+  "properties": {
+   "cautions": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "requires": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "residual_risk_quote": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "settings": {
+    "items": {
+     "properties": {
+      "citation": {
+       "minLength": 1,
+       "type": "string"
+      },
+      "quote": {
+       "type": "string"
+      },
+      "setting": {
+       "minLength": 1,
+       "type": "string"
+      },
+      "value": {
+       "description": "literal php.ini value only, e.g. 0, -1, 32M",
+       "minLength": 1,
+       "pattern": "^-?[0-9]+[KMGkmg]?$",
+       "type": "string"
+      }
+     },
+     "required": [
+      "setting",
+      "value",
+      "citation"
+     ],
+     "type": "object"
+    },
+    "type": "array"
+   }
+  },
+  "required": [
+   "settings",
+   "requires",
+   "residual_risk_quote"
+  ],
+  "type": "object"
+ },
+ "isolation_request": {
+  "properties": {
+   "body": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "title": {
+    "minLength": 1,
+    "type": "string"
+   }
+  },
+  "required": [
+   "title",
+   "body"
+  ],
+  "type": "object"
+ },
+ "know_brief": {
+  "properties": {
+   "are_we_affected": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "exec_summary": {
+    "description": "<= 60 words for the CISO",
+    "minLength": 1,
+    "type": "string"
+   },
+   "forensic_triage": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "unknowns": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "were_we_hit": {
+    "minLength": 1,
+    "type": "string"
+   }
+  },
+  "required": [
+   "exec_summary",
+   "are_we_affected",
+   "were_we_hit",
+   "unknowns"
+  ],
+  "type": "object"
+ },
+ "role_pr_draft": {
+  "properties": {
+   "body": {
+    "minLength": 1,
+    "type": "string"
+   },
+   "checks_to_add": {
+    "items": {
+     "type": "string"
+    },
+    "type": "array"
+   },
+   "title": {
+    "minLength": 1,
+    "type": "string"
+   }
+  },
+  "required": [
+   "title",
+   "body"
+  ],
+  "type": "object"
+ }
+}

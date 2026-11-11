@@ -1,0 +1,9 @@
+{#- Compact classification table shown to humans and to the explaining agent: installed vs fixed-in, one row per asset -#}
+{%- set rows = p2s_assets -%}
+{%- for o in ['P1', 'P2', 'P3', 'test', 'unknown', 'clear'] -%}
+{%- for a in rows | selectattr('priority', 'eq', o) -%}
+{%- set inst = (a.package | default('') | regex_replace('docker\\.io/library/', '') | regex_replace(' \\(AcmeCMS 5\\.2, bundled upstream PHP ([0-9.]+)\\)', ' (AcmeCMS, PHP \\1)')) or 'unknown' -%}
+{%- set fixin = ('none: upstream end of life, vendor rebuild needed' if a.fix_status == 'pending' else (a.fix_ref | default('') or ('unknown' if a.fix_status == 'unknown' else '-'))) -%}
+{{ '%-8s' | format(a.priority) }} {{ '%-21s' | format(a.service) }} {{ '%-15s' | format(a.sapi | default('unknown')) }} {{ '%-9s' | format(a.exposure) }} {{ '%-24s' | format(a.action) }} installed: {{ inst }} | fixed in: {{ fixin }}
+{% endfor -%}
+{%- endfor -%}

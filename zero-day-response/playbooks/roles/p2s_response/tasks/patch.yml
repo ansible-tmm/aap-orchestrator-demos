@@ -1,0 +1,186 @@
+---
+# FIX: apply the vendor fix for this host's stream; verify against the advisory; roll back keeps controls.
+- name: Patch only where a fix exists for this stream
+  ansible.builtin.set_fact:
+    _patchable: "{{ p2s_stack in ['rhel-php-fpm', 'mixed', 'container-mod-php'] }}"
+
+- name: Freeze this host's patch decision and normalise image keys
+  ansible.builtin.set_fact:
+    _do_patch: "{{ _patchable | bool and not (hostvars['localhost']._p2s_halt | default(false)) }}"
+    _fixed_images: "{{ dict(p2s_fixed_images.keys() | map('string') | zip(p2s_fixed_images.values())) }}"
+
+- name: Record hosts not patched by this decision
+  ansible.builtin.set_fact:
+    p2s_patch:
+      host: "{{ inventory_hostname }}"
+      service: "{{ p2s_service }}"
+      patched: false
+      reason: "{{ 'no fix available' if not (_patchable | bool) else 'halted after earlier failure' }}"
+  when: not (_do_patch | bool)
+
+- name: Patch with rollback
+  when: _do_patch | bool
+  block:
+    - name: RHEL php - record current build for rollback
+      ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-fpm
+      register: _pre_nvr
+      changed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Record every installed PHP package for aligned install and rollback
+      ansible.builtin.command: rpm -qa 'php*' --qf '%{NAME}\n'
+      register: _pre_php_names
+      changed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Establish RHEL install target from the live API before changing packages
+      ansible.builtin.include_tasks: rhel_fix_target.yml
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: RHEL php - apply API advisory
+      ansible.builtin.dnf:
+        name: "{{ _pre_php_names.stdout_lines | unique | map('regex_replace', '$', '-' ~ _rhel_api_target) | list }}"
+        state: present
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Record installed PHP build after upgrade
+      ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-fpm
+      register: _installed_nvr
+      changed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+    - name: Evidence of package upgrade
+      ansible.builtin.debug:
+        msg: "PHP FPM package before={{ _pre_nvr.stdout }} after={{ _installed_nvr.stdout }}"
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Read host clock immediately before restarting workers
+      ansible.builtin.command: date +%s
+      register: _patch_clock
+      changed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: RHEL php - restart workers (old workers would keep vulnerable code mapped)
+      ansible.builtin.systemd: {name: php-fpm, state: restarted}
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Container - record current image for rollback
+      ansible.builtin.command: podman inspect php-app --format '{{ '{{' }}.ImageName{{ '}}' }}'
+      register: _pre_img
+      changed_when: false
+      when: p2s_stack in ['container-mod-php', 'mixed']
+
+    - name: Container - roll to fixed upstream image (php 8.4.27)
+      ansible.builtin.replace:
+        path: /etc/containers/systemd/php-app.container
+        regexp: '^Image=.*$'
+        replace: "Image={{ _fixed_images['8.4'] }}"
+      when: p2s_stack in ['container-mod-php', 'mixed']
+
+    - name: Container - pull + restart
+      ansible.builtin.shell: podman pull -q {{ _fixed_images['8.4'] }} && systemctl daemon-reload && systemctl restart php-app
+      when: p2s_stack in ['container-mod-php', 'mixed']
+
+    - name: Verify fix (RHEL) - installed advisory and API fixed NVR
+      ansible.builtin.include_tasks: verify_rhel_fix.yml
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Record changelog CVEs as informational rebase evidence
+      ansible.builtin.shell: rpm -q --changelog php-common | grep -oE 'CVE-2026-1096(18|19)' | sort -u
+      register: _patch_changelog_cves
+      changed_when: false
+      failed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Record verified FPM package NVR
+      ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-fpm
+      register: _post_nvr
+      changed_when: false
+      when: p2s_stack in ['rhel-php-fpm', 'mixed']
+
+    - name: Verify fix (runtime version reported by the live service)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ '8080' if p2s_stack == 'container-mod-php' else (p2s_fpm_http_port | default(80)) }}/__p2s/status.php?p2s-verify=1"
+        return_content: true
+      register: _post_rt
+      until: _post_rt.status == 200
+      retries: 10
+      delay: 3
+
+    - name: Verify mixed host mod_php runtime independently of FPM
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1
+        return_content: true
+      register: _post_ctr_rt
+      until: _post_ctr_rt.status == 200
+      retries: 10
+      delay: 3
+      when: p2s_stack == 'mixed'
+
+    - name: Health gate
+      ansible.builtin.assert:
+        that:
+          - _post_rt.json.php_version is version(p2s_upstream_fixed[_post_rt.json.php_version.split('.')[:2] | join('.')] | default('99'), '>=')
+            or (_post_nvr.stdout_lines | default([]) | length > 0)
+          - p2s_stack != 'mixed' or _post_ctr_rt.json.php_version is version(p2s_upstream_fixed['8.4'], '>=')
+          - p2s_stack not in ['rhel-php-fpm', 'mixed'] or (_post_rt.json.started | int) >= (_patch_clock.stdout | int)
+          - p2s_stack not in ['rhel-php-fpm', 'mixed'] or (_post_nvr.stdout_lines[-1] == _rhel_api_target)
+        fail_msg: "Fixed build not running on {{ inventory_hostname }}"
+
+    - ansible.builtin.set_fact:
+        p2s_patch: {host: "{{ inventory_hostname }}", service: "{{ p2s_service }}", patched: true,
+                    running: "{{ _post_rt.json.php_version }}", package: "{{ _post_nvr.stdout_lines[-1] | default('image ' ~ _fixed_images['8.4']) }}",
+                    advisory: "{{ _rhel_api_advisory if p2s_stack != 'container-mod-php' else 'upstream php ' ~ p2s_upstream_fixed['8.4'] }}",
+                    controls_kept: true}
+  rescue:
+    - name: Roll back package (controls are deliberately left in place)
+      ansible.builtin.dnf:
+        name: "{{ _pre_php_names.stdout_lines | unique | map('regex_replace', '$', '-' ~ _pre_nvr.stdout) | list }}"
+        state: present
+        allow_downgrade: true
+      when: _pre_nvr.stdout is defined
+    - name: Roll back image
+      ansible.builtin.replace: {path: /etc/containers/systemd/php-app.container, regexp: '^Image=.*$', replace: "Image={{ _pre_img.stdout }}"}
+      when: _pre_img.stdout is defined
+    - name: Restart rolled-back FPM with normal failure handling
+      ansible.builtin.systemd: {name: php-fpm, state: restarted, daemon_reload: true}
+      when: p2s_stack in ['rhel-php-fpm', 'mixed'] and _pre_nvr.stdout is defined
+    - name: Restart rolled-back container with normal failure handling
+      ansible.builtin.systemd: {name: php-app, state: restarted, daemon_reload: true}
+      when: p2s_stack in ['container-mod-php', 'mixed'] and _pre_img.stdout is defined
+    - name: Record installed PHP build after rollback
+      ansible.builtin.command: rpm -q --qf '%{VERSION}-%{RELEASE}' php-fpm
+      register: _rollback_nvr
+      changed_when: false
+      when: _pre_nvr.stdout is defined
+    - name: Evidence of package rollback
+      ansible.builtin.debug:
+        msg: "PHP FPM package rollback expected={{ _pre_nvr.stdout }} actual={{ _rollback_nvr.stdout }}"
+      when: _pre_nvr.stdout is defined
+    - name: Prove package rollback restored the captured build
+      ansible.builtin.assert:
+        that: _rollback_nvr.stdout == _pre_nvr.stdout
+      when: _pre_nvr.stdout is defined
+    - name: Read running image after rollback
+      ansible.builtin.command: podman inspect php-app --format '{{ '{{' }}.ImageName{{ '}}' }}'
+      register: _rollback_img
+      changed_when: false
+      when: _pre_img.stdout is defined
+    - name: Prove image rollback restored the captured image
+      ansible.builtin.assert:
+        that: _rollback_img.stdout == _pre_img.stdout
+      when: _pre_img.stdout is defined
+    - name: Prove rolled-back container serves HTTP
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8080/__p2s/status.php?p2s-verify=1
+        return_content: true
+      register: _rollback_rt
+      until: _rollback_rt.status | default(-1) == 200
+      retries: 10
+      delay: 3
+      when: _pre_img.stdout is defined
+    - ansible.builtin.set_fact:
+        p2s_patch: {host: "{{ inventory_hostname }}", service: "{{ p2s_service }}", patched: false, rolled_back: true, controls_kept: true}
+    - name: Halt later hosts after any patch failure
+      ansible.builtin.set_fact: {_p2s_halt: true}
+      delegate_to: localhost
+      delegate_facts: true

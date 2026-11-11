@@ -1,0 +1,24 @@
+# Managed by AAP (php2shell demo). Edge in front of {{ p2s_service }}.
+global
+    log /dev/log local0
+    maxconn 2000
+defaults
+    mode http
+    log global
+    option httplog
+    timeout connect 5s
+    timeout client 30s
+    timeout server 30s
+frontend web
+    bind *:80
+    # internal verification endpoint is never exposed
+    http-request deny deny_status 404 if { path_beg /__p2s }
+{% if p2s_edge_multipart_block | default(false) | bool %}
+    # >>> PHP2Shell interim control (CVE-2026-109618/109619): block multipart uploads at the edge
+    acl p2s_multipart req.hdr(content-type) -m sub -i multipart/form-data
+    http-request deny deny_status 403 if METH_POST p2s_multipart
+    # <<< PHP2Shell interim control
+{% endif %}
+    default_backend app
+backend app
+    server app1 127.0.0.1:8080 check

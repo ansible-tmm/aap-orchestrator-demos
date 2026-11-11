@@ -1,0 +1,57 @@
+---
+# FIX watch: per-stream fix availability. Uses the Red Hat API responses AO recorded (p2s_rh_docs),
+# so the decision is made on exactly the evidence shown in the AO run; falls back to querying the API.
+- name: Fix availability per stream
+  hosts: localhost
+  gather_facts: false
+  vars:
+    p2s_cves: [CVE-2026-109618, CVE-2026-109619]
+    p2s_streams:
+      - {stream: "RHEL 10 php (php-fpm fleet)", product: "Red Hat Enterprise Linux 10", pkg_prefix: "php-0:", lanes: [patchable, test]}
+      - {stream: "Upstream PHP 8.1 (vendor appliance)", eol_branch: "8.1", eol_advisory: ["php.net 2026-10-21: 8.1 EOL, source backports only"], lanes: [vendor_pending]}
+      - {stream: "Upstream PHP 8.4 (payments container)", upstream: "8.4.27", lanes: [critical, test]}
+  vars_files: [roles/p2s_response/defaults/main.yml]
+  pre_tasks:
+    - name: Explain unavailable project revision
+      ansible.builtin.debug:
+        msg: "p2s_commit is unknown because neither awx_project_revision nor tower_project_revision was supplied by AAP"
+      when: awx_project_revision is not defined and tower_project_revision is not defined
+      run_once: true
+  tasks:
+    - name: Query Red Hat Security Data API (only if AO did not pass its recorded responses)
+      ansible.builtin.uri: {url: "https://access.redhat.com/hydra/rest/securitydata/cve/{{ item }}.json", return_content: true, timeout: 60}
+      loop: "{{ p2s_cves }}"
+      register: _q
+      retries: 4
+      delay: 10
+      until: _q.status | default(-1) == 200
+      when: p2s_rh_docs is not defined
+
+    - name: Evidence documents
+      ansible.builtin.set_fact:
+        _docs: "{{ (p2s_rh_docs | map('from_json') | list if (p2s_rh_docs | first) is string else p2s_rh_docs)
+                   if p2s_rh_docs is defined else (_q.results | map(attribute='json') | list) }}"
+
+    - name: Evaluate each stream
+      vars:
+        _fixes: "{{ _docs | map(attribute='affected_release') | flatten | selectattr('product_name', 'eq', item.product | default('')) | selectattr('package', 'match', '^' ~ (item.pkg_prefix | default('NONE'))) | list }}"
+        _states: "{{ _docs | map(attribute='package_state') | flatten | selectattr('product_name', 'eq', item.product | default('')) | selectattr('package_name', 'eq', item.state_pkg | default('NONE')) | map(attribute='fix_state') | list }}"
+        _fixed: "{{ (item.eol_branch in p2s_upstream_fixed) if item.eol_branch is defined else ((item.upstream is defined) or ((_fixes | length) >= (_docs | length) and (_states | length) == 0)) }}"
+      ansible.builtin.set_fact:
+        _rows: "{{ _rows | default([]) + [{
+            'stream': item.stream, 'lanes': item.lanes, 'fix_available': _fixed | bool,
+            'advisory': item.eol_advisory if item.eol_branch is defined else ((_fixes | map(attribute='advisory') | unique | list) if item.upstream is not defined else ['php.net 2026-10-21']),
+            'package': ('PHP ' ~ item.eol_branch ~ ' (end of life; no fixed release)') if item.eol_branch is defined else ((_fixes | map(attribute='package') | first | default(none)) if item.upstream is not defined else ('php ' ~ item.upstream)),
+            'red_hat_state': 'n/a (upstream EOL)' if item.eol_branch is defined else (('Fixed' if _fixed | bool else (_states | first | default('Unknown'))) if item.upstream is not defined else 'n/a (upstream)')}] }}"
+      loop: "{{ p2s_streams }}"
+      loop_control: {label: "{{ item.stream }}"}
+
+    - name: Publish
+      ansible.builtin.set_stats:
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_streams: "{{ _rows }}"
+          p2s_fix_lanes: "{{ _rows | selectattr('fix_available') | map(attribute='lanes') | flatten | unique | list }}"
+          p2s_pending_streams: "{{ _rows | rejectattr('fix_available') | map(attribute='stream') | list }}"
+          p2s_any_fix: "{{ ((_rows | selectattr('fix_available') | list | length) > 0) | string | lower }}"
+          p2s_fix_summary: "{{ _rows | map(attribute='stream') | zip(_rows | map(attribute='red_hat_state'), _rows | map(attribute='advisory') | map('join', ',')) | map('join', ' | ') | join('; ') }}"

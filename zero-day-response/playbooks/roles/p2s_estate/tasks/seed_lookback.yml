@@ -1,0 +1,10 @@
+---
+# DEMO DATA: one benign request line shaped like a PHP2Shell probe, so the look-back step has a finding.
+- name: Seed a probe-shaped request in the access log (labelled demo data)
+  ansible.builtin.lineinfile:
+    path: /var/log/httpd/access_log
+    create: true
+    regexp: '\[p2s-demo-seed\]'
+    line: >-
+      203.0.113.45 - - [{{ '%d/%b/%Y:%H:%M:%S +0000' | strftime((ansible_date_time.epoch | int) - 86400) }}]
+      "POST /upload.php HTTP/1.1" 200 61 "-" "python-requests/2.32 PHP_SESSION_UPLOAD_PROGRESS multipart [p2s-demo-seed]"

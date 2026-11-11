@@ -1,0 +1,86 @@
+---
+- ansible.builtin.include_tasks: validate_spec.yml
+
+- name: Mark change time (restart must happen after this)
+  ansible.builtin.set_fact:
+    _change_epoch: "{{ now(utc=true).timestamp() | int }}"
+
+# --- RHEL php-fpm: php.ini scan dir + FPM pool php_admin_value (not overridable by .user.ini/ini_set) + cgroup boundary
+- name: FPM controls
+  when: p2s_stack in ['rhel-php-fpm', 'mixed'] and p2s_action in ['contain_config', 'contain_edge_and_config', 'test_env']
+  block:
+    - ansible.builtin.copy:
+        dest: /etc/php.d/99-php2shell-mitigation.ini
+        content: |
+          ; PHP2Shell interim controls (CVE-2026-109618/109619) - managed by AAP, removed after patch
+          {% for k, v in _ini.items() %}{{ k }} = {{ v }}
+          {% endfor %}
+    - ansible.builtin.blockinfile:
+        path: /etc/php-fpm.d/www.conf
+        marker: "; {mark} PHP2Shell interim controls"
+        block: |
+          {% for k, v in _ini.items() %}php_admin_value[{{ k }}] = {{ v }}
+          {% endfor %}
+    - ansible.builtin.file:
+        path: /etc/systemd/system/php-fpm.service.d
+        state: directory
+        mode: '0755'
+      when: (_ini.memory_limit | default('') | string) == '-1'
+    - ansible.builtin.copy:
+        dest: /etc/systemd/system/php-fpm.service.d/p2s-memory.conf
+        content: "[Service]\nMemoryMax={{ p2s_cgroup_memory | upper }}\n"
+      register: _dropin
+      when: (_ini.memory_limit | default('') | string) == '-1'
+    - name: Restart php-fpm (reload is not sufficient per RHSB-2026-013)
+      ansible.builtin.systemd: {name: php-fpm, state: restarted, daemon_reload: true}
+
+# --- Container mod_php: conf.d ini + php_admin_* (not overridable by .htaccess) + container memory limit
+- name: Container controls
+  when: p2s_stack in ['container-mod-php', 'mixed'] and p2s_action in ['contain_edge_and_config', 'test_env']
+  block:
+    - ansible.builtin.file: {path: /etc/p2s, state: directory, mode: '0755'}
+    - ansible.builtin.copy:
+        dest: /etc/p2s/zz-php2shell.ini
+        content: |
+          ; PHP2Shell interim controls - managed by AAP
+          {% for k, v in _ini.items() %}{{ k }} = {{ v }}
+          {% endfor %}
+    - ansible.builtin.copy:
+        dest: /etc/p2s/php2shell-admin.conf
+        content: |
+          <IfModule php_module>
+          {% for k, v in _ini.items() %}    php_admin_value {{ k }} {{ v }}
+          {% endfor %}</IfModule>
+    - name: Render quadlet with controls (keeps current image)
+      ansible.builtin.shell: |
+        img=$(podman inspect php-app --format '{{ '{{' }}.ImageName{{ '}}' }}')
+        echo "$img"
+      register: _cur_img
+      changed_when: false
+    - ansible.builtin.template:
+        src: ../../p2s_estate/templates/php-app.container.j2
+        dest: /etc/containers/systemd/php-app.container
+      vars: {p2s_controls_applied: true, p2s_container_image: "{{ _cur_img.stdout }}"}
+    - name: Restart app container
+      ansible.builtin.systemd: {name: php-app, state: restarted, daemon_reload: true}
+    - name: Edge multipart block (critical lane only)
+      ansible.builtin.template:
+        src: ../../p2s_estate/templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        validate: haproxy -c -f %s
+      vars: {p2s_edge_multipart_block: true}
+      when: p2s_action in ['contain_edge_and_config', 'test_env']
+    - ansible.builtin.systemd: {name: haproxy, state: reloaded}
+
+# --- Isolation: bind vendor HTTP to loopback; management SSH is unaffected.
+- name: Isolate host
+  when: p2s_action == 'isolate'
+  block:
+    - ansible.posix.firewalld: {service: http, permanent: true, immediate: true, state: disabled}
+    - ansible.builtin.template:
+        src: ../../p2s_estate/templates/acmecms.container.j2
+        dest: /etc/containers/systemd/acmecms.container
+      vars: {p2s_isolated: true}
+    - ansible.builtin.systemd: {name: acmecms, state: restarted, daemon_reload: true}
+
+- ansible.builtin.include_tasks: controls_verify.yml
