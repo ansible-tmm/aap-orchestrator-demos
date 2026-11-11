@@ -1,6 +1,6 @@
 # Disk Utilization & Remediation Workflow
 
-Monitor filesystem usage on a Linux host and respond proportionally — from "all good" through automated cleanup to EBS volume expansion — then tell the team in Mattermost what happened.
+Monitor filesystem usage on a Linux host and respond proportionally - from "all good" through automated cleanup to EBS volume expansion - then tell the team in Mattermost what happened.
 
 ## How the use case works
 
@@ -8,14 +8,14 @@ Every ops team deals with disk pressure. The wrong automation treats it as binar
 
 | Situation | What happens |
 |---|---|
-| Disk is healthy (`< 80%`) | Log and notify — no changes to the host |
+| Disk is healthy (`< 80%`) | Log and notify - no changes to the host |
 | Disk is elevated (`80–95%`) | Reclaim space: dnf package cache and old log archives, then report how much was freed |
 | Disk is critical (`> 95%`) | Expand the root EBS volume in AWS, grow the partition and XFS filesystem on the host, report before/after volume size |
-| Switch can't classify (default port) | No automated fix — notify as unsupported and flag for manual review |
+| Switch can't classify (default port) | No automated fix - notify as unsupported and flag for manual review |
 
 The flow is always the same shape: **check → route → remediate → notify**. Ansible playbooks do the work on the host (and AWS for expand). Automation orchestrator wires the steps together and passes artifacts between them so each job knows what the previous one found.
 
-## Why a switch — not success/failure branching
+## Why a switch - not success/failure branching
 
 | Classic workflow branching | automation orchestrator switch |
 |---|---|
@@ -34,7 +34,7 @@ flowchart LR
   C -->|"< 80%"| D[Continue]
   C -->|"80–95%"| E[Cleanup logs & cache]
   C -->|"> 95%"| F[Expand EBS volume]
-  C -->|default| G[Fallback — manual review]
+  C -->|default| G[Fallback - manual review]
   D --> H[Notify]
   E --> H
   F --> H
@@ -47,7 +47,7 @@ flowchart LR
 |---|---|
 | [SETUP_GUIDE.md](SETUP_GUIDE.md) | Step-by-step environment setup |
 
-Import [`ao/disk-demo-101.json`](ao/disk-demo-101.json) — this is the **working nostromo export** with all four branches and per-branch notify steps. Activity UUIDs and `credential_id` are environment-specific; update `job_template_id` values if your Controller IDs differ.
+Import [`ao/disk-demo-101.json`](ao/disk-demo-101.json) - this is the **working nostromo export** with all four branches and per-branch notify steps. Activity UUIDs and `credential_id` are environment-specific; update `job_template_id` values if your Controller IDs differ.
 
 ### Nostromo job template map
 
@@ -64,10 +64,10 @@ Import [`ao/disk-demo-101.json`](ao/disk-demo-101.json) — this is the **workin
 
 | Switch port | Condition | Remediate | Notify title |
 |---|---|---|---|
-| `<80%` | `disk_use_percent < 80` | Continue — no action | Disk Utilization OK (green) |
-| `80-95%` | `>= 80 and <= 95` | Cleanup dnf cache + old logs | Warning — Disk Cleanup (orange) |
-| `>95%` | `disk_use_percent > 95` | Expand EBS + grow filesystem | Critical — Disk Expanded (purple) |
-| `default` | missing or non-numeric artifact | Fallback — manual review | Unsupported Disk Tier (red) |
+| `<80%` | `disk_use_percent < 80` | Continue - no action | Disk Utilization OK (green) |
+| `80-95%` | `>= 80 and <= 95` | Cleanup dnf cache + old logs | Warning - Disk Cleanup (orange) |
+| `>95%` | `disk_use_percent > 95` | Expand EBS + grow filesystem | Critical - Disk Expanded (purple) |
+| `default` | missing or non-numeric artifact | Fallback - manual review | Unsupported Disk Tier (red) |
 
 Thresholds match `group_vars/all.yml` (`disk_warn_threshold: 80`, `disk_critical_threshold: 95`). Use `>=` / `<=` on the warn port so boundary values (80 and 95) route correctly.
 
@@ -90,13 +90,13 @@ On the **Check** step in AO, set `extra_vars`:
 
 Remove `test_disk_use_percent` (or leave empty) for a real disk check.
 
-The exported workflow currently has `"test_disk_use_percent": 50` on the check step — safe default that routes to **Continue**. Change or remove it before a production run.
+The exported workflow currently has `"test_disk_use_percent": 50` on the check step - safe default that routes to **Continue**. Change or remove it before a production run.
 
 ## Per-branch notify pattern
 
-Each remediate branch has its **own** notify step (same JT 117). Every notify `extra_vars` key references **only** the upstream remediate activity on that branch — never a mix of cleanup + expand + continue in one block.
+Each remediate branch has its **own** notify step (same JT 117). Every notify `extra_vars` key references **only** the upstream remediate activity on that branch - never a mix of cleanup + expand + continue in one block.
 
-Example — warn path references cleanup only:
+Example - warn path references cleanup only:
 
 ```json
 "disk_use_percent": "${activity_5f6d0c2e_a677_4517_b013_ab2a9f8c2d59.artifacts.disk_use_percent}"
@@ -117,7 +117,7 @@ Branch-irrelevant fields are `unknown` / `0` / `false`. Re-sync the SCM project 
 | Playbook | What it does | Runs on |
 |---|---|---|
 | [`check_disk.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/check_disk.yml) | Reads filesystem usage on the target mount and publishes `disk_use_percent` and `disk_tier` artifacts for the switch. | RHEL EC2 node |
-| [`remediate_disk_continue.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/remediate_disk_continue.yml) | Healthy path when disk is below the warning threshold — logs status and publishes notify artifacts with no changes to the host. | RHEL EC2 node |
+| [`remediate_disk_continue.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/remediate_disk_continue.yml) | Healthy path when disk is below the warning threshold - logs status and publishes notify artifacts with no changes to the host. | RHEL EC2 node |
 | [`remediate_disk_cleanup.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/remediate_disk_cleanup.yml) | Reclaims dnf package cache and old log archives, then publishes before/after usage stats for the warning notify tier. | RHEL EC2 node |
 | [`remediate_disk_expand.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/remediate_disk_expand.yml) | Increases the root EBS volume in AWS, then runs `growpart` and `xfs_growfs` on the host for the critical expand path. | AWS (localhost) + RHEL EC2 node |
 | [`remediate_disk_fallback.yml`](https://github.com/ansible-tmm/aap-orchestrator-demos/blob/main/disk-utilization/playbooks/remediate_disk_fallback.yml) | Handles unexpected switch tiers (e.g. boundary values) with no remediation and publishes artifacts for the unsupported notify template. | RHEL EC2 node |
@@ -125,13 +125,13 @@ Branch-irrelevant fields are `unknown` / `0` / `false`. Re-sync the SCM project 
 
 Notify templates live under `playbooks/tasks/notify/`. Warn and critical templates have separate check-mode vs run-mode wording.
 
-## Critical path — EBS expand
+## Critical path - EBS expand
 
 `remediate_disk_expand.yml` runs three plays:
 
-1. **Discover** — resolve EC2 instance ID (inventory, IMDS, or AWS IP lookup)
-2. **AWS (localhost)** — increase root EBS volume by `disk_expand_gb` (default 5 GiB)
-3. **Linux host** — `growpart` + `xfs_growfs` on the mount
+1. **Discover** - resolve EC2 instance ID (inventory, IMDS, or AWS IP lookup)
+2. **AWS (localhost)** - increase root EBS volume by `disk_expand_gb` (default 5 GiB)
+3. **Linux host** - `growpart` + `xfs_growfs` on the mount
 
 Target layout (RHEL 9 on EC2): GPT disk `/dev/nvme0n1`, root partition `nvme0n1p4`, XFS on `/`.
 

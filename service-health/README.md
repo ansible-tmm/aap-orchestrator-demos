@@ -1,17 +1,17 @@
 # Service Health 101: Service State Routing
 
-**Status: Active** — playbooks and AO workflow JSON included.
+**Status: Active** - playbooks and AO workflow JSON included.
 
 ## What this demo shows
 
-One host, one service (`httpd`). Run a check playbook that publishes `service_state`. Route remediation in a single switch — no nested Controller decision trees.
+One host, one service (`httpd`). Run a check playbook that publishes `service_state`. Route remediation in a single switch - no nested Controller decision trees.
 
 | `service_state` | Path | Planned action |
 |---|---|---|
-| `active` | Green — done | Log OK, no changes |
-| `inactive` | Yellow — start it | Start the service |
-| `failed` | Orange — recover | Inspect logs and restart |
-| `not-found` | Red — install | Install the package and enable the unit |
+| `active` | Green - done | Log OK, no changes |
+| `inactive` | Yellow - start it | Start the service |
+| `failed` | Orange - recover | Inspect logs and restart |
+| `not-found` | Red - install | Install the package and enable the unit |
 
 ## Workflow
 

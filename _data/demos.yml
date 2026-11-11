@@ -1,4 +1,4 @@
-# Demo marketplace catalog — one entry per demo.
+# Demo marketplace catalog - one entry per demo.
 # Featured: exactly 3 demos (featured: true). See CLAUDE.md and .cursor/rules/demo-featured-cards.mdc.
 # youtube_url: optional walkthrough on the detail page (Demo video section after Playbooks). See .cursor/rules/demo-youtube-video.mdc.
 
@@ -108,7 +108,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0a1520 50%, #2a1a1a 100%)"
     icon: "🚀"
-  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes the OpenFlake change — or rolls back from snapshot.
+  blurb: CI green-lights a Lightwell CVE fix; AO deploys to dev, gates prod with full context, drains the LB, smoke-tests, closes the OpenFlake change - or rolls back from snapshot.
   stats:
     workflows: 1
     playbooks: 9
@@ -228,7 +228,7 @@
     gradient: "linear-gradient(135deg, #1a2a3a 0%, #0d1824 50%, #2a1a3a 100%)"
     icon: "🎫"
     video: /assets/previews/ticket-enrichment.mp4
-  blurb: ServiceNow webhook triggers AI triage that routes incidents three ways — auto-remediate, approval-gated remediation, or enrich-and-assign — with dynamic AAP job templates and SNOW ticket updates on every path.
+  blurb: ServiceNow webhook triggers AI triage that routes incidents three ways - auto-remediate, approval-gated remediation, or enrich-and-assign - with dynamic AAP job templates and SNOW ticket updates on every path.
   stats:
     workflows: 1
     playbooks: 3
@@ -239,7 +239,7 @@
   setup_guide: ticket-enrichment/REQUIREMENTS.md
   workflow_json: ticket-enrichment/ao/ticket-enrichment.json
   arcade_embed: https://interact.redhat.com/share/j5xLvTSv2GAkw6szxron?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true
-  arcade_title: Automation Orchestrator — Ticket Enrichment
+  arcade_title: Automation Orchestrator - Ticket Enrichment
   youtube_url: https://youtu.be/bT4rqJWmigU?si=AXEugP3GyShIAWao
   workflow_mermaid: |
     flowchart LR
@@ -271,7 +271,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a2a3a 0%, #1a1a24 100%)"
     icon: "⚖️"
-  blurb: Route certificate renewals by AI-assessed risk level — low, medium, and high paths get different treatment.
+  blurb: Route certificate renewals by AI-assessed risk level - low, medium, and high paths get different treatment.
   stats:
     workflows: 1
     playbooks: 5
@@ -346,7 +346,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a2a4a 0%, #0d1528 100%)"
     icon: "⏳"
-  blurb: Switch on cert_status from days remaining — skip, plan, renew, or emergency — no AI required.
+  blurb: Switch on cert_status from days remaining - skip, plan, renew, or emergency - no AI required.
   stats:
     workflows: 1
     playbooks: 7
@@ -385,7 +385,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a3a1a 0%, #0d200d 100%)"
     icon: "🩺"
-  blurb: Check httpd state, switch on service_state — log OK, start, restart, or install in one workflow.
+  blurb: Check httpd state, switch on service_state - log OK, start, restart, or install in one workflow.
   stats:
     workflows: 1
     playbooks: 6
@@ -412,7 +412,7 @@
 
 - slug: multi-os-cloud-patching
   title: Multi-OS Cloud Patching
-  subtitle: Playbook orchestration — RHEL and Windows on AWS
+  subtitle: Playbook orchestration - RHEL and Windows on AWS
   category: patching
   status: active
   featured: false
@@ -457,7 +457,7 @@
 
 - slug: patch-management
   title: Patch Severity Routing
-  subtitle: Switch routing — one scan, four remediation strategies
+  subtitle: Switch routing - one scan, four remediation strategies
   category: patching
   status: active
   ai_generated: true
@@ -468,7 +468,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #3a2a1a 0%, #1a1008 100%)"
     icon: "🩹"
-  blurb: Assess patch severity, switch on highest_severity — patch now, schedule, batch, or report compliant.
+  blurb: Assess patch severity, switch on highest_severity - patch now, schedule, batch, or report compliant.
   stats:
     workflows: 1
     playbooks: 6
@@ -507,7 +507,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a3a4a 0%, #101820 100%)"
     icon: "👤"
-  blurb: Survey or webhook sets request_type — provision new hire, contractor, role change, or termination.
+  blurb: Survey or webhook sets request_type - provision new hire, contractor, role change, or termination.
   stats:
     workflows: 1
     playbooks: 6
@@ -545,7 +545,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #2a2a1a 0%, #141008 100%)"
     icon: "💾"
-  blurb: Switch on backup_result — verify success, retry partial, escalate failed, or log skipped.
+  blurb: Switch on backup_result - verify success, retry partial, escalate failed, or log skipped.
   stats:
     workflows: 1
     playbooks: 6
@@ -583,7 +583,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #4a1a1a 0%, #200808 100%)"
     icon: "📋"
-  blurb: Check RHEL subscription status — registered, expiring, expired, or unregistered — each gets a different path.
+  blurb: Check RHEL subscription status - registered, expiring, expired, or unregistered - each gets a different path.
   stats:
     workflows: 1
     playbooks: 6
@@ -621,7 +621,7 @@
   thumbnail:
     gradient: "linear-gradient(135deg, #1a1a3a 0%, #080818 100%)"
     icon: "🐧"
-  blurb: Scan kernel compliance — compliant, reboot required, drift, or EOL — switch to the right response.
+  blurb: Scan kernel compliance - compliant, reboot required, drift, or EOL - switch to the right response.
   stats:
     workflows: 1
     playbooks: 6
@@ -760,7 +760,7 @@
 
 - slug: zero-day-response
   title: Zero-Day Response
-  subtitle: KNOW, CONTAIN, FIX, PROVE — PHP2Shell on RHEL and AWS
+  subtitle: KNOW, CONTAIN, FIX, PROVE - PHP2Shell on RHEL and AWS
   category: patching
   status: active
   featured: false

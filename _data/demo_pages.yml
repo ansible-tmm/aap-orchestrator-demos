@@ -28,8 +28,8 @@ cicd-pipeline:
     - approval
     - agentic
   why_it_matters:
-    - Automation orchestrator owns the CD path after CI — it does not replace Jenkins, GitHub Actions, or Gitea Actions; it coordinates them with ITSM and production runbooks.
-    - Approvers see the CVE, artifact version, CI build link, and change request — a governed decision, not a checkbox.
+    - Automation orchestrator owns the CD path after CI - it does not replace Jenkins, GitHub Actions, or Gitea Actions; it coordinates them with ITSM and production runbooks.
+    - Approvers see the CVE, artifact version, CI build link, and change request - a governed decision, not a checkbox.
     - Smoke-test failure restores the pre-deploy snapshot and records the failure on the change with a complete audit trail instead of leaving production and the CHG half-done.
   routes:
     headers: [Path, Condition, Action]
@@ -38,15 +38,22 @@ cicd-pipeline:
       - [Happy path, "Dev tests pass + approval", "Drain LB → prod deploy → smoke test → AI close note → close CHG"]
       - [Prod rollback, "ao_prod_health_passed != true", "AI incident note → restore snapshot → update change"]
   walkthrough:
-    title: Demo walkthrough — happy path
+    title: Demo walkthrough - happy path
     lede: Presenter runbook for the basic CI/CD show. URLs and passwords come from the product-demos seed summary (and the OpenFlake / Gitea setup jobs).
     steps:
-      - "<strong>Open four tabs</strong> before you start — keep them side by side: <strong>AAP (Controller)</strong>; <strong>automation orchestrator</strong> (AO URL from the seed summary; admin + printed password); <strong>OpenFlake</strong> (ITSM UI; login from seed summary / OpenFlake job); <strong>Gitea</strong> (<code>apdadmin</code> / <code>Ansible123!</code>)."
-      - "<strong>Simulate the Lightwell PR.</strong> In AAP, launch <strong>CI/CD Demo - Simulate Lightwell PR</strong>. In Gitea, open the new PR and confirm <code>requirements.txt</code> shows the Lightwell backport: <code>aiohttp==3.9.2.rhlw-00001</code> (same app baseline, Lightwell <code>.rhlw-00001</code> suffix — that is the CVE remediation story)."
-      - "<strong>Merge the PR → watch Actions → webhook to AO.</strong> In Gitea, merge the PR. Open <strong>Actions</strong> on <code>inventory-service</code> — a run should start. That Action posts a webhook into automation orchestrator when CI succeeds."
+      - "<strong>Open four tabs</strong> before you start - keep them side by side: <strong>AAP (Controller)</strong>; <strong>automation orchestrator</strong> (AO URL from the seed summary; admin + printed password); <strong>OpenFlake</strong> (ITSM UI; login from seed summary / OpenFlake job); <strong>Gitea</strong> (<code>apdadmin</code> / <code>Ansible123!</code>)."
+      - "<strong>Simulate the Lightwell PR.</strong> In AAP, launch <strong>CI/CD Demo - Simulate Lightwell PR</strong>. In Gitea, open the new PR and confirm <code>requirements.txt</code> shows the Lightwell backport: <code>aiohttp==3.9.2.rhlw-00001</code> (same app baseline, Lightwell <code>.rhlw-00001</code> suffix - that is the CVE remediation story)."
+      - "<strong>Merge the PR → watch Actions → webhook to AO.</strong> In Gitea, merge the PR. Open <strong>Actions</strong> on <code>inventory-service</code> - a run should start. That Action posts a webhook into automation orchestrator when CI succeeds."
       - "<strong>Watch the AO workflow.</strong> In automation orchestrator (left nav) → <strong>Workflow Runs</strong>. You should see <strong>CI/CD Pipeline - Dev Test, Approval, Prod Deploy with Rollback</strong> start from the webhook."
       - "<strong>Approve when prompted.</strong> Let it run through dev deploy/test. When it hits <strong>Dev Lead Approval - Promote to Production</strong>, Approve it. Stay until the run completes successfully (prod deploy + close loop)."
       - "<strong>Check OpenFlake.</strong> Open the change. When the pipeline finishes you should see about seven activities on the issue (work notes / updates from the AAP steps along the way, ending with close)."
+    notes:
+      - after: 1
+        label: Note
+        text: OpenFlake stands in for ServiceNow in this lab. It is an open source, ServiceNow-compatible ITSM used for demo purposes only; the same Table API pattern maps to a real ServiceNow instance in customer environments.
+      - after: 5
+        label: Presenter note
+        text: Human approval steps are optional - teams can add more gates, remove them, or fully automate promotion based on maturity and trust. For emergency response under high security exposure, organizations often waive approvals to move faster.
     tip: Before every recording or live show, run <strong>CI/CD Demo - Reset Demo</strong> so Gitea is back on vulnerable <code>aiohttp==3.9.0</code>. For a second take, break the prod <code>/health</code> endpoint before merge to walk the automatic snapshot rollback path.
 
 disk-utilization:
@@ -60,12 +67,12 @@ disk-utilization:
     - Remediation scales with severity: log and exit at low usage, cleanup at warning, expand capacity at critical instead of one-size-fits-all scripting.
     - Tier-specific Mattermost notifications tell operators exactly what ran, so on-call does not have to dig through job logs.
   walkthrough:
-    title: Demo walkthrough — test every switch path
+    title: Demo walkthrough - test every switch path
     lede: You do not need to fill the disk to show the switch. The Check job accepts a <code>test_disk_use_percent</code> extra var that skips live <code>df</code> and publishes a simulated <code>disk_use_percent</code> artifact for routing.
     steps:
       - "In automation orchestrator, open the <strong>Disk Utilization Check</strong> step."
       - "Under extra vars, set <code>test_disk_use_percent</code> to one of the values in the table below (number, not a string)."
-      - "Run the workflow. The switch reads <code>disk_use_percent</code> from Check and takes the matching branch — Continue, Cleanup, Expand, or Fallback."
+      - "Run the workflow. The switch reads <code>disk_use_percent</code> from Check and takes the matching branch - Continue, Cleanup, Expand, or Fallback."
       - "Change the value and re-run to walk the next path. Clear or remove <code>test_disk_use_percent</code> when you want a real <code>df</code> check."
     tip: The exported workflow ships with <code>test_disk_use_percent</code> set to <code>50</code> so a first run safely takes Continue. Change it before you demo Cleanup or Expand.
     table:
@@ -133,23 +140,23 @@ proactive-assessment:
     headers: [Condition, Action]
     rows:
       - [Expires within window, Renew proactively]
-      - [No expiry risk, Log OK — no action]
+      - [No expiry risk, Log OK - no action]
 
 cert-expiry-switch:
-  description: Rule-based certificate expiry handling — distinct from Intelligent Cert Lifecycle which uses an AI agent to pick renewal templates. This demo switches on cert_status from days remaining with no LLM required.
+  description: Rule-based certificate expiry handling - distinct from Intelligent Cert Lifecycle which uses an AI agent to pick renewal templates. This demo switches on cert_status from days remaining with no LLM required.
   ao_building_blocks:
     - manual_trigger
     - switch
     - aap_job_template
   why_it_matters:
-    - Days-remaining tiers match how operations teams actually plan cert work — healthy, plan, renew, emergency.
-    - No AI dependency — deterministic switch routing anyone can audit and reproduce.
+    - Days-remaining tiers match how operations teams actually plan cert work - healthy, plan, renew, emergency.
+    - No AI dependency - deterministic switch routing anyone can audit and reproduce.
     - Clear escalation from skip to emergency renew without custom Controller decision trees.
-  one_liner: Expiry isn't pass/fail — it's a countdown.
+  one_liner: Expiry isn't pass/fail - it's a countdown.
   routes:
     headers: [cert_status, Days remaining, Action]
     rows:
-      - [healthy, "> 60", "Skip — no action"]
+      - [healthy, "> 60", "Skip - no action"]
       - [plan, "30–60", Open change request]
       - [renew, "7–30", Run renewal playbook]
       - [emergency, "< 7", "Renew + alert + verify chain"]
@@ -163,22 +170,22 @@ cert-expiry-switch:
       - ["301 Proactive Assessment", Scheduled estate-wide scan]
 
 service-health:
-  description: One host, one service (httpd). Run a check playbook that publishes service_state. Route remediation in a single switch — no nested Controller decision trees.
+  description: One host, one service (httpd). Run a check playbook that publishes service_state. Route remediation in a single switch - no nested Controller decision trees.
   ao_building_blocks:
     - manual_trigger
     - switch
     - aap_job_template
   why_it_matters:
-    - service_state maps directly to the right fix — start, restart, or install — not generic success/failure guessing.
+    - service_state maps directly to the right fix - start, restart, or install - not generic success/failure guessing.
     - One switch replaces nested Controller forks that obscure what failed and why.
-    - Demo-friendly with httpd — stop, fail, or remove the package and watch the workflow pick the correct path.
+    - Demo-friendly with httpd - stop, fail, or remove the package and watch the workflow pick the correct path.
   routes:
     headers: [service_state, Path, Planned action]
     rows:
-      - [active, "Green — done", "Log OK, no changes"]
-      - [inactive, "Yellow — start it", Start the service]
-      - [failed, "Orange — recover", Inspect logs and restart]
-      - [not-found, "Red — install", Install the package and enable the unit]
+      - [active, "Green - done", "Log OK, no changes"]
+      - [inactive, "Yellow - start it", Start the service]
+      - [failed, "Orange - recover", Inspect logs and restart]
+      - [not-found, "Red - install", Install the package and enable the unit]
   demo_ideas:
     - Stop httpd → workflow routes to inactive → start path
     - "dnf remove httpd → workflow routes to not-found → install path"
@@ -190,7 +197,7 @@ patch-management:
     - switch
     - aap_job_template
   why_it_matters:
-    - Patch severity from a single assessment drives the change policy — critical now, important scheduled, moderate batched.
+    - Patch severity from a single assessment drives the change policy - critical now, important scheduled, moderate batched.
     - Aligns automation with how change advisory boards actually approve work.
     - Avoids patching everything urgently or nothing at all when scan results land.
   one_liner: One scan job. Four remediation strategies.
@@ -213,7 +220,7 @@ multi-os-cloud-patching:
   why_it_matters:
     - Parallel RHEL and Windows paths show heterogeneous fleet patching without duplicating workflows per OS.
     - EBS snapshot rollback gives change-management audiences a concrete safety net when patching fails.
-    - Conditional steps route on job status — post-check on success, restore on failure — without AI or switch artifacts.
+    - Conditional steps route on job status - post-check on success, restore on failure - without AI or switch artifacts.
     - Playbooks and job templates come from product-demos; this repo holds the automation orchestrator workflow JSON.
   related_table:
     heading: Patching demos in this catalog
@@ -233,7 +240,7 @@ user-lifecycle:
     - switch
     - aap_job_template
   why_it_matters:
-    - One intake form routes to four completely different runbooks — no duplicate workflows per request type.
+    - One intake form routes to four completely different runbooks - no duplicate workflows per request type.
     - Survey, webhook, or ticket integrations all publish the same request_type artifact.
     - Human-initiated automation gets the same switch pattern as infrastructure metrics.
   one_liner: One form. Four completely different runbooks.
@@ -246,13 +253,13 @@ user-lifecycle:
       - [termination, "Lock account, archive home, revoke keys"]
 
 backup-management:
-  description: Backup jobs often return outcomes that binary workflows mishandle. Switch on backup_result — partial success is neither pass nor fail.
+  description: Backup jobs often return outcomes that binary workflows mishandle. Switch on backup_result - partial success is neither pass nor fail.
   ao_building_blocks:
     - manual_trigger
     - switch
     - aap_job_template
   why_it_matters:
-    - Partial backup success gets its own path — neither celebrated as success nor treated as total failure.
+    - Partial backup success gets its own path - neither celebrated as success nor treated as total failure.
     - Operators get retry, escalate, or log actions matched to backup_result, not binary job status.
     - Reduces false all-clear pages when only half the targets backed up.
   routes:
@@ -264,13 +271,13 @@ backup-management:
       - [skipped, Log reason, check schedule]
 
 subscription-management:
-  description: Switch on RHEL subscription state after a compliance check. Registration status drives the remediation path — not whether the Ansible job turned green.
+  description: Switch on RHEL subscription state after a compliance check. Registration status drives the remediation path - not whether the Ansible job turned green.
   ao_building_blocks:
     - manual_trigger
     - switch
     - aap_job_template
   why_it_matters:
-    - RHEL subscription state — expiring, expired, unregistered — needs different fixes than a green Ansible job result.
+    - RHEL subscription state - expiring, expired, unregistered - needs different fixes than a green Ansible job result.
     - Compliance scans that publish subscription_status enable proactive renewal before entitlement lapses.
     - Registration automation on unregistered hosts closes drift without manual inventory hunts.
   routes:
@@ -320,7 +327,7 @@ event-driven-xsos-rca:
     - Discuss chaining artifacts to an automation orchestrator Task Agent for remediation routing
 
 ai-incident-triage:
-  description: When an incident alert fires, an AI agent analyzes context, selects a remediation strategy, and routes to the appropriate AAP playbook — without hardcoded if-statements in the workflow.
+  description: When an incident alert fires, an AI agent analyzes context, selects a remediation strategy, and routes to the appropriate AAP playbook - without hardcoded if-statements in the workflow.
   ao_building_blocks:
     - manual_trigger
     - agentic
@@ -339,7 +346,7 @@ ai-incident-triage:
     - Post-remediation validation and operator notification
 
 ticket-enrichment:
-  description: ServiceNow posts an incident number to a webhook. An AI triage agent fetches the ticket via ServiceNow MCP, discovers available AAP job templates, and classifies the incident into one of three routes — auto-remediate, needs-approval, or inform-only. A switch step routes the workflow accordingly. Auto-remediate and approved paths launch a dynamic AAP job template selected by the triage agent. The inform-only path uses a second AI agent to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an Update SNOW Ticket step.
+  description: ServiceNow posts an incident number to a webhook. An AI triage agent fetches the ticket via ServiceNow MCP, discovers available AAP job templates, and classifies the incident into one of three routes - auto-remediate, needs-approval, or inform-only. A switch step routes the workflow accordingly. Auto-remediate and approved paths launch a dynamic AAP job template selected by the triage agent. The inform-only path uses a second AI agent to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an Update SNOW Ticket step.
   ao_building_blocks:
     - webhook_trigger
     - agentic
@@ -348,9 +355,9 @@ ticket-enrichment:
     - aap_job_template
     - mcp_integration
   why_it_matters:
-    - AI triage classifies incidents and selects the remediation playbook at runtime — no hardcoded template lists or per-incident-type workflow forks.
-    - Three-way switch routing matches how operations teams actually respond — auto-fix low-risk, approve risky changes, enrich and assign everything else.
-    - The Triage Agent reads incident data via ServiceNow MCP, while the Enrich and Assign agent reads and writes — searching related incidents, adding work notes, and notifying the customer. Ticket state updates flow through the Update SNOW Ticket job template.
+    - AI triage classifies incidents and selects the remediation playbook at runtime - no hardcoded template lists or per-incident-type workflow forks.
+    - Three-way switch routing matches how operations teams actually respond - auto-fix low-risk, approve risky changes, enrich and assign everything else.
+    - The Triage Agent reads incident data via ServiceNow MCP, while the Enrich and Assign agent reads and writes - searching related incidents, adding work notes, and notifying the customer. Ticket state updates flow through the Update SNOW Ticket job template.
     - Dynamic job template expression means new remediation playbooks work without changing the workflow.
   routes:
     headers: [Route, Condition, Action]
@@ -362,7 +369,7 @@ ticket-enrichment:
     - Fire a P1 disk-cleanup incident and watch auto-remediate run the dynamic job template end to end
     - Fire a P2 firewall-change incident to trigger the approval gate and walk the needs-approval path
     - Fire a P4 informational incident to show the Enrich and Assign agent searching for related tickets
-    - Compare to the linear Ticket Enrichment Arcade — same ITSM, now with switch routing and approval
+    - Compare to the linear Ticket Enrichment Arcade - same ITSM, now with switch routing and approval
     - Walk through the Interact Arcade end to end
 
 multi-service-correlation:
@@ -374,7 +381,7 @@ multi-service-correlation:
     - aap_job_template
   why_it_matters:
     - Correlated alerts across services surface root cause before running the wrong fix on a symptom.
-    - Targeted remediation when cause is known; AI fallback when it is not — one workflow, two strategies.
+    - Targeted remediation when cause is known; AI fallback when it is not - one workflow, two strategies.
     - Reduces alert storms that trigger duplicate remediation on every firing host.
   bullets:
     - Multi-alert correlation across services
@@ -383,7 +390,7 @@ multi-service-correlation:
     - Validation and operator notification
 
 novel-incident-remediation:
-  description: Known incident types route directly to existing AAP job templates with no AI overhead. When an unknown or unclassified incident arrives, the workflow pivots to an AI agent that investigates using gathered system facts, enriches the ServiceNow ticket with findings, and generates a concrete remediation plan. An operator approves the plan, and the workflow executes the recommended automation. The same workflow handles both the deterministic and novel paths — no separate pipelines.
+  description: Known incident types route directly to existing AAP job templates with no AI overhead. When an unknown or unclassified incident arrives, the workflow pivots to an AI agent that investigates using gathered system facts, enriches the ServiceNow ticket with findings, and generates a concrete remediation plan. An operator approves the plan, and the workflow executes the recommended automation. The same workflow handles both the deterministic and novel paths - no separate pipelines.
   ao_building_blocks:
     - webhook_trigger
     - switch
@@ -391,10 +398,10 @@ novel-incident-remediation:
     - agentic
     - approval
   why_it_matters:
-    - Deterministic routing for known incident types means zero AI latency on the paths that matter most — disk, service, and config drift remediations run immediately.
-    - The AI fallback handles genuinely novel incidents without a human having to manually classify and route them — it investigates, explains, and recommends.
+    - Deterministic routing for known incident types means zero AI latency on the paths that matter most - disk, service, and config drift remediations run immediately.
+    - The AI fallback handles genuinely novel incidents without a human having to manually classify and route them - it investigates, explains, and recommends.
     - A single unified workflow covers both known and unknown incidents. Operations teams maintain one automation pipeline instead of separate flows for routine and edge-case events.
-    - The approval gate keeps humans in control on the AI path — operators see the AI's reasoning and recommended automation before anything runs.
+    - The approval gate keeps humans in control on the AI path - operators see the AI's reasoning and recommended automation before anything runs.
   routes:
     headers: [Incident Type, Path, What Happens]
     rows:
@@ -406,10 +413,10 @@ novel-incident-remediation:
     - Fire a capacity_issue incident and show the disk cleanup job template running with no AI in the loop
     - Fire a service_down incident to walk the impact report and service recovery path
     - Fire an unknown incident to show the AI agent activating, enriching the SNOW ticket, and generating the remediation plan
-    - Compare the unknown path approval step — show the AI reasoning in the SNOW ticket before approving
+    - Compare the unknown path approval step - show the AI reasoning in the SNOW ticket before approving
 
 zero-day-response:
-  description: A zero-day is being exploited before a fix exists. Two automation orchestrator workflows run the response a board asks for — KNOW (evidence, classification, log look-back), CONTAIN (AI-extracted interim controls, policy gate, test, two named owner approvals, production verify, board update), then FIX and PROVE (per-stream fix availability from the Red Hat Security Data API, test and rolling patch, controls removed only where the fix is verified, re-scan, case kept open while lanes remain). Import both workflows with the two Download JSON buttons — KNOW + CONTAIN first, then FIX + PROVE. This is a historical replay — the advisories are recorded snapshots, the estate is a lab, "AcmeCMS" is a simulated vendor, and there is no exploit code.
+  description: A zero-day is being exploited before a fix exists. Two automation orchestrator workflows run the response a board asks for - KNOW (evidence, classification, log look-back), CONTAIN (AI-extracted interim controls, policy gate, test, two named owner approvals, production verify, board update), then FIX and PROVE (per-stream fix availability from the Red Hat Security Data API, test and rolling patch, controls removed only where the fix is verified, re-scan, case kept open while lanes remain). Import both workflows with the two Download JSON buttons - KNOW + CONTAIN first, then FIX + PROVE. This is a historical replay - the advisories are recorded snapshots, the estate is a lab, "AcmeCMS" is a simulated vendor, and there is no exploit code.
   ao_building_blocks:
     - manual_trigger
     - agentic
@@ -421,9 +428,9 @@ zero-day-response:
   one_liner: AI reads. Owners decide. AAP acts. Automation orchestrator holds every lane.
   why_it_matters:
     - The gap between first exploitation and the fix is where the risk is; the demo shows a governed way to act inside it instead of waiting for a patch.
-    - Classification, fix status and verification are reviewed, deterministic automation. AI reads advisories and explains — it cannot change a priority or skip a gate.
+    - Classification, fix status and verification are reviewed, deterministic automation. AI reads advisories and explains - it cannot change a priority or skip a gate.
     - Every AI answer is validated by a deterministic check step, every AI-proposed control by a policy gate and a test host, and every production change by an owner approval.
-    - Interim controls come off only where the fix is verified running, so there is no forgotten workaround — and the case stays open, with owners, for the lanes that are not fixed.
+    - Interim controls come off only where the fix is verified running, so there is no forgotten workaround - and the case stays open, with owners, for the lanes that are not fixed.
   related_table:
     heading: Vulnerability demos in this catalog
     headers: [Demo, Type, Focus]
@@ -432,6 +439,6 @@ zero-day-response:
       - ["RHEL CVE Remediation", "AI-assisted", "CVE alert → AI triage → auto-patch, approve, or investigate"]
       - ["Patch Severity Routing", "Rule-based", "Switch on scan severity → patch now, schedule, batch, or compliant"]
   demo_ideas:
-    - Run KNOW + CONTAIN end to end and stop on the security approval panel — the AI summary, the tested change and Red Hat's residual-risk sentence on one screen
-    - Show the board update's "not claimed" list — control verified is not safe
-    - Run FIX + PROVE to show the fix arriving unevenly — patched lanes, a vendor appliance still contained, an unknown asset still escalated
+    - Run KNOW + CONTAIN end to end and stop on the security approval panel - the AI summary, the tested change and Red Hat's residual-risk sentence on one screen
+    - Show the board update's "not claimed" list - control verified is not safe
+    - Run FIX + PROVE to show the fix arriving unevenly - patched lanes, a vendor appliance still contained, an unknown asset still escalated

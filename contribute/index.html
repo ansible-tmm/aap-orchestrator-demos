@@ -15,7 +15,7 @@ contribute_page: true
 <section class="detail-section" id="overview">
   <h2>What you are contributing</h2>
   <p>
-    Each demo is a top-level folder (playbooks, workflow JSON, docs) plus a few catalog files that make it show up on the GitHub Pages site. You do not need to be a maintainer to propose one — a clear PR with the minimum files below is enough to start a review.
+    Each demo is a top-level folder (playbooks, workflow JSON, docs) plus a few catalog files that make it show up on the GitHub Pages site. You do not need to be a maintainer to propose one - a clear PR with the minimum files below is enough to start a review.
   </p>
   <p>
     Upstream repo:
@@ -39,7 +39,7 @@ contribute_page: true
 <section class="detail-section" id="github-pages">
   <h2>2. Preview on GitHub Pages</h2>
   <p>
-    The marketplace is a Jekyll site. The easiest way to see your new card and detail page is to enable Pages on your fork — same setup the upstream site uses.
+    The marketplace is a Jekyll site. The easiest way to see your new card and detail page is to enable Pages on your fork - same setup the upstream site uses.
   </p>
   <ol class="detail-steps">
     <li>In your fork on GitHub, go to <strong>Settings → Pages</strong>.</li>
@@ -62,18 +62,18 @@ contribute_page: true
   <h3 class="contribute-subhead">Demo folder</h3>
   <ul class="detail-list">
     <li>Top-level directory named with a short kebab-case slug, e.g. <code>my-demo/</code>.</li>
-    <li><code>README.md</code> — what the demo does, how to run it, and links to setup if needed.</li>
-    <li><code>ao/*.json</code> — importable automation orchestrator workflow export (required for <code>status: active</code>).</li>
+    <li><code>README.md</code> - what the demo does, how to run it, and links to setup if needed.</li>
+    <li><code>ao/*.json</code> - importable automation orchestrator workflow export (required for <code>status: active</code>).</li>
     <li>Playbooks under <code>playbooks/</code> (or <code>aap/playbooks/</code>) that the workflow launches.</li>
     <li>A setup doc when the environment is non-trivial (<code>SETUP_GUIDE.md</code> or <code>REQUIREMENTS.md</code>).</li>
   </ul>
 
   <h3 class="contribute-subhead">Marketplace wiring (required for the site)</h3>
   <ul class="detail-list">
-    <li><code>_data/demos.yml</code> — one catalog entry (<code>slug</code>, <code>title</code>, <code>subtitle</code>, <code>category</code>, <code>status</code>, <code>blurb</code>, <code>url</code>, <code>github_path</code>, <code>github_doc</code>). Set <code>featured: false</code> unless a maintainer is swapping a featured slot.</li>
-    <li><code>_data/demo_pages.yml</code> — detail copy: <code>description</code>, <code>why_it_matters</code>, and <code>ao_building_blocks</code> keys that match the glossary.</li>
-    <li><code>_data/demo_playbooks.yml</code> — playbook table for the detail page (name, path, short description, runs on).</li>
-    <li><code>demos/&lt;slug&gt;/index.html</code> — stub page:
+    <li><code>_data/demos.yml</code> - one catalog entry (<code>slug</code>, <code>title</code>, <code>subtitle</code>, <code>category</code>, <code>status</code>, <code>blurb</code>, <code>url</code>, <code>github_path</code>, <code>github_doc</code>). Set <code>featured: false</code> unless a maintainer is swapping a featured slot.</li>
+    <li><code>_data/demo_pages.yml</code> - detail copy: <code>description</code>, <code>why_it_matters</code>, and <code>ao_building_blocks</code> keys that match the glossary.</li>
+    <li><code>_data/demo_playbooks.yml</code> - playbook table for the detail page (name, path, short description, runs on).</li>
+    <li><code>demos/&lt;slug&gt;/index.html</code> - stub page:
       <br><code>---</code><br>
       <code>layout: demo-detail</code><br>
       <code>demo_slug: &lt;slug&gt;</code><br>
@@ -83,8 +83,8 @@ contribute_page: true
 
   <h3 class="contribute-subhead">Status</h3>
   <ul class="detail-list">
-    <li><code>active</code> — runnable end-to-end: workflow JSON, playbooks, and a setup path someone else can follow.</li>
-    <li><code>coming-soon</code> — idea or partial work is fine on the catalog, but say clearly what is missing in the README and detail copy.</li>
+    <li><code>active</code> - runnable end-to-end: workflow JSON, playbooks, and a setup path someone else can follow.</li>
+    <li><code>coming-soon</code> - idea or partial work is fine on the catalog, but say clearly what is missing in the README and detail copy.</li>
   </ul>
 </section>
 
@@ -154,7 +154,7 @@ contribute_page: true
     </table>
   </div>
   <p>
-    Use an existing active demo as a template — <a href="{{ '/demos/disk-utilization/' | relative_url }}">Disk Utilization</a> is a good switch-routing example; <a href="{{ '/demos/cve-remediation/' | relative_url }}">RHEL CVE Remediation</a> shows a fuller AI-oriented layout.
+    Use an existing active demo as a template - <a href="{{ '/demos/disk-utilization/' | relative_url }}">Disk Utilization</a> is a good switch-routing example; <a href="{{ '/demos/cve-remediation/' | relative_url }}">RHEL CVE Remediation</a> shows a fuller AI-oriented layout.
   </p>
 </section>
 

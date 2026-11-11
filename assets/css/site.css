@@ -1421,7 +1421,7 @@ button.ao-block:focus-visible {
 
 .detail-walkthrough__tip {
   max-width: 720px;
-  margin: 0 0 16px;
+  margin: 12px 0 16px;
   padding: 10px 14px;
   border: 1px solid #2a2a2a;
   border-radius: 8px;
@@ -1429,6 +1429,10 @@ button.ao-block:focus-visible {
   color: #aaa;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.detail-steps + .detail-walkthrough__tip {
+  margin-top: 4px;
 }
 
 .detail-walkthrough__tip strong {

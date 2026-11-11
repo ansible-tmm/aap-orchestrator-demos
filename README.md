@@ -1,6 +1,6 @@
 # AAP automation orchestrator demos
 
-Hands-on demos for **Ansible Automation Platform automation orchestrator (AO)** — intelligent workflows that combine Ansible playbooks, AI agents, approvals, and event-driven triggers.
+Hands-on demos for **Ansible Automation Platform automation orchestrator (AO)** - intelligent workflows that combine Ansible playbooks, AI agents, approvals, and event-driven triggers.
 
 **[Browse demos on GitHub Pages →](https://ansible-tmm.github.io/aap-orchestrator-demos/)**
 
@@ -10,19 +10,19 @@ Hands-on demos for **Ansible Automation Platform automation orchestrator (AO)** 
 
 Automation orchestrator is the workflow engine in AAP for visual, multi-step automation:
 
-- **Task agents** — reason and decide using LLMs
-- **AAP job template steps** — run Ansible playbooks
-- **Approval steps** — human-in-the-loop governance
-- **Event triggers** — react to Splunk, Prometheus, webhooks, and more
-- **Switch steps** — route on a value, not just success/failure
+- **Task agents** - reason and decide using LLMs
+- **AAP job template steps** - run Ansible playbooks
+- **Approval steps** - human-in-the-loop governance
+- **Event triggers** - react to Splunk, Prometheus, webhooks, and more
+- **Switch steps** - route on a value, not just success/failure
 
 ## Demo catalog
 
 | Demo | Status | Description |
 |---|---|---|
 | [RHEL CVE Remediation](cve-remediation/) | **Active** | AI triage via Lightspeed MCP → auto-patch dev, approve prod, or investigate with Mattermost report |
-| [Multi-OS Cloud Patching](multi-os-cloud-patching/) | **Active** | Playbook orchestration — RHEL and Windows on AWS with snapshot rollback (playbooks from product-demos) |
-| [Zero-Day Response: PHP2Shell](zero-day-response/) | **Active** | Zero-day before the fix — evidence and look-back, AI reads the advisory, policy gate and test host, owners approve, patch only where a fix exists |
+| [Multi-OS Cloud Patching](multi-os-cloud-patching/) | **Active** | Playbook orchestration - RHEL and Windows on AWS with snapshot rollback (playbooks from product-demos) |
+| [Zero-Day Response: PHP2Shell](zero-day-response/) | **Active** | Zero-day before the fix - evidence and look-back, AI reads the advisory, policy gate and test host, owners approve, patch only where a fix exists |
 | [Disk Utilization & Remediation](disk-utilization/) | **Active** | Check disk usage → switch on % → continue, cleanup, EBS expand, or fallback → Mattermost notify |
 | [Intelligent Cert Lifecycle](cert-lifecycle/) | **Active** | AI agent picks PEM vs keystore renewal; operator approves; AAP renews and validates |
 | [Service State Routing](service-health/) | **Active** | Check service → switch on state → log OK, start, restart, or install |
@@ -35,9 +35,9 @@ Automation orchestrator is the workflow engine in AAP for visual, multi-step aut
 | [Multi-Service Correlation](multi-service-correlation/) | **Active** | Correlate alerts across services before remediation |
 | [Event-Driven xSOS RCA](event-driven-xsos-rca/) | In progress | SQS → EDA → xSOS analysis for unknown issues |
 
-| [Backup Result Routing](backup-management/) | **Active** | Switch on backup_result — verify, retry partial, escalate failed, or log skipped |
-| [RHEL Subscription Routing](subscription-management/) | **Active** | Switch on subscription state — log, renew, register, or attach |
-| [Kernel Compliance Routing](kernel-compliance/) | **Active** | Switch on kernel state — reboot, patch, or plan EOL migration |
+| [Backup Result Routing](backup-management/) | **Active** | Switch on backup_result - verify, retry partial, escalate failed, or log skipped |
+| [RHEL Subscription Routing](subscription-management/) | **Active** | Switch on subscription state - log, renew, register, or attach |
+| [Kernel Compliance Routing](kernel-compliance/) | **Active** | Switch on kernel state - reboot, patch, or plan EOL migration |
 
 See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/) for the full catalog.
 
@@ -45,13 +45,13 @@ See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/
 
 | Demo folder | Focus |
 |---|---|
-| [cert-lifecycle/](cert-lifecycle/) | Intelligent certificate renewal — AI routing |
+| [cert-lifecycle/](cert-lifecycle/) | Intelligent certificate renewal - AI routing |
 | [cert-expiry-switch/](cert-expiry-switch/) | Rule-based cert countdown switch |
 | [risk-based-routing/](risk-based-routing/) | AI risk-tier renewal routing |
 | [proactive-assessment/](proactive-assessment/) | Scheduled scan-before-expiry |
 | [cve-remediation/](cve-remediation/) | Intelligent CVE patching with Lightspeed MCP |
 | [multi-os-cloud-patching/](multi-os-cloud-patching/) | Multi-OS cloud patching with snapshot rollback (product-demos playbooks) |
-| [zero-day-response/](zero-day-response/) | Zero-day response — contain before the fix, patch where it exists, prove it |
+| [zero-day-response/](zero-day-response/) | Zero-day response - contain before the fix, patch where it exists, prove it |
 | [disk-utilization/](disk-utilization/) | Proportional disk remediation with switch routing |
 | [event-driven-xsos-rca/](event-driven-xsos-rca/) | SQS → EDA → xSOS RCA for unknown issues |
 | [ai-incident-triage/](ai-incident-triage/) | AI-assisted incident response |
@@ -63,7 +63,7 @@ See the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/
 | [subscription-management/](subscription-management/) | RHEL subscription state routing |
 | [kernel-compliance/](kernel-compliance/) | Kernel compliance switch routing |
 
-Categories (cert-rotation, incident-remediation, etc.) are tags on the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/) — not filesystem folders.
+Categories (cert-rotation, incident-remediation, etc.) are tags on the [demo marketplace](https://ansible-tmm.github.io/aap-orchestrator-demos/) - not filesystem folders.
 
 ## Quick links
 

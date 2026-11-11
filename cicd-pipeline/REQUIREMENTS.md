@@ -1,4 +1,4 @@
-# CI/CD Pipeline Demo — Setup Guide
+# CI/CD Pipeline Demo - Setup Guide
 
 ## Infrastructure required
 
@@ -64,12 +64,12 @@ Create a repo named `inventory-service` under the admin user with at least:
 }
 ```
 
-CI should exit early (no AO webhook) when `CHANGE_REQUEST` is empty — that is what **Reset Demo** relies on.
+CI should exit early (no AO webhook) when `CHANGE_REQUEST` is empty - that is what **Reset Demo** relies on.
 
 ### 3. Configure AAP project and inventory
 
-1. **Project** — sync this repository (or the `cicd-pipeline/` subtree).
-2. **Inventory** — one host for the demo VM (SSH machine credential).
+1. **Project** - sync this repository (or the `cicd-pipeline/` subtree).
+2. **Inventory** - one host for the demo VM (SSH machine credential).
 3. **Credentials / extra vars** for OpenFlake and Gitea:
 
 Playbooks talk to **OpenFlake** over its ServiceNow-compatible Table API (`/api/flake/table/...`). They accept either OpenFlake vars/env or the product-demos `SN_*` ServiceNow credential env names.
@@ -118,16 +118,16 @@ Optional one-time templates for setup:
 
 ### 6. Configure AI agents
 
-The agents only write prose for ServiceNow — no MCP tools required (`tool_selection_strategy: NONE`). Any supported LLM credential works.
+The agents only write prose for ServiceNow - no MCP tools required (`tool_selection_strategy: NONE`). Any supported LLM credential works.
 
 ## Demo runbook
 
 Before every recording or live show:
 
 1. Run **CI/CD Demo - Reset Demo** (reverts Gitea to vulnerable `aiohttp==3.9.0`).
-2. Run **CI/CD Demo - Simulate Lightwell PR** — creates a SNOW change and opens the Lightwell PR (~30s).
+2. Run **CI/CD Demo - Simulate Lightwell PR** - creates a SNOW change and opens the Lightwell PR (~30s).
 3. Open the CHG in OpenFlake and the AO canvas side by side.
-4. Merge the PR in Gitea live — that is the trigger moment.
+4. Merge the PR in Gitea live - that is the trigger moment.
 5. Switch to the AO canvas; hold at approval and read the prompt aloud.
 6. Approve; watch LB drain → prod deploy → AI close note → CHG Closed.
 

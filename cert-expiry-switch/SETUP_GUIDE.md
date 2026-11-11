@@ -2,7 +2,7 @@
 
 Rule-based certificate expiry handling. The workflow checks a certificate's
 remaining lifetime, classifies it into a `cert_status` tier from the days
-remaining, and routes to the matching remediation path — no LLM required.
+remaining, and routes to the matching remediation path - no LLM required.
 
 ## Infrastructure Required
 
@@ -58,14 +58,14 @@ Choosing `-days 45` here lands the cert in the `plan` tier for a live check.
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or `cert-expiry-switch/` subtree) from Git.
-2. **Inventory** — create a host for the target VM:
+1. **Project** - sync this repo (or `cert-expiry-switch/` subtree) from Git.
+2. **Inventory** - create a host for the target VM:
 
 | Host | `ansible_host` | Notes |
 |------|----------------|-------|
 | `cert-demo-vm` | VM public IP | `ec2-user`, SSH key credential |
 
-3. **Host / extra variables** (optional overrides — defaults come from the playbooks):
+3. **Host / extra variables** (optional overrides - defaults come from the playbooks):
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -95,21 +95,21 @@ column must match the `job_template_name` values in the AO workflow JSON exactly
 | `Cert - Notify Chatroom` | `notify_chatroom.yml` | localhost |
 
 `Cert - Validate TLS` is reused by both the renew and emergency branches, and
-`Cert - Notify Chatroom` is reused by all four notify nodes — register each once.
+`Cert - Notify Chatroom` is reused by all four notify nodes - register each once.
 
 **Credentials:**
 
 - SSH Machine credential on all Linux playbooks (Check Expiry, Skip Healthy,
   Open Change Request, Renew, Emergency Renew, Validate TLS)
-- No SSH needed on notify (`Cert - Notify Chatroom`) — runs on localhost
+- No SSH needed on notify (`Cert - Notify Chatroom`) - runs on localhost
 - Ensure the execution environment provides the `community.crypto` collection
   (Renew / Emergency Renew) and `community.general` (Notify Chatroom)
 
-**Prompt on launch — Extra Variables:** enable on every template so AO can pass
+**Prompt on launch - Extra Variables:** enable on every template so AO can pass
 the check node's published artifacts (`cert_status`, `days_remaining`,
 `cert_expiry_date`, `cert_domain`, `cert_path`, `notify_host`) downstream.
 
-**Notify template extra vars** — set on `Cert - Notify Chatroom` or pass from AO:
+**Notify template extra vars** - set on `Cert - Notify Chatroom` or pass from AO:
 
 | Variable | Purpose |
 |----------|---------|
@@ -160,12 +160,12 @@ consume as `${check_cert_expiry.artifacts.*}`.
 
 **After import, update environment-specific values:**
 
-1. `credential_id` on each AAP job node — the exported JSON ships without
+1. `credential_id` on each AAP job node - the exported JSON ships without
    credential IDs; assign your Controller's Machine (and any EE) credentials
 2. Confirm each `job_template` / `job_template_name` resolves to the templates
    you registered in Step 3 on your Controller (`organization_name` is `Default`)
 3. For a scripted test, set `test_cert_status` / `test_days_remaining` on the
-   check node (see Step 7) — remove them for a live certificate check
+   check node (see Step 7) - remove them for a live certificate check
 
 ### 6. Configure the Switch Node
 
@@ -174,10 +174,10 @@ the `cert_status` artifact from `Cert - Check Expiry`:
 
 | Switch port | Condition | Days remaining | Remediation path | Notify color |
 |-------------|-----------|----------------|------------------|--------------|
-| `case_0` — `healthy` | `cert_status == 'healthy'` | > 60 | `Cert - Skip Healthy` → Notify | green |
-| `case_1` — `plan` | `cert_status == 'plan'` | 30–60 | `Cert - Open Change Request` → Notify | blue |
-| `case_2` — `renew` | `cert_status == 'renew'` | 7–30 | `Cert - Renew` → `Cert - Validate TLS` → Notify | amber |
-| `case_3` — `emergency` | `cert_status == 'emergency'` | < 7 | `Cert - Emergency Renew` → `Cert - Validate TLS` → Notify | red |
+| `case_0` - `healthy` | `cert_status == 'healthy'` | > 60 | `Cert - Skip Healthy` → Notify | green |
+| `case_1` - `plan` | `cert_status == 'plan'` | 30–60 | `Cert - Open Change Request` → Notify | blue |
+| `case_2` - `renew` | `cert_status == 'renew'` | 7–30 | `Cert - Renew` → `Cert - Validate TLS` → Notify | amber |
+| `case_3` - `emergency` | `cert_status == 'emergency'` | < 7 | `Cert - Emergency Renew` → `Cert - Validate TLS` → Notify | red |
 
 Only the `renew` and `emergency` branches run `Cert - Validate TLS` (they
 regenerate the cert); `healthy` and `plan` go straight to notify. The day-range
@@ -200,7 +200,7 @@ On the **Check Cert Expiry** node in AO, set `extra_vars`:
 | Renew + Validate (`case_2`) | `renew` | `20` |
 | Emergency Renew + Validate (`case_3`) | `emergency` | `3` |
 
-Remove `test_cert_status` for a real check — the tier is then computed from the
+Remove `test_cert_status` for a real check - the tier is then computed from the
 actual certificate's `openssl x509 -enddate` and the day thresholds. To drive a
 live branch, provision the cert with a matching `-days` value (Step 1): e.g.
 `-days 45` → `plan`, `-days 20` → `renew`, `-days 3` → `emergency`.

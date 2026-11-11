@@ -49,8 +49,8 @@ the demo, so no external CA is required.
 
 ### 2. Configure AAP Project and Inventory
 
-1. **Project** — sync this repo (or the `risk-based-routing/` subtree) from Git.
-2. **Inventory** — create the host(s) referenced by the workflow trigger. The
+1. **Project** - sync this repo (or the `risk-based-routing/` subtree) from Git.
+2. **Inventory** - create the host(s) referenced by the workflow trigger. The
    trigger `host` field defaults to `node1`, and the renewal/validation playbooks
    run against the `webservers` group by default (`hosts: "{{ _host | default('webservers') }}"`).
 
@@ -96,9 +96,9 @@ AO nodes will fail to resolve.
 - SSH Machine credential on the Linux playbooks (`Cert - Auto Renew`,
   `Cert - Notify and Renew`, `Cert - Validate TLS`). These use `become: true`, so
   enable privilege escalation on the credential or the templates.
-- No SSH needed on `Notify Chatroom` — it runs on localhost.
+- No SSH needed on `Notify Chatroom` - it runs on localhost.
 
-**Notify template extra vars** — set on the `Notify Chatroom` JT or pass from AO:
+**Notify template extra vars** - set on the `Notify Chatroom` JT or pass from AO:
 
 | Variable | Purpose |
 |----------|---------|
@@ -148,13 +148,13 @@ approval gate before the renewal runs.
 
 **After import, update environment-specific values:**
 
-1. `job_template` / job template resolution on each AAP job node — confirm the
+1. `job_template` / job template resolution on each AAP job node - confirm the
    names match your Controller (they are `Cert - Auto Renew`, `Cert - Notify and Renew`,
    `Cert - Validate TLS`, and `Notify Chatroom`).
 2. `credential_id` on each node so it points at your SSH Machine credential (and
    any Mattermost/vault credential you use). These are intentionally omitted from
    the exported JSON and must be set to match your Controller.
-3. `organization_name` on each node — the export uses `Default`.
+3. `organization_name` on each node - the export uses `Default`.
 
 ### 6. Configure the Switch Node
 
@@ -176,7 +176,7 @@ approver clicks **Approve** in the AO/Controller UI.
 
 Launch the workflow from the AO UI using the manual trigger and set the trigger
 inputs `host` and `cert_domain`. To exercise a specific switch branch
-deterministically, drive the AI Risk Assessment toward a tier — pass a
+deterministically, drive the AI Risk Assessment toward a tier - pass a
 `cert_domain` whose characteristics match the prompt's rubric, or (for a fully
 deterministic demo) swap the agentic node for the `Cert - Assess Risk` job template
 and pass `risk_tier` directly as an extra var (`assess_risk.yml` accepts and
@@ -185,9 +185,9 @@ publishes `risk_tier`, `cert_domain`, `cert_type`, `days_remaining`, `confidence
 
 | Branch to test | How to trigger | Expected result |
 |----------------|----------------|-----------------|
-| Low | `cert_domain` = internal, single-service, non-prod cert (>30 days) — or force `risk_tier=low` | Auto-Renew runs with no approval → Validate TLS (Low) → **green** Mattermost message |
-| Medium | `cert_domain` = production cert, limited blast radius (7-30 days) — or force `risk_tier=medium` | Notify + Renew runs → Validate TLS (Medium) → **yellow** Mattermost message |
-| High | `cert_domain` = wildcard / externally-facing / multi-service (<7 days) — or force `risk_tier=high` | Workflow pauses at approval gate; after **Approve**, Renew After Approval runs → Validate TLS (High) → **red** Mattermost message |
+| Low | `cert_domain` = internal, single-service, non-prod cert (>30 days) - or force `risk_tier=low` | Auto-Renew runs with no approval → Validate TLS (Low) → **green** Mattermost message |
+| Medium | `cert_domain` = production cert, limited blast radius (7-30 days) - or force `risk_tier=medium` | Notify + Renew runs → Validate TLS (Medium) → **yellow** Mattermost message |
+| High | `cert_domain` = wildcard / externally-facing / multi-service (<7 days) - or force `risk_tier=high` | Workflow pauses at approval gate; after **Approve**, Renew After Approval runs → Validate TLS (High) → **red** Mattermost message |
 
 Verify on the target host after a run:
 

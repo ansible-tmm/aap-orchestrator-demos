@@ -1,6 +1,6 @@
 # Multi-OS Cloud Patching
 
-Automation orchestrator version of [Patch Cloud Stack in AWS](https://github.com/ansible/product-demos/blob/main/cloud/docs/patch-cloud-stack.md) in product-demos. Orchestrates parallel RHEL and Windows patching on AWS with EBS snapshot rollback and a consolidated compliance report — no AI steps, playbook-driven only.
+Automation orchestrator version of [Patch Cloud Stack in AWS](https://github.com/ansible/product-demos/blob/main/cloud/docs/patch-cloud-stack.md) in product-demos. Orchestrates parallel RHEL and Windows patching on AWS with EBS snapshot rollback and a consolidated compliance report - no AI steps, playbook-driven only.
 
 ## What this demo shows
 
@@ -53,7 +53,7 @@ The manual trigger pre-fills cloud-stack inventory limits. Set **`aws_region`** 
 | `_hosts` | `aws_rhel8:aws_rhel9` |
 | `_hosts_windows` | `aws-dc:aws_win1` |
 | `_report_server` | `reports` |
-| `aws_region` | *(required — set per lab)* |
+| `aws_region` | *(required - set per lab)* |
 
 Map each AO step to the corresponding AAP job template:
 

@@ -1,6 +1,6 @@
 # Ticket Enrichment
 
-**Interactive walkthrough:** [Automation Orchestrator — Ticket Enrichment](https://interact.redhat.com/share/j5xLvTSv2GAkw6szxron) (Red Hat Interact Arcade)
+**Interactive walkthrough:** [Automation Orchestrator - Ticket Enrichment](https://interact.redhat.com/share/j5xLvTSv2GAkw6szxron) (Red Hat Interact Arcade)
 
 ## What this demo shows
 
@@ -8,7 +8,7 @@ ServiceNow is the **ticket ingress**: an incident number arrives on a webhook (`
 
 A **switch step** routes the workflow based on the triage output. Auto-remediate and approved paths launch a **dynamic AAP job template** selected by the triage agent at runtime. The inform-only path uses a second **AI agent** to enrich the ticket, search for related incidents, and assign it for manual handling. Every path ends with an **Update SNOW Ticket** step.
 
-The AI model is configurable on both Task agents — tested with `claude-sonnet-4-6`.
+The AI model is configurable on both Task agents - tested with `claude-sonnet-4-6`.
 
 ## Workflow
 
@@ -33,7 +33,7 @@ flowchart LR
 | 1 | **ServiceNow Trigger** | Webhook (`/snow-incident`) | ServiceNow (or another ITSM) posts the incident number into automation orchestrator |
 | 2 | **AI Triage Agent** | Task agent | Fetches the incident via ServiceNow MCP, discovers AAP job templates via AAP MCP, classifies route and selects `job_template_name` |
 | 3 | **Update SNOW Ticket** | AAP job | Posts triage work notes and sets ticket to In Progress (state 2) |
-| 4 | **Route Decision** | Switch | Routes on `${triage_agent.result.content.route}` — three cases below |
+| 4 | **Route Decision** | Switch | Routes on `${triage_agent.result.content.route}` - three cases below |
 
 #### Auto Remediate path (Priority 1–2, low-risk fix, matching AAP template)
 
@@ -65,7 +65,7 @@ The **Run Auto Remediation** and **Run Approved Remediation** steps use an expre
 ${triage_agent.result.content.job_template_name}
 ```
 
-The triage agent prompt instructs the model to discover available AAP job templates and pick the best match for the incident. The workflow stays linear per branch — **no hardcoded template list** in the canvas.
+The triage agent prompt instructs the model to discover available AAP job templates and pick the best match for the incident. The workflow stays linear per branch - **no hardcoded template list** in the canvas.
 
 ## Route logic
 
@@ -75,7 +75,7 @@ The triage agent prompt instructs the model to discover available AAP job templa
 | `needs_approval` | Priority 1–2 risky fix, or Priority 3 with risk flags and matching template | Approval gate → dynamic AAP job → resolve ticket |
 | `inform_only` | Priority 4–5, or no matching AAP template | Enrich and assign agent → update ticket |
 
-## Components (defaults — swappable)
+## Components (defaults - swappable)
 
 | Component | Default in demo | Notes |
 |-----------|-----------------|-------|
@@ -125,6 +125,6 @@ ticket-enrichment/
 | Demo | Contrast |
 |------|----------|
 | **Ticket Enrichment** (this) | AI triage → switch routes to auto-remediate / approval / enrich-and-assign with **dynamic** job templates |
-| [Disk Utilization](../disk-utilization/) | Switch routes on disk_use_percent — no AI, deterministic thresholds |
-| [Intelligent Cert Lifecycle](../cert-lifecycle/) | AI picks template + **approval gate** before run — no switch routing |
-| [CVE Remediation](../cve-remediation/) | AI triage + switch: auto-patch dev, approve prod, investigate — with Lightspeed MCP |
+| [Disk Utilization](../disk-utilization/) | Switch routes on disk_use_percent - no AI, deterministic thresholds |
+| [Intelligent Cert Lifecycle](../cert-lifecycle/) | AI picks template + **approval gate** before run - no switch routing |
+| [CVE Remediation](../cve-remediation/) | AI triage + switch: auto-patch dev, approve prod, investigate - with Lightspeed MCP |
