@@ -298,6 +298,40 @@
     }
    },
    "description": "Lab: AAP job artifact. In production: posts to the SOAR/ITSM case. Refuses an empty draft."
+  },
+  {
+   "id": "prove_report",
+   "name": "PROVE \u00b7 Incident report",
+   "type": "aap_job_template",
+   "position": {
+    "x": 6300,
+    "y": 300
+   },
+   "parameters": {
+    "job_template_name": "p2s-prove-report",
+    "organization_name": "Ansible Product Demos (APD)",
+    "credential_id": "YOUR_AAP_CREDENTIAL_ID",
+    "extra_vars": {
+     "p2s_incident": "${trigger.incident_id}",
+     "p2s_before": "${fix_scan.artifacts.p2s_assets}",
+     "p2s_after": "${fix_rescan.artifacts.p2s_assets}",
+     "p2s_streams": "${fix_status.artifacts.p2s_streams}",
+     "p2s_test_patch": "${fix_test.artifacts.p2s_patch}",
+     "p2s_prod_patch": "${fix_prod.artifacts.p2s_patch}",
+     "p2s_standdown": "${fix_standdown.artifacts.p2s_standdown}",
+     "p2s_change_by": "${approve_change.decided_by}",
+     "p2s_change_at": "${approve_change.decided_at}",
+     "p2s_change_notes": "${approve_change.decision_notes}",
+     "p2s_started": "${fix_status.created}",
+     "p2s_stood_down": "${fix_standdown.finished}",
+     "p2s_url_fix_status": "${fix_status.job_url}",
+     "p2s_url_fix_test": "${fix_test.job_url}",
+     "p2s_url_fix_prod": "${fix_prod.job_url}",
+     "p2s_url_fix_standdown": "${fix_standdown.job_url}",
+     "p2s_url_fix_rescan": "${fix_rescan.job_url}"
+    }
+   },
+   "description": "Renders this run's records into one page (no AI text), stores it in a private bucket, links expire in 24 h"
   }
  ],
  "edges": [
@@ -363,6 +397,10 @@
   {
    "from": "check_close_draft",
    "to": "prove_case_b"
+  },
+  {
+   "from": "prove_case_b",
+   "to": "prove_report"
   },
   {
    "from": "close_draft",

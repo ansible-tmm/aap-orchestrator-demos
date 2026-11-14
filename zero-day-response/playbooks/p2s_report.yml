@@ -1,0 +1,110 @@
+---
+# PROVE: turn this run's records into one page people can read, store it privately, and publish a link that expires.
+# Every value on the page comes from AAP job artifacts and AO's approval record, passed in by the workflow.
+# No AI-written text is used. AAP's records (job events, facts, activity stream) can also go to Splunk or another
+# SIEM through AAP's logging integration; this page shows what that data looks like to a reader.
+# Runs only through the seeded p2s-prove-report JT with the AWS credential. The SDK is provided by APD's EE.
+- name: Incident report
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    p2s_report_region: us-east-1
+    p2s_report_link_hours: 24
+    p2s_report_keep_days: 30
+    _p2s_report_script: |
+      import hashlib, json, sys, traceback
+      try:
+          import boto3
+          from botocore.config import Config
+          cfg = json.load(sys.stdin)
+          region = cfg['region']
+          sts = boto3.client('sts', region_name=region)
+          account = sts.get_caller_identity()['Account']
+          bucket = 'p2s-reports-' + account
+          s3 = boto3.client('s3', region_name=region, config=Config(signature_version='s3v4'))
+          names = [b['Name'] for b in s3.list_buckets().get('Buckets', [])]
+          if bucket not in names:
+              if region == 'us-east-1':
+                  s3.create_bucket(Bucket=bucket)
+              else:
+                  s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': region})
+          s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
+              'BlockPublicAcls': True, 'IgnorePublicAcls': True, 'BlockPublicPolicy': True, 'RestrictPublicBuckets': True})
+          s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
+              'Rules': [{'ApplyServerSideEncryptionByDefault': {'SSEAlgorithm': 'AES256'}}]})
+          s3.put_bucket_lifecycle_configuration(Bucket=bucket, LifecycleConfiguration={'Rules': [{
+              'ID': 'expire-incident-reports', 'Status': 'Enabled', 'Filter': {'Prefix': ''},
+              'Expiration': {'Days': int(cfg['keep_days'])}}]})
+          body = open(cfg['path'], 'rb').read()
+          key = cfg['incident'] + '/' + cfg['stamp'] + '-report.html'
+          s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType='text/html; charset=utf-8',
+                        ServerSideEncryption='AES256')
+          link = s3.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': key},
+                                           ExpiresIn=int(cfg['link_hours']) * 3600)
+          import datetime
+          expires = (datetime.datetime.now(datetime.timezone.utc)
+                     + datetime.timedelta(hours=int(cfg['link_hours']))).strftime('%Y-%m-%d %H:%M UTC')
+          print(json.dumps({'stored_at': 's3://' + bucket + '/' + key, 'link': link, 'expires': expires,
+                            'sha256': hashlib.sha256(body).hexdigest(), 'bytes': len(body)}))
+      except Exception:
+          traceback.print_exc()
+          sys.exit(1)
+  tasks:
+    - name: Read the workflow's records (objects, or JSON text from the workflow)
+      ansible.builtin.set_fact:
+        _before: "{{ (p2s_before | from_json) if (p2s_before | default([])) is string else (p2s_before | default([])) }}"
+        _after: "{{ (p2s_after | from_json) if (p2s_after | default([])) is string else (p2s_after | default([])) }}"
+        _streams: "{{ (p2s_streams | from_json) if (p2s_streams | default([])) is string else (p2s_streams | default([])) }}"
+        _test_patch: "{{ (p2s_test_patch | from_json) if (p2s_test_patch | default([])) is string else (p2s_test_patch | default([])) }}"
+        _prod_patch: "{{ (p2s_prod_patch | from_json) if (p2s_prod_patch | default([])) is string else (p2s_prod_patch | default([])) }}"
+        _standdown: "{{ (p2s_standdown | from_json) if (p2s_standdown | default([])) is string else (p2s_standdown | default([])) }}"
+        _stamp: "{{ now(utc=true).strftime('%Y%m%dT%H%M%SZ') }}"
+        _generated_at: "{{ now(utc=true).strftime('%Y-%m-%d %H:%M UTC') }}"
+
+    - name: Refuse to report without a re-scan (nothing to prove from)
+      ansible.builtin.assert:
+        that:
+          - _after is sequence
+          - _after is not string
+          - _after | length > 0
+          - _before | length == _after | length
+        fail_msg: "No re-scan records for {{ p2s_incident | default('the incident') }}; no report written."
+        quiet: true
+
+    - name: Render the report
+      ansible.builtin.template:
+        src: templates/p2s_report.html.j2
+        dest: "{{ lookup('env', 'TMPDIR') | default('/tmp', true) }}/p2s-report-{{ _stamp }}.html"
+        mode: '0600'
+      vars:
+        _r_incident: "{{ p2s_incident | default('unknown') }}"
+
+    - name: Store it in a private bucket and sign a link that expires
+      ansible.builtin.command:
+        argv: [python3, -c, "{{ _p2s_report_script }}"]
+        stdin: "{{ {'region': p2s_report_region, 'keep_days': p2s_report_keep_days, 'link_hours': p2s_report_link_hours,
+                   'incident': p2s_incident | default('unknown'), 'stamp': _stamp,
+                   'path': (lookup('env', 'TMPDIR') | default('/tmp', true)) ~ '/p2s-report-' ~ _stamp ~ '.html'} | to_json }}"
+      register: _stored
+      changed_when: true
+
+    - name: Publish where it is and when the link expires
+      ansible.builtin.set_stats:
+        per_host: false
+        aggregate: false
+        data:
+          p2s_commit: "{{ awx_project_revision | default(tower_project_revision | default('unknown')) }}"
+          p2s_report:
+            incident: "{{ p2s_incident | default('unknown') }}"
+            stored_at: "{{ (_stored.stdout | from_json).stored_at }}"
+            access: "private bucket, all public access blocked, encrypted; kept {{ p2s_report_keep_days }} days"
+            link_expires_at: "{{ (_stored.stdout | from_json).expires }}"
+            sha256: "{{ (_stored.stdout | from_json).sha256 }}"
+            assets: "{{ _after | length }}"
+            sources: "AAP job artifacts and the AO approval record of this run; no AI-written text"
+          p2s_report_link: "{{ (_stored.stdout | from_json).link }}"
+
+    - name: Show the link
+      ansible.builtin.debug:
+        msg: "Incident report (private; link expires in {{ p2s_report_link_hours }} h): {{ (_stored.stdout | from_json).link }}"
