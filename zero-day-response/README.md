@@ -18,7 +18,11 @@ AI reads. Owners decide. AAP acts. Automation orchestrator holds every lane unti
   where a fix exists (test, change approval, rolling patch with rollback), and removes the interim controls only
   where the fix is verified running.
 - **PROVE:** a re-scan and an AI status draft that keeps the case open while one lane waits for a vendor (an appliance
-  on end-of-life PHP 8.1) and one asset is still unknown.
+  on end-of-life PHP 8.1) and one asset is still unknown. The last step renders the run's records into one incident
+  report page (no AI-written text), stores it in a private S3 bucket and publishes a link that expires after 24 hours.
+  The report is a playbook in this demo, not a product feature: it shows that the execution records AAP keeps (job
+  results, facts, inventory) can be turned into something a reader can review, and the same records can be sent to
+  Splunk or another SIEM through AAP's logging integration.
 
 This is a historical replay: the advisories are recorded snapshots (`advisories/`, checksums in `advisories/SHA256SUMS`), the vendor
 timelines are real, the estate is a lab, and "AcmeCMS" is a simulated vendor. There is no exploit code: verification
@@ -89,6 +93,7 @@ Everything the demo created on AWS carries the tag `p2s-demo=true`.
 | `p2s-fix-patch` | `playbooks/p2s_patch.yml` | FIX: patch and verify (test, then rolling production with rollback) |
 | `p2s-fix-standdown` | `playbooks/p2s_standdown.yml` | Removes interim controls only where the fix is verified |
 | `p2s-prove-case-record` | `playbooks/p2s_case_record.yml` | PROVE: records the AI-drafted update on the case; refuses an empty draft |
+| `p2s-prove-report` | `playbooks/p2s_report.yml` | PROVE: renders the incident report from the run's records, stores it privately (S3, public access blocked) and publishes a 24-hour link |
 | `p2s-independent-check` | `playbooks/p2s_independent_check.yml` | Independent read of live estate state and business transactions, outside the response roles |
 
 ## Using a different model
