@@ -82,7 +82,7 @@
 
     - name: Store it in a private bucket and sign a link that expires
       ansible.builtin.command:
-        argv: [python3, -c, "{{ _p2s_report_script }}"]
+        argv: ["{{ ansible_playbook_python }}", -c, "{{ _p2s_report_script }}"]
         stdin: "{{ {'region': p2s_report_region, 'keep_days': p2s_report_keep_days, 'link_hours': p2s_report_link_hours,
                    'incident': p2s_incident | default('unknown'), 'stamp': _stamp,
                    'path': (lookup('env', 'TMPDIR') | default('/tmp', true)) ~ '/p2s-report-' ~ _stamp ~ '.html'} | to_json }}"
