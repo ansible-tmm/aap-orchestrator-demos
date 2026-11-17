@@ -130,10 +130,14 @@ Notify templates live under `playbooks/tasks/notify/`. Warn and critical templat
 `remediate_disk_expand.yml` runs three plays:
 
 1. **Discover** - resolve EC2 instance ID (inventory, IMDS, or AWS IP lookup)
-2. **AWS (localhost)** - increase root EBS volume by `disk_expand_gb` (default 5 GiB)
+2. **AWS (delegated to localhost)** - increase root EBS volume by `disk_expand_gb` (default 5 GiB), even when the job limit selects only the target host
 3. **Linux host** - `growpart` + `xfs_growfs` on the mount
 
 Target layout (RHEL 9 on EC2): GPT disk `/dev/nvme0n1`, root partition `nvme0n1p4`, XFS on `/`.
+
+The expansion job must select exactly one target host. It fails before making
+AWS changes if multiple targets are selected. Each successful run increases
+the EBS volume by `disk_expand_gb`; rerunning it will request another increase.
 
 If `disk_use_percent` is not passed through AO extra_vars, the expand playbook reads it from live `df` before publishing artifacts.
 

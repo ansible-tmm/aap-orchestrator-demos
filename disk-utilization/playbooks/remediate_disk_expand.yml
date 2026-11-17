@@ -11,105 +11,108 @@
         aws_region: "{{ aws_region | default('us-east-1') }}"
         disk_expand_gb: "{{ disk_expand_gb | default(5) | int }}"
 
-    - name: Remember target hosts for AWS play
-      ansible.builtin.set_fact:
-        expand_target_hosts: "{{ ansible_play_hosts }}"
+    - name: Require exactly one target host for expansion
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts | length == 1
+        fail_msg: EBS expansion requires a limit selecting exactly one target host.
       run_once: true
-      delegate_to: localhost
-      delegate_facts: true
 
     - name: Discover EC2 instance identity
       ansible.builtin.include_tasks: "{{ playbook_dir }}/tasks/discover_ec2_instance.yml"
 
 - name: Expand EBS volume in AWS
-  hosts: localhost
-  connection: local
+  hosts: "{{ _host | default('all') }}"
   gather_facts: false
   vars:
-    target_host: "{{ expand_target_hosts[0] }}"
+    target_host: "{{ inventory_hostname }}"
   tasks:
-    - name: Apply defaults from discovered target
-      ansible.builtin.set_fact:
-        disk_mount: "{{ disk_mount | default('/') }}"
-        disk_use_percent: "{{ disk_use_percent | default('unknown') }}"
-        disk_tier: "{{ disk_tier | default('critical') }}"
-        disk_expand_gb: "{{ disk_expand_gb | default(5) | int }}"
-        ec2_instance_id: "{{ hostvars[target_host].discovered_ec2_instance_id }}"
-        aws_region: "{{ hostvars[target_host].discovered_aws_region }}"
-        ec2_root_device_name: "{{ ec2_root_device_name | default('/dev/sda1') }}"
+    - name: Expand the target host's EBS volume from the controller
+      delegate_to: localhost
+      run_once: true
+      block:
+        - name: Apply defaults from discovered target
+          ansible.builtin.set_fact:
+            disk_mount: "{{ disk_mount | default('/') }}"
+            disk_use_percent: "{{ disk_use_percent | default('unknown') }}"
+            disk_tier: "{{ disk_tier | default('critical') }}"
+            disk_expand_gb: "{{ disk_expand_gb | default(5) | int }}"
+            ec2_instance_id: "{{ hostvars[target_host].discovered_ec2_instance_id }}"
+            aws_region: "{{ hostvars[target_host].discovered_aws_region }}"
+            ec2_root_device_name: "{{ ec2_root_device_name | default('/dev/sda1') }}"
 
-    - name: Gather EC2 instance info
-      amazon.aws.ec2_instance_info:
-        instance_ids:
-          - "{{ ec2_instance_id }}"
-        region: "{{ aws_region }}"
-      register: _instance_info
+        - name: Gather EC2 instance info
+          amazon.aws.ec2_instance_info:
+            instance_ids:
+              - "{{ ec2_instance_id }}"
+            region: "{{ aws_region }}"
+          register: _instance_info
 
-    - name: Resolve root EBS volume ID
-      ansible.builtin.set_fact:
-        ec2_volume_id: >-
-          {{
-            (
-              _instance_info.instances[0].block_device_mappings
-              | selectattr('device_name', 'equalto', ec2_root_device_name)
-              | map(attribute='ebs.volume_id')
-              | list
-            )[0]
-          }}
+        - name: Resolve root EBS volume ID
+          ansible.builtin.set_fact:
+            ec2_volume_id: >-
+              {{
+                (
+                  _instance_info.instances[0].block_device_mappings
+                  | selectattr('device_name', 'equalto', ec2_root_device_name)
+                  | map(attribute='ebs.volume_id')
+                  | list
+                )[0]
+              }}
 
-    - name: Gather current EBS volume info
-      amazon.aws.ec2_vol_info:
-        filters:
-          volume-id: "{{ ec2_volume_id }}"
-        region: "{{ aws_region }}"
-      register: _volume_info
+        - name: Gather current EBS volume info
+          amazon.aws.ec2_vol_info:
+            filters:
+              volume-id: "{{ ec2_volume_id }}"
+            region: "{{ aws_region }}"
+          register: _volume_info
 
-    - name: Calculate new EBS volume size
-      ansible.builtin.set_fact:
-        volume_size_before_gb: "{{ _volume_info.volumes[0].size }}"
-        volume_size_after_gb: "{{ _volume_info.volumes[0].size + (disk_expand_gb | int) }}"
+        - name: Calculate new EBS volume size
+          ansible.builtin.set_fact:
+            volume_size_before_gb: "{{ _volume_info.volumes[0].size }}"
+            volume_size_after_gb: "{{ _volume_info.volumes[0].size + (disk_expand_gb | int) }}"
 
-    - name: Preview EBS expansion (check mode)
-      ansible.builtin.debug:
-        msg: >-
-          [check mode] Would expand {{ ec2_volume_id }} for {{ ec2_instance_id }}
-          ({{ target_host }}) from {{ volume_size_before_gb }} GiB
-          to {{ volume_size_after_gb }} GiB.
-      when: ansible_check_mode
+        - name: Preview EBS expansion (check mode)
+          ansible.builtin.debug:
+            msg: >-
+              [check mode] Would expand {{ ec2_volume_id }} for {{ ec2_instance_id }}
+              ({{ target_host }}) from {{ volume_size_before_gb }} GiB
+              to {{ volume_size_after_gb }} GiB.
+          when: ansible_check_mode
 
-    - name: Expand EBS volume
-      amazon.aws.ec2_vol:
-        id: "{{ ec2_volume_id }}"
-        instance: "{{ ec2_instance_id }}"
-        volume_size: "{{ volume_size_after_gb }}"
-        region: "{{ aws_region }}"
-        modify_volume: true
-      register: _volume_modify
-      when: not ansible_check_mode
+        - name: Expand EBS volume
+          amazon.aws.ec2_vol:
+            id: "{{ ec2_volume_id }}"
+            instance: "{{ ec2_instance_id }}"
+            volume_size: "{{ volume_size_after_gb }}"
+            region: "{{ aws_region }}"
+            modify_volume: true
+          register: _volume_modify
+          when: not ansible_check_mode
 
-    - name: Wait for EBS volume modification to complete
-      amazon.aws.ec2_vol_info:
-        filters:
-          volume-id: "{{ ec2_volume_id }}"
-        region: "{{ aws_region }}"
-      register: _volume_wait
-      until: >-
-        (_volume_wait.volumes[0].size | int) >= (volume_size_after_gb | int)
-        and (
-          (_volume_wait.volumes[0].modification_state | default({})).state
-          | default('completed')
-        ) in ['completed', 'optimizing']
-      retries: 30
-      delay: 10
-      when: not ansible_check_mode
+        - name: Wait for EBS volume modification to complete
+          amazon.aws.ec2_vol_info:
+            filters:
+              volume-id: "{{ ec2_volume_id }}"
+            region: "{{ aws_region }}"
+          register: _volume_wait
+          until: >-
+            (_volume_wait.volumes[0].size | int) >= (volume_size_after_gb | int)
+            and (
+              (_volume_wait.volumes[0].modification_state | default({})).state
+              | default('completed')
+            ) in ['completed', 'optimizing']
+          retries: 30
+          delay: 10
+          when: not ansible_check_mode
 
-    - name: Show AWS volume expansion result
-      ansible.builtin.debug:
-        msg: >-
-          Expanded {{ ec2_volume_id }} on {{ ec2_instance_id }}
-          ({{ target_host }}) from {{ volume_size_before_gb }} GiB
-          to {{ volume_size_after_gb }} GiB.
-      when: not ansible_check_mode
+        - name: Show AWS volume expansion result
+          ansible.builtin.debug:
+            msg: >-
+              Expanded {{ ec2_volume_id }} on {{ ec2_instance_id }}
+              ({{ target_host }}) from {{ volume_size_before_gb }} GiB
+              to {{ volume_size_after_gb }} GiB.
+          when: not ansible_check_mode
 
 - name: Grow partition and filesystem on Linux host
   hosts: "{{ _host | default('all') }}"
@@ -121,9 +124,9 @@
         disk_mount: "{{ disk_mount | default('/') }}"
         disk_use_percent: "{{ disk_use_percent | default('unknown') }}"
         disk_tier: "{{ disk_tier | default('critical') }}"
-        volume_size_before_gb: "{{ hostvars['localhost'].volume_size_before_gb | default('unknown') }}"
-        volume_size_after_gb: "{{ hostvars['localhost'].volume_size_after_gb | default('unknown') }}"
-        disk_expand_gb: "{{ hostvars['localhost'].disk_expand_gb | default(disk_expand_gb | default(5)) | int }}"
+        volume_size_before_gb: "{{ volume_size_before_gb | default('unknown') }}"
+        volume_size_after_gb: "{{ volume_size_after_gb | default('unknown') }}"
+        disk_expand_gb: "{{ disk_expand_gb | default(5) | int }}"
 
     - name: Discover root block device for mount
       ansible.builtin.command:
@@ -168,7 +171,7 @@
           - "{{ _root_partition_num }}"
       register: _growpart
       changed_when: "'CHANGED' in _growpart.stdout"
-      failed_when: _growpart.rc != 0 and "'NOCHANGE' not in _growpart.stdout"
+      failed_when: _growpart.rc != 0 and 'NOCHANGE' not in _growpart.stdout
       when: not ansible_check_mode
 
     - name: Grow XFS filesystem on mount
