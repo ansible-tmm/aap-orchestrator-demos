@@ -1,0 +1,169 @@
+{#- Incident report for the PHP2Shell demo. Rendered by p2s_report.yml from this run's records only; no AI text. -#}
+{%- set patched = (_prod_patch + _test_patch) | selectattr('patched', 'equalto', true) | map(attribute='host') | list -%}
+{%- set patch_by_host = {} -%}
+{%- for p in (_test_patch + _prod_patch) -%}{%- set _ = patch_by_host.update({p.host: p}) -%}{%- endfor -%}
+{%- set removed = _standdown | selectattr('controls_removed', 'equalto', true) | map(attribute='host') | list -%}
+{%- set before_by_host = {} -%}
+{%- for a in _before -%}{%- set _ = before_by_host.update({a.host: a}) -%}{%- endfor -%}
+{%- set rank = {'P1': 0, 'P2': 1, 'P3': 2, 'test': 3, 'unknown': 4, 'clear': 5} -%}
+{%- set rows = [] -%}
+{%- for a in _after -%}
+  {%- set b = before_by_host.get(a.host, {}) -%}
+  {%- if a.host in patched -%}{%- set state = 'patched' -%}
+  {%- elif not a.reachable -%}{%- set state = 'unknown' -%}
+  {%- elif a.affected -%}{%- set state = 'waiting' -%}
+  {%- else -%}{%- set state = 'clear' -%}{%- endif -%}
+  {%- set _ = rows.append({'a': a, 'b': b, 'state': state, 'rank': rank.get(b.priority | default('clear'), 6)}) -%}
+{%- endfor -%}
+{%- set rows = rows | sort(attribute='rank') -%}
+{%- set n_waiting = rows | selectattr('state', 'equalto', 'waiting') | list | length -%}
+{%- set n_unknown = rows | selectattr('state', 'equalto', 'unknown') | list | length -%}
+{%- set n_open = n_waiting + n_unknown -%}
+{%- set t0 = (p2s_started | default(''))[:19] -%}
+{%- set t1 = (p2s_stood_down | default(''))[:19] -%}
+{%- if t0 and t1 -%}
+  {%- set minutes = (((t1 | to_datetime('%Y-%m-%dT%H:%M:%S')) - (t0 | to_datetime('%Y-%m-%dT%H:%M:%S'))).total_seconds() / 60) -%}
+  {%- set minutes_text = (minutes | round(1)) ~ ' min' -%}
+{%- else -%}{%- set minutes_text = '' -%}{%- endif -%}
+{%- macro ver(x) -%}{%- if x.ctr_php_version | default('') -%}<span class="nw">{{ x.php_version | default('?', true) }} + {{ x.ctr_php_version }}</span> <span class="h">(container)</span>{%- else -%}{{ x.php_version | default('no evidence', true) }}{%- endif -%}{%- endmacro -%}
+{%- macro jobid(url) -%}{{ (url | default('') | string | regex_findall('/(\\d+)(?:/|$)') | last) | default('') }}{%- endmacro -%}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Incident report · {{ _r_incident }}</title>
+<style>
+  :root { --ink: #151515; --ink2: #4d4d4d; --muted: #6a6e73; --line: #d2d2d2; --soft: #f2f2f2; --bg: #ffffff;
+          --red: #ee0000; --ok: #3e8635; --warn: #b85c00; --open: #a30000; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--soft); color: var(--ink);
+         font: 400 18px/1.45 "Red Hat Text", "Helvetica Neue", Arial, sans-serif; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 40px 32px 56px; }
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 28px 32px; margin-top: 20px; }
+  .eyebrow { font: 600 15px/1.2 "Red Hat Text", Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--red); }
+  h1 { font: 700 40px/1.15 "Red Hat Display", "Helvetica Neue", Arial, sans-serif; margin: 8px 0 6px; }
+  h2 { font: 700 24px/1.2 "Red Hat Display", "Helvetica Neue", Arial, sans-serif; margin: 0 0 16px; }
+  .meta { color: var(--muted); font-size: 16px; }
+  .status { font: 600 28px/1.3 "Red Hat Display", "Helvetica Neue", Arial, sans-serif; margin: 0; }
+  .status .open { color: var(--open); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; }
+  .tile { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; border-top: 4px solid var(--ink); }
+  .tile.ok { border-top-color: var(--ok); } .tile.warn { border-top-color: var(--warn); } .tile.open { border-top-color: var(--open); }
+  .tile .n { font: 700 56px/1 "Red Hat Display", "Helvetica Neue", Arial, sans-serif; }
+  .tile .l { margin-top: 8px; color: var(--ink2); font-size: 17px; }
+  .sub { margin-top: 14px; color: var(--ink2); }
+  table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 14px; letter-spacing: .04em; text-transform: uppercase;
+       padding: 0 12px 10px 0; border-bottom: 2px solid var(--ink); }
+  td { padding: 14px 12px 14px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td .h { color: var(--muted); font-size: 15px; }
+  td.nw, .nw { white-space: nowrap; }
+  .arrow { color: var(--muted); padding: 0 6px; }
+  .chip { display: inline-block; font-weight: 600; font-size: 15px; padding: 3px 10px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
+  .chip::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: 1px; }
+  .chip.patched { color: var(--ok); } .chip.clear { color: var(--ink2); } .chip.waiting { color: var(--warn); } .chip.unknown { color: var(--open); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .two .card { margin-top: 0; }
+  ul.plain { list-style: none; margin: 0; padding: 0; }
+  ul.plain li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  ul.plain li:last-child { border-bottom: 0; }
+  .k { color: var(--muted); font-size: 15px; display: block; }
+  blockquote { margin: 10px 0 0; padding: 10px 16px; border-left: 4px solid var(--ink); background: var(--soft); }
+  a { color: var(--ink); }
+  footer { margin-top: 24px; color: var(--muted); font-size: 15px; }
+  @media (max-width: 860px) {
+    .page { padding: 20px 16px 40px; } .tiles { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; } .status { font-size: 22px; } .tile .n { font-size: 42px; }
+    table, thead, tbody, tr, td { display: block; } thead { display: none; } tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    td { border: 0; padding: 4px 0; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="eyebrow">Incident report</div>
+  <h1>PHP2Shell · {{ _r_incident }}</h1>
+  <div class="meta">Generated {{ _generated_at }} by the last step of the FIX + PROVE workflow, from this run's records. No AI-written text.</div>
+
+  <section class="card">
+    <p class="status">
+      {%- if n_open == 0 %} Fixed and verified on every asset in scope.
+      {%- else %} Fixed and verified where a fix exists. <span class="open">{{ n_open }} lane{{ 's' if n_open != 1 }} stay{{ '' if n_open != 1 else 's' }} open.</span>
+      {%- endif %}
+    </p>
+    <div class="sub">
+      {%- if minutes_text %}Patched and stood down in {{ minutes_text }}, from the first fix step until interim controls came off. {% endif -%}
+      {%- if p2s_change_by | default('') %}Change approved by <strong>{{ p2s_change_by }}</strong>.{% endif %}
+    </div>
+  </section>
+
+  <section class="tiles" aria-label="Summary">
+    <div class="tile"><div class="n">{{ rows | length }}</div><div class="l">PHP assets in scope</div></div>
+    <div class="tile ok"><div class="n">{{ patched | length }}</div><div class="l">patched and verified</div></div>
+    <div class="tile warn"><div class="n">{{ n_waiting }}</div><div class="l">waiting on a vendor, isolated</div></div>
+    <div class="tile open"><div class="n">{{ n_unknown }}</div><div class="l">unknown, escalated</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Every asset, before and after</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Owner</th><th>Exposure</th><th>PHP before <span class="arrow">→</span> after</th><th>Status</th></tr></thead>
+      <tbody>
+      {%- for r in rows %}
+        <tr>
+          <td><strong>{{ r.a.service }}</strong><div class="h">{{ r.a.host }}</div></td>
+          <td class="nw">{{ r.a.owner | default('unassigned', true) }}</td>
+          <td>{{ r.a.exposure | default('') }}</td>
+          <td>{{ ver(r.b) }}{% if r.state == 'patched' %}<span class="arrow">→</span><strong>{{ ver(r.a) }}</strong>{% endif %}
+            {%- if r.state == 'patched' and patch_by_host.get(r.a.host) %}<div class="h">{{ patch_by_host[r.a.host].advisory }}</div>{% endif %}</td>
+          <td>
+            {%- if r.state == 'patched' %}<span class="chip patched">Patched · verified</span>
+              <div class="h">{{ 'Test first, then production' if r.b.priority | default('') == 'test' else ('Interim controls removed' if r.a.host in removed else 'Controls kept') }}</div>
+            {%- elif r.state == 'waiting' %}<span class="chip waiting">Open · waiting on vendor</span><div class="h">Isolated until a fixed release exists</div>
+            {%- elif r.state == 'unknown' %}<span class="chip unknown">Open · unknown</span><div class="h">No evidence collected; escalated. Unknown is not clear.</div>
+            {%- else %}<span class="chip clear">Clear</span><div class="h">Fixed build already present</div>{% endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <div class="two" style="margin-top:20px">
+    <section class="card">
+      <h2>Who has a fix</h2>
+      <ul class="plain">
+      {%- for s in _streams %}
+        <li><strong>{{ s.stream }}</strong>
+          <span class="k">{{ 'Fixed: ' ~ s.package if s.fix_available else 'No fix: ' ~ s.package }} · {{ s.advisory | join(', ') if s.advisory is not string else s.advisory }}</span></li>
+      {%- endfor %}
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Decisions and evidence</h2>
+      {%- if p2s_change_by | default('') %}
+      <div><span class="k">Change approval</span><strong>{{ p2s_change_by }}</strong>, {{ (p2s_change_at | default(''))[:16] | replace('T', ' ') }} UTC
+        {%- if p2s_change_notes | default('') %}<blockquote>{{ p2s_change_notes }}</blockquote>{% endif %}</div>
+      {%- endif %}
+      <ul class="plain" style="margin-top:12px">
+        {%- for label, url in [('Who has a fix', p2s_url_fix_status | default('')), ('Patch in test', p2s_url_fix_test | default('')),
+                               ('Rolling patch in production', p2s_url_fix_prod | default('')), ('Controls removed', p2s_url_fix_standdown | default('')),
+                               ('Re-scan', p2s_url_fix_rescan | default(''))] if url %}
+        <li><span class="k">{{ label }}</span><a href="{{ url }}">AAP job {{ jobid(url) }}</a></li>
+        {%- endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    How this page was made: the last step of the workflow ran a playbook that rendered it from AAP job artifacts and the
+    automation orchestrator approval record of this run. It is stored in a private bucket (all public access blocked,
+    encrypted, kept {{ p2s_report_keep_days }} days), and links to it expire after {{ p2s_report_link_hours }} hours.
+    The same records (job events, facts, activity stream) can go to Splunk or another SIEM through AAP's logging integration.
+  </footer>
+</main>
+</body>
+</html>

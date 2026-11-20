@@ -545,6 +545,10 @@ zero-day-response:
       path: zero-day-response/playbooks/p2s_case_record.yml
       description: PROVE  -  records the AI-drafted update on the case; refuses an empty draft.
       runs_on: localhost
+    - name: p2s_report.yml
+      path: zero-day-response/playbooks/p2s_report.yml
+      description: PROVE  -  renders the run's records into an incident report (no AI text), stores it in a private S3 bucket and publishes a 24-hour link.
+      runs_on: localhost
     - name: p2s_independent_check.yml
       path: zero-day-response/playbooks/p2s_independent_check.yml
       description: Independent read of live estate state and business transactions, outside the response roles.
